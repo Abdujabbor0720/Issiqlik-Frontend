@@ -4,6 +4,7 @@ import {
   Copy,
   Cpu,
   KeyRound,
+  Lock,
   Pencil,
   Plus,
   Search,
@@ -272,8 +273,30 @@ export function DevicesPage() {
                           <span className="text-faint">biriktirilmagan</span>
                         )}
                       </Td>
-                      <Td className="text-muted">
-                        {orDash(device.boiler?.district?.shortName)}
+                      {/*
+                        ⚠️ Tuman: avval PLATA yuborgani (o'zgarmas), bo'lmasa
+                        kotyolniki (eski proshivka). Server taniy olmagan
+                        kod ham ko'rinadi — montajchi xatosini topish uchun.
+                      */}
+                      <Td className="whitespace-nowrap text-muted">
+                        {device.district ? (
+                          <span
+                            className="inline-flex items-center gap-1"
+                            title="Platada tanlangan — kabinetda o‘zgartirilmaydi"
+                          >
+                            <Lock className="size-3 text-faint" aria-hidden />
+                            {device.district.shortName}
+                          </span>
+                        ) : device.reportedDistrict ? (
+                          <span
+                            className="text-warn-700 dark:text-warn-300"
+                            title="Plata yuborgan tuman kodi tizimda yo‘q — plata menyusini tekshiring"
+                          >
+                            noma‘lum: {device.reportedDistrict}
+                          </span>
+                        ) : (
+                          orDash(device.boiler?.district?.shortName)
+                        )}
                       </Td>
                       <Td>
                         <code className="rounded bg-[var(--surface-sunken)] px-1.5 py-0.5 font-mono text-micro text-muted">
@@ -523,11 +546,25 @@ function DeviceFormModal({
    * yetaklardi. Tahrirlashda esa JORIY kotyol ham qo'shiladi — aks
    * holda u ro'yxatdan yo'qolib, maydon bo'sh ko'rinardi.
    */
+  /*
+   * ⚠️⚠️ Plata tumani bor bo'lsa — FAQAT shu tumandagi kotyollar: server
+   * boshqasini baribir rad etadi (modul faqat o'z tumanidagi kotyolga).
+   */
+  const deviceDistrictId = device?.districtId ?? null;
   const boilers = useQuery({
-    queryKey: ['boilers', 'without-device', device?.boilerId ?? null],
+    queryKey: [
+      'boilers',
+      'without-device',
+      device?.boilerId ?? null,
+      deviceDistrictId,
+    ],
     queryFn: async (): Promise<Boiler[]> => {
       const free = await getPaged<Boiler>(API.boilers.list, {
-        params: { withoutDevice: true, limit: 200 },
+        params: {
+          withoutDevice: true,
+          limit: 200,
+          ...(deviceDistrictId ? { districtIds: deviceDistrictId } : {}),
+        },
       });
       if (!device?.boilerId) return free.items;
       const current = await get<Boiler>(API.boilers.one(device.boilerId));
@@ -627,9 +664,47 @@ function DeviceFormModal({
           )}
         </Field>
 
+        {isEdit && device ? (
+          <dl className="grid gap-2 rounded-tile bg-[var(--surface-sunken)] px-3 py-2.5 text-meta sm:grid-cols-2">
+            <div>
+              <dt className="flex items-center gap-1 text-micro text-muted">
+                <Lock className="size-3" aria-hidden />
+                Tuman (platadan)
+              </dt>
+              <dd className="font-medium text-strong">
+                {device.district?.name ??
+                  (device.reportedDistrict
+                    ? `noma‘lum kod: ${device.reportedDistrict}`
+                    : 'plata yubormagan (eski proshivka)')}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-micro text-muted">
+                Montajchi yozgan muassasa
+              </dt>
+              <dd className="font-medium text-strong">
+                {orDash(device.institutionHint)}
+              </dd>
+            </div>
+            {/*
+              ⚠️ Nima uchun o'zgartirib bo'lmasligi YOZILADI: aks holda
+              admin «tahrirlash tugmasi yo'q — xato» deb o'ylardi.
+            */}
+            <p className="text-micro text-faint sm:col-span-2">
+              Tuman platada tanlanadi va bu yerda o‘zgartirilmaydi — modul
+              faqat shu tumandagi kotyolga ulanadi. Haqiqiy muassasa —
+              quyida tanlangan kotyolniki; montajchi yozgani faqat eslatma.
+            </p>
+          </dl>
+        ) : null}
+
         <Field
           label="Biriktirilgan kotyol"
-          hint="Biriktirilmagan qurilmadan kelgan signal ham saqlanadi"
+          hint={
+            deviceDistrictId
+              ? 'Faqat modul tumanidagi kotyollar ko‘rsatiladi'
+              : 'Biriktirilmagan qurilmadan kelgan signal ham saqlanadi'
+          }
         >
           {(id) => (
             <Select

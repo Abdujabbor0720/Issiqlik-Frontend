@@ -313,6 +313,15 @@ export interface Device extends DeviceBrief {
   lastCheckAt: string | null;
   /** Shaxsiy token qachon berilgan. */
   tokenIssuedAt: string | null;
+
+  /**
+   * TUMAN — plata menyusida tanlangan, kabinetda O'ZGARTIRILMAYDI.
+   * `null` — eski proshivka (tuman yubormaydi) yoki noma'lum kod.
+   */
+  districtId?: string | null;
+  district?: { id: string; name: string; shortName: string } | null;
+  /** Plata yuborgan xom qiymat (server taniy olmasa ham ko'rinadi). */
+  reportedDistrict?: string | null;
 }
 
 /** «Yangi qurilma so'rayapti» — ro'yxatdan o'tmagan plata. */

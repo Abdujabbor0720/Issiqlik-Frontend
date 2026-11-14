@@ -236,6 +236,7 @@ export function BoilerFormModal({
       unassigned: true,
       purpose: 'boiler-form',
       search: debouncedDeviceSearch,
+      districtId: form.districtId,
     }),
     queryFn: () =>
       getPaged<Device>(API.devices.list, {
@@ -243,10 +244,20 @@ export function BoilerFormModal({
           unassigned: true,
           limit: DEVICE_PICK_LIMIT,
           page: 1,
+          /*
+           * ⚠️ Faqat kotyol tumanidagi modullar: modul platada tanlangan
+           * tumanga qulflangan va server boshqasini baribir rad etadi.
+           */
+          districtId: form.districtId,
           ...(debouncedDeviceSearch ? { search: debouncedDeviceSearch } : {}),
         },
       }),
-    enabled: open && showDeviceSection && form.deviceMode === 'existing',
+    // ⚠️ Tuman tanlanmaguncha so'ralmaydi — qaysi tuman modullari kerakligi noma'lum.
+    enabled:
+      open &&
+      showDeviceSection &&
+      form.deviceMode === 'existing' &&
+      Boolean(form.districtId),
   });
   const unassignedTotal = unassignedDevices.data?.meta.total ?? 0;
 
@@ -402,7 +413,18 @@ export function BoilerFormModal({
                 <Select
                   id={id}
                   value={form.districtId}
-                  onChange={(event) => set('districtId', event.target.value)}
+                  onChange={(event) => {
+                    const districtId = event.target.value;
+                    /*
+                     * ⚠️ Modul tanlovi tozalanadi: u avvalgi tuman moduli
+                     * bo'lishi mumkin va server uni rad etardi.
+                     */
+                    setForm((prev) => ({
+                      ...prev,
+                      districtId,
+                      existingDeviceId: '',
+                    }));
+                  }}
                   invalid={Boolean(errors.districtId)}
                   disabled={isOperator}
                   title={isOperator ? 'Tuman mas‘uli faqat o‘z tumaniga qo‘shadi' : undefined}
@@ -774,7 +796,9 @@ export function BoilerFormModal({
                       invalid={Boolean(errors.existingDeviceId)}
                     >
                       <option value="">
-                        {unassignedDevices.isFetching
+                        {!form.districtId
+                          ? 'Avval yuqorida tumanni tanlang'
+                          : unassignedDevices.isFetching
                           ? 'Yuklanmoqda…'
                           : (unassignedDevices.data?.items.length ?? 0) === 0
                             ? debouncedDeviceSearch
@@ -788,6 +812,8 @@ export function BoilerFormModal({
                           {device.institutionHint
                             ? ` — «${device.institutionHint}»`
                             : ''}
+                          {/* Tumansiz eski plata — admin uchun belgi. */}
+                          {!device.districtId ? ' · tuman yuborilmagan' : ''}
                           {device.lastSeenAt
                             ? ` · ${formatRelativeUz(device.lastSeenAt)}`
                             : ' · hali ulanmagan'}
