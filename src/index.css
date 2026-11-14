@@ -1,0 +1,452 @@
+@import 'tailwindcss';
+/* ─────────────────────────── SHRIFT ───────────────────────────
+   BITTA oila — Inter, o'z serverimizdan (CDN emas): davlat tarmog'ida
+   tashqi so'rov bloklansa sahifa shriftsiz qolmaydi.
+
+   ⚠️ Raqamlar uchun ALOHIDA shrift YO'Q. Raqam matndan OG'IRLIK va
+   O'LCHAM bilan ajraladi; boshqa shrift ishlatilsa, u ekranda
+   «boshqa saytdan kelgan» bo'lib ko'rinadi.
+   ───────────────────────────────────────────────────────────── */
+@import '@fontsource-variable/inter';
+
+/*
+ * DIZAYN TOKENLARI — YAGONA manba.
+ *
+ * ⚠️ Ranglar komponentlarda qo'lda yozilmaydi (`#12538f` kabi), faqat
+ * shu yerdagi o'zgaruvchilar orqali. Aks holda qorong'i rejimga
+ * o'tishda yoki holat rangi o'zgarganda har bir faylni qidirib
+ * chiqishga to'g'ri kelardi.
+ */
+@theme {
+  /* ───────── Brend: davlat ko'ki ─────────
+     Logotip, asosiy tugma, faol tab, fokus halqasi.
+     ⚠️ HOLAT ranglari (yashil/sariq/qizil) bundan ALOHIDA oilada:
+     brend ko'k bo'lgani uchun «faol kotyol» yashili bilan hech qachon
+     chalkashmaydi. Agar brend ham yashil bo'lsa, «faol menyu» bilan
+     «faol kotyol» bir xil rangda bo'lib qolardi. */
+  --color-brand-50: #eef6fd;
+  --color-brand-100: #d6e9f8;
+  --color-brand-200: #b0d4f1;
+  --color-brand-300: #7db7e6;
+  --color-brand-400: #4292d4;
+  --color-brand-500: #1d72bb;
+  --color-brand-600: #12538f;
+  --color-brand-700: #0e4273;
+  --color-brand-800: #0c3459;
+  --color-brand-900: #0a2943;
+  --color-brand-950: #061a2c;
+
+  /* ───────── YON PANEL (rail) ─────────
+     To'q dengiz ko'ki — oddiy «qora panel» EMAS. Ko'k ton brend bilan
+     bitta oilada qoladi va faol element (yorqin ko'k) fonda ADASHMAYDI:
+     qora fonda u «yopishtirilgan» bo'lib ko'rinardi. Login sahifasining
+     chap paneli ham shu oiladan — ikki ekran bitta brendda. */
+  --color-rail-700: #0f4273;
+  --color-rail-800: #0b3259;
+  --color-rail-900: #082741;
+  --color-rail-950: #051a2c;
+
+  /* ───────── HOLAT RANGLARI ─────────
+     ⚠️ `shared/constants/status.ts` bilan MOS bo'lishi SHART: u yerda
+     xarita va grafik uchun hex qiymatlar bor (Leaflet va Recharts CSS
+     o'zgaruvchisini o'qiy olmaydi). */
+
+  /* Faol ishlayotgan — ≥ 50 °C */
+  --color-ok-50: #effaf3;
+  --color-ok-100: #d6f0e0;
+  --color-ok-200: #ace0c3;
+  --color-ok-300: #6fc998;
+  --color-ok-400: #35ab73;
+  --color-ok-500: #118a56;
+  --color-ok-600: #0b7148;
+  --color-ok-700: #095c3c;
+
+  /* O'rta ishlayotgan — 40–50 °C */
+  --color-warn-50: #fff8ea;
+  --color-warn-100: #fdebc7;
+  --color-warn-200: #f8d693;
+  --color-warn-300: #efb954;
+  --color-warn-400: #e09e21;
+  --color-warn-500: #c0820b;
+  --color-warn-600: #9c6805;
+  --color-warn-700: #7d5304;
+
+  /* Ishlamayotgan — 20–40 °C */
+  --color-danger-50: #fef3f2;
+  --color-danger-100: #fde0dd;
+  --color-danger-200: #fbc2bd;
+  --color-danger-300: #f3948c;
+  --color-danger-400: #e2594f;
+  --color-danger-500: #c8362c;
+  --color-danger-600: #a72820;
+  --color-danger-700: #87211b;
+
+  /* Aloqa yo'q / sovuq — betaraf, «yomon» emas, NOMA'LUM.
+     ⚠️ Qizil QILINMAYDI: qizil «avariya» degani, aloqa yo'qligi esa
+     ko'pincha internetning uzilishi — ikkalasi bir xil rangda bo'lsa,
+     operator haqiqiy avariyani ko'rmay qolardi. */
+  --color-idle-50: #f4f6f8;
+  --color-idle-100: #e7ebf0;
+  --color-idle-200: #d3dae3;
+  --color-idle-300: #aeb9c8;
+  --color-idle-400: #8494a8;
+  --color-idle-500: #637386;
+  --color-idle-600: #4c5a6b;
+  --color-idle-700: #3b4857;
+
+  /* Neytral — SOVUQ ko'kish kulrang (iliq zinc EMAS): ko'k brend va
+     ko'kish xarita yonida iliq kulrang sarg'ish «kir» bo'lib ko'rinadi. */
+  --color-neutral-50: #f7f9fb;
+  --color-neutral-100: #eff3f7;
+  --color-neutral-200: #e3e9f0;
+  --color-neutral-300: #ccd6e1;
+  --color-neutral-400: #97a5b7;
+  --color-neutral-500: #66778c;
+  --color-neutral-600: #4b5b6f;
+  --color-neutral-700: #374556;
+  --color-neutral-800: #263241;
+  --color-neutral-900: #18212c;
+  --color-neutral-950: #0e151d;
+
+  /* ───────── Shriftlar ───────── */
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', sans-serif;
+
+  /* ───────── O'lcham shkalasi ─────────
+     Nomlar VAZIFA bo'yicha (`text-xs/sm` emas): «meta» har joyda bir xil
+     o'lchamda bo'lsin, dasturchi har safar qaytadan tanlamasin. */
+  --text-nano: 10px;
+  --text-nano--line-height: 1.4;
+  --text-micro: 11px;
+  --text-micro--line-height: 1.45;
+  --text-meta: 12px;
+  --text-meta--line-height: 1.5;
+  --text-ui: 13px;
+  --text-ui--line-height: 1.55;
+  --text-body: 14px;
+  --text-body--line-height: 1.6;
+  --text-lede: 15px;
+  --text-lede--line-height: 1.55;
+  --text-head: 17px;
+  --text-head--line-height: 1.35;
+  --text-sub: 21px;
+  --text-sub--line-height: 1.25;
+  --text-display: 26px;
+  --text-display--line-height: 1.15;
+  --text-figure: 32px;
+  --text-figure--line-height: 1.05;
+  --text-mega: 40px;
+  --text-mega--line-height: 1;
+
+  /* ───────── Burchak radiusi ─────────
+     ⚠️ Ichma-ich joylashgan ikki burchak BIR XIL radiusda bo'lsa,
+     ichkisi «shishgan» bo'lib ko'rinadi: karta 16px, ichidagi plitka
+     10px, boshqaruv 9px. */
+  --radius-xs: 5px;
+  --radius-sm: 7px;
+  --radius-md: 9px;
+  --radius-lg: 11px;
+  --radius-xl: 13px;
+  --radius-card: 16px;
+  --radius-tile: 10px;
+
+  /* ───────── Soyalar ─────────
+     ⚠️ Yengil va KO'KISH: sof qora soya oq karta ostida «kir» bo'lib
+     ko'rinadi. Har bir soya ikki qatlamdan — halqa (1px chegara) va
+     juda tarqoq uzoq soya. Uzoq, yumshoq qatlamsiz karta ekranga
+     «yopishtirilgan» bo'lib ko'rinadi: ko'z chuqurlikni aynan undan
+     o'qiydi. */
+  --shadow-hair: 0 0 0 1px rgb(18 53 143 / 0.07);
+  --shadow-card:
+    0 0 0 1px rgb(20 45 80 / 0.06), 0 1px 2px rgb(20 45 80 / 0.03),
+    0 8px 22px -16px rgb(20 45 80 / 0.22);
+  --shadow-raise:
+    0 0 0 1px rgb(20 45 80 / 0.07), 0 2px 5px rgb(20 45 80 / 0.05),
+    0 16px 34px -18px rgb(20 45 80 / 0.3);
+  --shadow-pop:
+    0 0 0 1px rgb(20 45 80 / 0.08), 0 3px 8px rgb(20 45 80 / 0.06),
+    0 24px 50px -20px rgb(20 45 80 / 0.34);
+  /* Brend tugmasi ostidagi soya KULRANG emas, KO'K: rangli element
+     ostidagi neytral soya uni «kesib qo'yilgan» qilib ko'rsatadi. */
+  --shadow-brand:
+    0 1px 2px rgb(8 40 80 / 0.24), 0 5px 12px -5px rgb(18 83 143 / 0.42);
+
+  /* ───────── Tartib ─────────
+     ⚠️ `--spacing-shell` (1440px) OLIB TASHLANDI. U kontentni cheklab,
+     keng monitorda ikki chetda keng bo'sh joy qoldirardi — holbuki bu
+     tizimning asosiy ekrani XARITA va JADVAL: ularga qancha kenglik
+     berilsa, shuncha yaxshi. Endi kenglikni yon panel va chetki
+     bo'shliq hal qiladi. */
+  --spacing-topbar: 58px;
+  --spacing-rail: 236px;
+  --spacing-rail-tight: 68px;
+}
+
+/* Qorong'i rejim `class` strategiyasi bilan — foydalanuvchi tanlovi
+   tizim sozlamasidan USTUN bo'lishi kerak. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    color-scheme: light;
+
+    --surface: #ffffff;
+    --surface-muted: #f8fafc;
+    --surface-sunken: #f1f5f9;
+    --canvas: #eef1f5;
+
+    --border-subtle: #e6ecf3;
+    --border-strong: #d4dee9;
+    /* Jadval katagi — `--border-subtle` dan ANCHA och: ustun chizig'i
+       qator ajratgichi bilan bir xil quyuqlikda bo'lsa, jadval «to'r»
+       bo'lib ko'rinadi va raqamlar o'qilmay qoladi. */
+    --border-cell: #eef2f7;
+
+    --ink-strong: #18212c;
+    --ink-body: #374556;
+    --ink-muted: #66778c;
+    --ink-faint: #97a5b7;
+    --ink-invert: #ffffff;
+  }
+
+  .dark {
+    color-scheme: dark;
+
+    --surface: #151d27;
+    --surface-muted: #19222e;
+    --surface-sunken: #121a23;
+    --canvas: #0c131b;
+
+    --border-subtle: #243140;
+    --border-strong: #2f3f52;
+    --border-cell: #1f2b38;
+
+    --ink-strong: #eef3f8;
+    --ink-body: #c3cfdc;
+    --ink-muted: #8da0b5;
+    --ink-faint: #64788f;
+    --ink-invert: #0e151d;
+  }
+
+  * {
+    border-color: var(--border-subtle);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    margin: 0;
+    background: var(--canvas);
+    color: var(--ink-body);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* ⚠️ Raqamlar HAMMA joyda tabular: jadvalda va kartalarda ustunlar
+     mos tushishi kerak, aks holda «145» bilan «17» turli kenglikda
+     bo'lib, ro'yxat qalqib turgandek ko'rinadi. */
+  table,
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Fokus halqasi — klaviatura bilan yurganlar uchun. ⚠️ Olib
+     tashlanmaydi: `outline: none` butun interfeysni klaviatura bilan
+     boshqarib bo'lmaydigan qilib qo'yadi. */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  ::selection {
+    background: var(--color-brand-200);
+    color: var(--color-brand-900);
+  }
+}
+
+@layer components {
+  /* ───────── Yuzalar ───────── */
+  .surface {
+    background: var(--surface);
+  }
+  .surface-muted {
+    background: var(--surface-muted);
+  }
+  .surface-sunken {
+    background: var(--surface-sunken);
+  }
+
+  /*
+   * KARTA — interfeysning asosiy g'ishti.
+   *
+   * ⚠️ Chegara CHIZIQ bilan emas, SOYA ichidagi halqa bilan
+   * (`--shadow-card` ning birinchi qatlami): `border` qo'yilsa u
+   * elementning o'lchamiga qo'shilib, yonma-yon turgan kartalar
+   * 1px ga siljib qolardi.
+   */
+  .card {
+    background: var(--surface);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  .card-hover {
+    transition:
+      box-shadow 160ms ease,
+      transform 160ms ease;
+  }
+  .card-hover:hover {
+    box-shadow: var(--shadow-raise);
+  }
+
+  /* ───────── Matn ohanglari ───────── */
+  .text-strong {
+    color: var(--ink-strong);
+  }
+  /*
+   * ⚠️⚠️ Nomi `text-ink`, `text-body` EMAS — va bu MAJBURIY.
+   *
+   * `--text-body: 14px` tokeni Tailwind'da `text-body` UTILITASINI
+   * (font-size) hosil qiladi. Rang sinfi ham shunday nomlansa, bitta
+   * sinf IKKI xil narsa qilardi va `tailwind-merge` qaysi guruhga
+   * tegishli ekanini aniqlay olmasdi: `cn('text-strong', 'text-body')`
+   * da ikkalasi ham qolib, CSS tartibi hal qilardi — jadval katagi
+   * «kuchli» rang o'rniga oddiy rangda chiqardi.
+   *
+   * O'LCHAM → `text-*` (nano, micro, meta, ui, body, …)
+   * RANG    → `text-ink`, `text-strong`, `text-muted`, `text-faint`
+   */
+  .text-ink {
+    color: var(--ink-body);
+  }
+  .text-muted {
+    color: var(--ink-muted);
+  }
+  .text-faint {
+    color: var(--ink-faint);
+  }
+
+  .bg-line {
+    background: var(--border-subtle);
+  }
+
+  /*
+   * BO'LIM YORLIG'I — kartadagi kichik sarlavha.
+   * ⚠️ Harflar orasi kengaytirilgan (`0.06em`): 11px dagi katta
+   * harflar zich yozilsa, so'z «bir bo'lak» bo'lib ko'rinadi va
+   * o'qilmaydi.
+   */
+  .label-eyebrow {
+    font-size: var(--text-micro);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  /*
+   * SKELET — yuklanayotgan joy.
+   * ⚠️ Spinner EMAS: spinner «qancha kutish kerak» degan savolga
+   * javob bermaydi va sahifa tayyor bo'lganda tartib SAKRAB ketadi.
+   * Skelet esa bo'lajak tartibning o'lchamini oldindan egallaydi.
+   */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--surface-sunken) 0%,
+      var(--surface-muted) 50%,
+      var(--surface-sunken) 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton 1.4s ease-in-out infinite;
+  }
+
+  @keyframes skeleton {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+}
+
+/* ───────── Leaflet ustidan yoziladigan uslublar ─────────
+   ⚠️ Leaflet o'z CSS faylini olib keladi va u bizning tokenlarimizni
+   bilmaydi. Shu yerda faqat KO'RINISHI tuzatiladi; tartibga (pozitsiya,
+   z-index) tegilmaydi — ular Leaflet mexanikasining qismi. */
+.leaflet-container {
+  background: transparent;
+  font-family: var(--font-sans);
+  outline: none;
+}
+.leaflet-container a {
+  color: var(--color-brand-600);
+}
+.leaflet-tooltip {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.leaflet-tooltip::before {
+  display: none;
+}
+
+/* ───────── Fon xaritasi (taylar) ─────────
+   ⚠️⚠️ QORONG'I REJIMDA TAYLAR TESKARI RANGGA O'TKAZILADI.
+
+   OpenStreetMap faqat OCH uslubda taylar beradi. To'q interfeysda
+   ular ko'zni qamashtiradigan oq maydon bo'lib, butun ekranni
+   buzardi. `invert` + `hue-rotate(180deg)` juftligi fonni to'q
+   qiladi, lekin ranglarni (yashillik, suv) o'z o'rnida qoldiradi —
+   oddiy `invert` ni yolg'iz qo'llasa, daryo pushti bo'lib chiqardi.
+
+   ⚠️ Filtr FAQAT tayl qatlamiga: butun xaritaga qo'llansa, bizning
+   ko'pburchaklarimiz, belgilarimiz va holat ranglarimiz ham teskari
+   bo'lib, yashil «faol» qizil bo'lib ko'rinardi. */
+.dark .issiqlik-basemap-tiles {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9)
+    saturate(0.85);
+}
+
+/* ⚠️ Atributsiya OLIB TASHLANMAYDI (ODbL talabi), faqat interfeysga
+   moslanadi: Leaflet'ning sukut uslubi katta oq quti bo'lib,
+   xaritaning burchagini yopib turardi. */
+.leaflet-container .leaflet-control-attribution {
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  color: var(--ink-faint);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 6px 0 0 0;
+  backdrop-filter: blur(4px);
+}
+.leaflet-container .leaflet-control-attribution a {
+  color: var(--ink-muted);
+}
+
+/* Scrollbar — ingichka va betaraf. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
