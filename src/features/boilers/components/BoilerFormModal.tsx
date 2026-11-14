@@ -12,6 +12,7 @@ import type {
 } from '@/shared/api/types';
 import { FUEL_LABELS } from '@/shared/constants/status';
 import { Button, Field, Input, Modal, Select, Textarea } from '@/shared/ui';
+import { useDebounce } from '@/shared/hooks/useDebounce';
 import { formatRelativeUz } from '@/shared/utils/date';
 import { useAuthStore } from '@/store/auth.store';
 
@@ -167,6 +168,7 @@ export function BoilerFormModal({
       });
     }
     setIssuedKey(null);
+    setDeviceSearch('');
     setErrors({});
   }, [open, boiler, user]);
 
@@ -218,14 +220,35 @@ export function BoilerFormModal({
    * kiritilgan) ko'rsatiladi — tuman mas'uli aynan O'Z binosidagi
    * platani shu bo'yicha taniydi.
    */
+  /*
+   * ⚠️⚠️ QIDIRUV SERVERDA, ro'yxat cheklangan. Ilgari birinchi 100 tasi
+   * olinardi: yuzlab plata o'zi ro'yxatga tushganda keraklisi ro'yxatga
+   * umuman KIRMAY qolishi mumkin edi. Endi tuman mas'uli ID oxirini
+   * (`a4cf12`) yoki montajchi kiritgan muassasa nomini (`12-maktab`)
+   * yozadi va server mosini qaytaradi.
+   */
+  const [deviceSearch, setDeviceSearch] = useState('');
+  const debouncedDeviceSearch = useDebounce(deviceSearch.trim(), 350);
+  const DEVICE_PICK_LIMIT = 50;
+
   const unassignedDevices = useQuery({
-    queryKey: qk.devices({ unassigned: true, purpose: 'boiler-form' }),
+    queryKey: qk.devices({
+      unassigned: true,
+      purpose: 'boiler-form',
+      search: debouncedDeviceSearch,
+    }),
     queryFn: () =>
       getPaged<Device>(API.devices.list, {
-        params: { unassigned: true, limit: 100, page: 1 },
+        params: {
+          unassigned: true,
+          limit: DEVICE_PICK_LIMIT,
+          page: 1,
+          ...(debouncedDeviceSearch ? { search: debouncedDeviceSearch } : {}),
+        },
       }),
     enabled: open && showDeviceSection && form.deviceMode === 'existing',
   });
+  const unassignedTotal = unassignedDevices.data?.meta.total ?? 0;
 
   const brands = useQuery({
     queryKey: qk.catalog('brands', 'form'),
@@ -708,6 +731,34 @@ export function BoilerFormModal({
 
               {form.deviceMode === 'existing' ? (
                 <Field
+                  label="Qidirish"
+                  hint="ID oxiri (masalan a4cf12) yoki montajchi platada yozgan muassasa nomi"
+                >
+                  {(id) => (
+                    <Input
+                      id={id}
+                      value={deviceSearch}
+                      maxLength={64}
+                      placeholder="a4cf12 yoki 12-maktab"
+                      /*
+                       * ⚠️ Brauzer avto-to'ldirishi O'CHIQ: aks holda u boshqa
+                       * saytlarda yozilgan matnni taklif qilib, «bu qayerdan
+                       * chiqdi?» degan chalkashlik tug'dirardi.
+                       */
+                      autoComplete="off"
+                      spellCheck={false}
+                      onChange={(event) => {
+                        setDeviceSearch(event.target.value);
+                        // ⚠️ Tanlov tozalanadi: yangi natijada u bo'lmasligi mumkin.
+                        set('existingDeviceId', '');
+                      }}
+                    />
+                  )}
+                </Field>
+              ) : null}
+
+              {form.deviceMode === 'existing' ? (
+                <Field
                   label="Biriktirilmagan modul"
                   required
                   error={errors.existingDeviceId}
@@ -723,10 +774,12 @@ export function BoilerFormModal({
                       invalid={Boolean(errors.existingDeviceId)}
                     >
                       <option value="">
-                        {unassignedDevices.isLoading
+                        {unassignedDevices.isFetching
                           ? 'Yuklanmoqda…'
                           : (unassignedDevices.data?.items.length ?? 0) === 0
-                            ? 'Biriktirilmagan modul yo‘q'
+                            ? debouncedDeviceSearch
+                              ? 'Bu qidiruv bo‘yicha modul topilmadi'
+                              : 'Biriktirilmagan modul yo‘q'
                             : 'Tanlang…'}
                       </option>
                       {(unassignedDevices.data?.items ?? []).map((device) => (
@@ -745,12 +798,26 @@ export function BoilerFormModal({
                 </Field>
               ) : null}
 
+              {/*
+                ⚠️ Ro'yxat to'liq emasligi OCHIQ aytiladi: aks holda
+                keraklisini ko'rmagan odam «modul ro'yxatga tushmagan» deb
+                o'ylab, uni qaytadan «Yangi modul» qilib kiritishga urinardi.
+              */}
+              {form.deviceMode === 'existing' &&
+              unassignedTotal > (unassignedDevices.data?.items.length ?? 0) ? (
+                <p className="-mt-1 text-micro text-warn-700 dark:text-warn-300">
+                  Jami {unassignedTotal} ta mos modul — birinchi{' '}
+                  {unassignedDevices.data?.items.length} tasi ko‘rsatilmoqda.
+                  Qidiruvni aniqlashtiring.
+                </p>
+              ) : null}
+
               {form.deviceMode === 'new' ? (
                 <Field
                   label="Modul identifikatori"
                   required
                   error={errors.newDeviceId}
-                  hint="Plata sozlash sahifasida yoki yorlig‘ida yozilgan: esp32-…"
+                  hint="Har platada o‘ziniki (chip MAC manzilidan). Wi-Fi sozlash sahifasining tepasida «Qurilma: esp32-…» deb yozilgan. Plata ulangan bo‘lsa, «Ro‘yxatdagi moduldan» ni tanlang — yozish shart emas."
                 >
                   {(id) => (
                     <Input
@@ -758,6 +825,10 @@ export function BoilerFormModal({
                       value={form.newDeviceId}
                       maxLength={64}
                       placeholder="esp32-a4cf12e8b901"
+                      // ⚠️ Brauzer boshqa saytlardagi matnni taklif qilmasin.
+                      autoComplete="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
                       onChange={(event) => set('newDeviceId', event.target.value)}
                       invalid={Boolean(errors.newDeviceId)}
                     />
