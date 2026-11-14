@@ -1,3 +1,4 @@
+import { BRAND } from '@/shared/constants/brand';
 import { cn } from '@/shared/utils/cn';
 
 /**
@@ -47,10 +48,10 @@ export function Logo({
       {withText ? (
         <span className="flex flex-col leading-none">
           <span className="text-lede font-semibold tracking-tight text-strong">
-            Issiqlik
+            {BRAND.short}
           </span>
           <span className="mt-0.5 text-nano font-medium tracking-wide text-faint uppercase">
-            Andijon viloyati
+            {BRAND.scope}
           </span>
         </span>
       ) : null}

@@ -1,4 +1,10 @@
-import type { AlertSeverity, AlertType, BoilerStatus, UserRole } from '../api/types';
+import type {
+  AlertSeverity,
+  AlertType,
+  BoilerStatus,
+  RoomCondition,
+  UserRole,
+} from '../api/types';
 
 /**
  * HOLAT META'SI — yagona manba.
@@ -96,6 +102,7 @@ export const ALERT_TYPE_LABELS: Record<AlertType, string> = {
    */
   sensor_fault: 'Chiqish datchigi nosoz',
   no_circulation: 'Suv aylanmayapti',
+  room_cold: 'Xona sovuq',
 };
 
 export const ALERT_SEVERITY: Record<
@@ -160,3 +167,58 @@ export function temperatureHex(value: number | null | undefined): string {
   if (value >= 20) return BOILER_STATUS.inactive.hex;
   return BOILER_STATUS.offline.hex;
 }
+
+/**
+ * XONA HOLATI — yagona manba (kartalar, xarita, grafik).
+ *
+ * ⚠️ «Sovuq» rangi KO'K, kotyolning «ishlamayapti» qizilidan FARQLI:
+ * xaritada ikkalasi bir nuqtada uchrashadi va bir xil rangda bo'lsa,
+ * «qozon to'xtadi» bilan «bitta xona sovuq» ni ajratib bo'lmasdi.
+ *
+ * ⚠️ `hex` — Leaflet va Recharts uchun (ular CSS o'zgaruvchisini
+ * o'qiy olmaydi).
+ */
+export interface RoomConditionMeta {
+  key: RoomCondition;
+  label: string;
+  hex: string;
+  chip: string;
+  text: string;
+  dot: string;
+}
+
+export const ROOM_CONDITION: Record<RoomCondition, RoomConditionMeta> = {
+  cold: {
+    key: 'cold',
+    label: 'Sovuq',
+    hex: '#0284c7',
+    chip: 'bg-sky-50 text-sky-800 ring-1 ring-sky-200 dark:bg-sky-500/12 dark:text-sky-200 dark:ring-sky-400/30',
+    text: 'text-sky-700 dark:text-sky-300',
+    dot: 'bg-sky-600',
+  },
+  cool: {
+    key: 'cool',
+    label: 'Me‘yordan past',
+    hex: '#e09e21',
+    chip: 'bg-warn-50 text-warn-700 ring-1 ring-warn-200',
+    text: 'text-warn-600',
+    dot: 'bg-warn-400',
+  },
+  normal: {
+    key: 'normal',
+    label: 'Me‘yorda',
+    hex: '#118a56',
+    chip: 'bg-ok-50 text-ok-700 ring-1 ring-ok-200',
+    text: 'text-ok-600',
+    dot: 'bg-ok-500',
+  },
+};
+
+/** O'lchovi eskirgan xona — holat NOMA'LUM. */
+export const ROOM_STALE = {
+  label: 'O‘lchov eskirgan',
+  hex: '#637386',
+  chip: 'bg-idle-100 text-idle-700 ring-1 ring-idle-200',
+  text: 'text-faint',
+  dot: 'bg-idle-400',
+} as const;

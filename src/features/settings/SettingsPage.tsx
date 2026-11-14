@@ -1,5 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Gauge, Save, Settings as SettingsIcon, Thermometer } from 'lucide-react';
+import {
+  DoorOpen,
+  Gauge,
+  Save,
+  Settings as SettingsIcon,
+  Thermometer,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { errorMessage, get, put } from '@/shared/api/client';
@@ -26,6 +32,9 @@ interface FormState {
   overheatC: string;
   offlineAfterMinutes: string;
   normTemperature: string;
+  roomMinC: string;
+  roomNormC: string;
+  roomSampleMinutes: string;
   retentionDays: string;
   seasonLabel: string;
 }
@@ -65,6 +74,9 @@ export function SettingsPage() {
       overheatC: String(query.data.overheatC),
       offlineAfterMinutes: String(query.data.offlineAfterMinutes),
       normTemperature: String(query.data.normTemperature),
+      roomMinC: String(query.data.roomMinC),
+      roomNormC: String(query.data.roomNormC),
+      roomSampleMinutes: String(query.data.roomSampleMinutes),
       retentionDays: String(query.data.retentionDays),
       seasonLabel: query.data.seasonLabel ?? '',
     });
@@ -79,6 +91,9 @@ export function SettingsPage() {
         overheatC: Number(payload.overheatC),
         offlineAfterMinutes: Number(payload.offlineAfterMinutes),
         normTemperature: Number(payload.normTemperature),
+        roomMinC: Number(payload.roomMinC),
+        roomNormC: Number(payload.roomNormC),
+        roomSampleMinutes: Number(payload.roomSampleMinutes),
         retentionDays: Number(payload.retentionDays),
         seasonLabel: payload.seasonLabel.trim() || undefined,
       }),
@@ -91,6 +106,10 @@ export function SettingsPage() {
       void queryClient.invalidateQueries({ queryKey: ['summary'] });
       void queryClient.invalidateQueries({ queryKey: ['districtRows'] });
       void queryClient.invalidateQueries({ queryKey: ['map'] });
+      // ⚠️ Xona holatlari (sovuq / me'yorda) ham yangi chegaradan.
+      void queryClient.invalidateQueries({ queryKey: ['rooms'] });
+      void queryClient.invalidateQueries({ queryKey: ['roomsSummary'] });
+      void queryClient.invalidateQueries({ queryKey: ['points'] });
     },
     onError: (err) => setError(errorMessage(err)),
   });
@@ -133,6 +152,12 @@ export function SettingsPage() {
       setError(
         'Chegaralar kamayish tartibida bo‘lishi kerak: «Faol» > «O‘rta» > «Kritik»',
       );
+      return;
+    }
+
+    // ⚠️ Serverda ham, bazada ham (CHECK) — bu yerda faqat tezroq xabar.
+    if (!(Number(form.roomMinC) < Number(form.roomNormC))) {
+      setError('Xona harorati: «Eng past» qiymati «Me‘yor» dan kichik bo‘lishi kerak');
       return;
     }
     setError(null);
@@ -240,6 +265,83 @@ export function SettingsPage() {
               )}
             </Field>
           </div>
+        </CardBody>
+      </Card>
+
+      {/* ───── Xona (havo) harorati ───── */}
+      <Card>
+        <CardHeader
+          icon={<DoorOpen className="size-4" />}
+          eyebrow="Bino ichi"
+          title="Xona harorati"
+          subtitle="Maktab, bog‘cha va boshqa binolardagi xonalar havosi uchun"
+        />
+        <CardBody>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field
+              label="Me‘yor, °C"
+              hint="Shundan boshlab xona yashil — «me‘yorda»"
+            >
+              {(id) => (
+                <Input
+                  id={id}
+                  type="number"
+                  step="0.5"
+                  min={-39}
+                  max={70}
+                  value={form.roomNormC}
+                  disabled={!editable}
+                  onChange={(event) => set('roomNormC', event.target.value)}
+                />
+              )}
+            </Field>
+
+            <Field
+              label="Eng past ruxsat, °C"
+              hint="Bundan past — «xona sovuq» ogohlantirishi"
+            >
+              {(id) => (
+                <Input
+                  id={id}
+                  type="number"
+                  step="0.5"
+                  min={-40}
+                  max={69}
+                  value={form.roomMinC}
+                  disabled={!editable}
+                  onChange={(event) => set('roomMinC', event.target.value)}
+                />
+              )}
+            </Field>
+
+            <Field
+              label="Tarix qadami, daqiqa"
+              hint="Grafik uchun necha daqiqada bir yoziladi (joriy qiymat har signalda)"
+            >
+              {(id) => (
+                <Input
+                  id={id}
+                  type="number"
+                  min={1}
+                  max={1440}
+                  value={form.roomSampleMinutes}
+                  disabled={!editable}
+                  onChange={(event) =>
+                    set('roomSampleMinutes', event.target.value)
+                  }
+                />
+              )}
+            </Field>
+          </div>
+          {/* ⚠️ Oraliq ma'nosi matnda: «me'yor» va «eng past» orasidagi
+              sariq zona ogohlantirish OCHMAYDI — buni bilmagan admin
+              chegarani noto'g'ri qo'yardi. */}
+          <p className="mt-3 text-micro text-muted">
+            {form.roomMinC} °C dan past — <strong>sovuq</strong> (ogohlantirish) ·{' '}
+            {form.roomMinC}–{form.roomNormC} °C — <strong>me‘yordan past</strong>{' '}
+            (xaritada sariq, ogohlantirishsiz) · {form.roomNormC} °C va yuqori —{' '}
+            <strong>me‘yorda</strong>
+          </p>
         </CardBody>
       </Card>
 

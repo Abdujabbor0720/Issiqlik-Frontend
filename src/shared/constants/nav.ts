@@ -10,6 +10,7 @@ import {
   UserCog,
   Users,
 } from 'lucide-react';
+import { BRAND } from './brand';
 import type { LucideIcon } from 'lucide-react';
 
 export interface NavItem {
@@ -148,5 +149,5 @@ export function navTitleFor(pathname: string): string {
     )
     .sort((a, b) => b.to.length - a.to.length)[0];
 
-  return match?.label ?? 'Issiqlik';
+  return match?.label ?? BRAND.short;
 }

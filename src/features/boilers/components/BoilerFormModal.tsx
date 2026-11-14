@@ -1,16 +1,33 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { errorMessage, get, patch, post } from '@/shared/api/client';
+import { errorMessage, get, getPaged, patch, post } from '@/shared/api/client';
 import { API, qk } from '@/shared/api/endpoints';
 import type {
   Boiler,
   CatalogItem,
+  Device,
   DistrictOption,
   FuelType,
 } from '@/shared/api/types';
 import { FUEL_LABELS } from '@/shared/constants/status';
 import { Button, Field, Input, Modal, Select, Textarea } from '@/shared/ui';
+import { formatRelativeUz } from '@/shared/utils/date';
+import { useAuthStore } from '@/store/auth.store';
+
+/** «Yangi muassasa» varianti — Select'dagi maxsus qiymat. */
+const NEW_ORGANIZATION = '__new__';
+
+/** Modul bilan nima qilinadi (faqat YANGI kotyolda). */
+type DeviceMode = 'none' | 'existing' | 'new';
+
+/** `/boiler-setup` javobi. */
+interface BoilerSetupResult {
+  boiler: Boiler;
+  device: Device | null;
+  apiKey: string | null;
+  organizationCreated: boolean;
+}
 
 interface FormState {
   districtId: string;
@@ -29,6 +46,12 @@ interface FormState {
   responsibleName: string;
   responsiblePhone: string;
   note: string;
+  /** `organizationId === NEW_ORGANIZATION` bo'lganda. */
+  newOrganizationName: string;
+  newOrganizationTypeId: string;
+  deviceMode: DeviceMode;
+  existingDeviceId: string;
+  newDeviceId: string;
 }
 
 const EMPTY: FormState = {
@@ -48,6 +71,11 @@ const EMPTY: FormState = {
   responsibleName: '',
   responsiblePhone: '',
   note: '',
+  newOrganizationName: '',
+  newOrganizationTypeId: '',
+  deviceMode: 'none',
+  existingDeviceId: '',
+  newDeviceId: '',
 };
 
 /**
@@ -73,10 +101,26 @@ export function BoilerFormModal({
   boiler?: Boiler | null;
 }) {
   const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
+  const can = useAuthStore((state) => state.can);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  /** Shaxsiy kalit — FAQAT server umumiy tokensiz ishlaganda qaytadi. */
+  const [issuedKey, setIssuedKey] = useState<{
+    deviceId: string;
+    apiKey: string;
+  } | null>(null);
 
   const isEdit = Boolean(boiler);
+  const isOperator = user?.role === 'operator';
+  /*
+   * ⚠️ Modul bo'limi FAQAT ruxsat bo'lsa ko'rinadi — server ham alohida
+   * tekshiradi (`assertDevicePermission`), bu yerda esa foydalanuvchi
+   * bosib bo'lmaydigan tugmani ko'rmasligi uchun.
+   */
+  const canAttachDevice = can('devices.update');
+  const canCreateDevice = can('devices.create');
+  const showDeviceSection = !isEdit && (canAttachDevice || canCreateDevice);
 
   useEffect(() => {
     if (!open) return;
@@ -105,12 +149,26 @@ export function BoilerFormModal({
         responsibleName: boiler.responsibleName ?? '',
         responsiblePhone: boiler.responsiblePhone ?? '',
         note: boiler.note ?? '',
+        newOrganizationName: '',
+        newOrganizationTypeId: '',
+        deviceMode: 'none',
+        existingDeviceId: '',
+        newDeviceId: '',
       });
     } else {
-      setForm(EMPTY);
+      /*
+       * ⚠️ TUMAN MAS'ULI — o'z tumani OLDINDAN tanlanadi va
+       * o'zgartirilmaydi: boshqa tumanni tanlasa, server baribir 403
+       * qaytarardi va u nima noto'g'ri ekanini tushunmasdi.
+       */
+      setForm({
+        ...EMPTY,
+        districtId: user?.role === 'operator' ? (user.districtId ?? '') : '',
+      });
     }
+    setIssuedKey(null);
     setErrors({});
-  }, [open, boiler]);
+  }, [open, boiler, user]);
 
   const districts = useQuery({
     queryKey: qk.districts,
@@ -144,6 +202,31 @@ export function BoilerFormModal({
     enabled: open,
   });
 
+  const objectTypes = useQuery({
+    queryKey: qk.catalog('object-types', 'form'),
+    queryFn: () =>
+      get<CatalogItem[]>(API.catalogs.list('object-types'), {
+        params: { limit: 200 },
+      }),
+    staleTime: 10 * 60 * 1000,
+    enabled: open && !isEdit && form.organizationId === NEW_ORGANIZATION,
+  });
+
+  /*
+   * ⚠️ Faqat BIRIKTIRILMAGAN modullar: biriktirilgani tanlansa server
+   * 409 qaytaradi. Oxirgi signal vaqti va muassasa ishorasi (proshivkada
+   * kiritilgan) ko'rsatiladi — tuman mas'uli aynan O'Z binosidagi
+   * platani shu bo'yicha taniydi.
+   */
+  const unassignedDevices = useQuery({
+    queryKey: qk.devices({ unassigned: true, purpose: 'boiler-form' }),
+    queryFn: () =>
+      getPaged<Device>(API.devices.list, {
+        params: { unassigned: true, limit: 100, page: 1 },
+      }),
+    enabled: open && showDeviceSection && form.deviceMode === 'existing',
+  });
+
   const brands = useQuery({
     queryKey: qk.catalog('brands', 'form'),
     queryFn: () =>
@@ -153,14 +236,49 @@ export function BoilerFormModal({
   });
 
   const mutation = useMutation({
-    mutationFn: async (): Promise<Boiler> => {
+    mutationFn: async (): Promise<BoilerSetupResult | Boiler> => {
       const payload = buildPayload(form);
-      return boiler
-        ? patch<Boiler>(API.boilers.one(boiler.id), payload)
-        : post<Boiler>(API.boilers.list, payload);
+      if (boiler) return patch<Boiler>(API.boilers.one(boiler.id), payload);
+
+      /*
+       * ⚠️⚠️ YANGI KOTYOL — HAR DOIM `/boiler-setup` orqali (modulsiz
+       * bo'lsa ham): muassasa + kotyol + modul BITTA tranzaksiyada. Biror
+       * qism yiqilsa hech narsa yozilmaydi va forma qayta yuborilganda
+       * «lot raqami band» degan ikkinchi xato chiqmaydi.
+       */
+      const isNewOrg = form.organizationId === NEW_ORGANIZATION;
+      return post<BoilerSetupResult>(API.boilerSetup, {
+        boiler: { ...payload, organizationId: isNewOrg ? null : payload.organizationId },
+        ...(isNewOrg
+          ? {
+              newOrganizationName: form.newOrganizationName.trim(),
+              ...(form.newOrganizationTypeId
+                ? { newOrganizationTypeId: form.newOrganizationTypeId }
+                : {}),
+            }
+          : {}),
+        device:
+          form.deviceMode === 'existing'
+            ? { mode: 'existing', existingId: form.existingDeviceId }
+            : form.deviceMode === 'new'
+              ? { mode: 'new', deviceId: form.newDeviceId.trim() }
+              : { mode: 'none' },
+      });
     },
-    onSuccess: () => {
-      toast.success(isEdit ? 'Kotyol yangilandi' : 'Kotyol qo‘shildi');
+    onSuccess: (result) => {
+      const setup = !isEdit ? (result as BoilerSetupResult) : null;
+      toast.success(
+        isEdit
+          ? 'Kotyol yangilandi'
+          : setup?.device
+            ? `Kotyol qo‘shildi va «${setup.device.deviceId}» moduli biriktirildi`
+            : 'Kotyol qo‘shildi',
+      );
+      void queryClient.invalidateQueries({ queryKey: ['devices'] });
+      void queryClient.invalidateQueries({ queryKey: ['pendingDevices'] });
+      if (setup?.organizationCreated) {
+        void queryClient.invalidateQueries({ queryKey: ['catalog'] });
+      }
       /*
        * ⚠️ Xarita va dashboard keshlari ham bekor qilinadi: yangi
        * kotyol tumandagi sanoqni o'zgartiradi va xaritada eski
@@ -171,6 +289,14 @@ export function BoilerFormModal({
       void queryClient.invalidateQueries({ queryKey: ['districtRows'] });
       void queryClient.invalidateQueries({ queryKey: ['map'] });
       void queryClient.invalidateQueries({ queryKey: ['points'] });
+      /*
+       * ⚠️ Kalit qaytgan bo'lsa (server umumiy tokensiz), oyna YOPILMAYDI
+       * — kalit faqat SHU javobda bor va keyin uni olib bo'lmaydi.
+       */
+      if (setup?.apiKey && setup.device) {
+        setIssuedKey({ deviceId: setup.device.deviceId, apiKey: setup.apiKey });
+        return;
+      }
       onClose();
     },
     onError: (error) => toast.error(errorMessage(error)),
@@ -195,6 +321,23 @@ export function BoilerFormModal({
      */
     if (Boolean(form.lat.trim()) !== Boolean(form.lng.trim())) {
       nextErrors.lat = 'Kenglik va uzunlik birga kiritiladi';
+    }
+    if (
+      form.organizationId === NEW_ORGANIZATION &&
+      form.newOrganizationName.trim().length < 2
+    ) {
+      nextErrors.newOrganizationName = 'Muassasa nomini kiriting';
+    }
+    if (form.deviceMode === 'existing' && !form.existingDeviceId) {
+      nextErrors.existingDeviceId = 'Modulni tanlang';
+    }
+    if (form.deviceMode === 'new') {
+      const value = form.newDeviceId.trim();
+      // ⚠️ Server qoidasi bilan AYNI (`SetupDeviceDto.deviceId`).
+      if (!/^[a-zA-Z0-9_-]{1,64}$/.test(value)) {
+        nextErrors.newDeviceId =
+          'Faqat lotin harflari, raqamlar, «-» va «_» (masalan esp32-a4cf12e8b901)';
+      }
     }
 
     setErrors(nextErrors);
@@ -238,6 +381,8 @@ export function BoilerFormModal({
                   value={form.districtId}
                   onChange={(event) => set('districtId', event.target.value)}
                   invalid={Boolean(errors.districtId)}
+                  disabled={isOperator}
+                  title={isOperator ? 'Tuman mas‘uli faqat o‘z tumaniga qo‘shadi' : undefined}
                 >
                   <option value="">Tanlang…</option>
                   {(districts.data ?? []).map((district) => (
@@ -286,6 +431,14 @@ export function BoilerFormModal({
                   onChange={(event) => set('organizationId', event.target.value)}
                 >
                   <option value="">Tanlanmagan</option>
+                  {/*
+                    ⚠️ Faqat YANGI kotyolda: tuman mas'ulida katalogni
+                    boshqarish huquqi yo'q, lekin o'z binosi ro'yxatda
+                    bo'lmasa, kotyolni qo'sha olmay qolardi.
+                  */}
+                  {!isEdit ? (
+                    <option value={NEW_ORGANIZATION}>+ Yangi muassasa…</option>
+                  ) : null}
                   {(organizations.data ?? []).map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.name}
@@ -294,6 +447,48 @@ export function BoilerFormModal({
                 </Select>
               )}
             </Field>
+
+            {form.organizationId === NEW_ORGANIZATION ? (
+              <>
+                <Field
+                  label="Yangi muassasa nomi"
+                  required
+                  error={errors.newOrganizationName}
+                  hint="Ro‘yxatda shunday nom bo‘lsa — o‘sha ishlatiladi, nusxa yaratilmaydi"
+                >
+                  {(id) => (
+                    <Input
+                      id={id}
+                      value={form.newOrganizationName}
+                      maxLength={180}
+                      placeholder="Masalan: 4-umumta‘lim maktabi"
+                      onChange={(event) =>
+                        set('newOrganizationName', event.target.value)
+                      }
+                      invalid={Boolean(errors.newOrganizationName)}
+                    />
+                  )}
+                </Field>
+                <Field label="Muassasa turi">
+                  {(id) => (
+                    <Select
+                      id={id}
+                      value={form.newOrganizationTypeId}
+                      onChange={(event) =>
+                        set('newOrganizationTypeId', event.target.value)
+                      }
+                    >
+                      <option value="">Tanlanmagan</option>
+                      {(objectTypes.data ?? []).map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </Field>
+              </>
+            ) : null}
 
             <Field label="Kotyol markasi">
               {(id) => (
@@ -469,7 +664,150 @@ export function BoilerFormModal({
             </Field>
           </div>
         </Section>
+
+        {showDeviceSection ? (
+          <Section title="ESP32 moduli">
+            <div className="flex flex-col gap-3">
+              <div
+                role="radiogroup"
+                aria-label="Modul"
+                className="grid gap-2 sm:grid-cols-3"
+              >
+                {(
+                  [
+                    { key: 'none', label: 'Hozircha modulsiz', allowed: true },
+                    {
+                      key: 'existing',
+                      label: 'Ro‘yxatdagi moduldan',
+                      allowed: canAttachDevice,
+                    },
+                    { key: 'new', label: 'Yangi modul', allowed: canCreateDevice },
+                  ] as const
+                )
+                  .filter((option) => option.allowed)
+                  .map((option) => (
+                    <label
+                      key={option.key}
+                      className={
+                        form.deviceMode === option.key
+                          ? 'flex cursor-pointer items-center gap-2 rounded-tile bg-brand-50 px-3 py-2 text-ui font-medium text-brand-800 ring-1 ring-brand-300 dark:bg-brand-500/12 dark:text-brand-200'
+                          : 'flex cursor-pointer items-center gap-2 rounded-tile bg-[var(--surface-sunken)] px-3 py-2 text-ui text-ink'
+                      }
+                    >
+                      <input
+                        type="radio"
+                        name="deviceMode"
+                        value={option.key}
+                        checked={form.deviceMode === option.key}
+                        onChange={() => set('deviceMode', option.key)}
+                      />
+                      {option.label}
+                    </label>
+                  ))}
+              </div>
+
+              {form.deviceMode === 'existing' ? (
+                <Field
+                  label="Biriktirilmagan modul"
+                  required
+                  error={errors.existingDeviceId}
+                  hint="Plata umumiy token bilan o‘zi ro‘yxatga tushgan. Muassasa ishorasi — montajchi platada kiritgan matn."
+                >
+                  {(id) => (
+                    <Select
+                      id={id}
+                      value={form.existingDeviceId}
+                      onChange={(event) =>
+                        set('existingDeviceId', event.target.value)
+                      }
+                      invalid={Boolean(errors.existingDeviceId)}
+                    >
+                      <option value="">
+                        {unassignedDevices.isLoading
+                          ? 'Yuklanmoqda…'
+                          : (unassignedDevices.data?.items.length ?? 0) === 0
+                            ? 'Biriktirilmagan modul yo‘q'
+                            : 'Tanlang…'}
+                      </option>
+                      {(unassignedDevices.data?.items ?? []).map((device) => (
+                        <option key={device.id} value={device.id}>
+                          {device.deviceId}
+                          {device.institutionHint
+                            ? ` — «${device.institutionHint}»`
+                            : ''}
+                          {device.lastSeenAt
+                            ? ` · ${formatRelativeUz(device.lastSeenAt)}`
+                            : ' · hali ulanmagan'}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </Field>
+              ) : null}
+
+              {form.deviceMode === 'new' ? (
+                <Field
+                  label="Modul identifikatori"
+                  required
+                  error={errors.newDeviceId}
+                  hint="Plata sozlash sahifasida yoki yorlig‘ida yozilgan: esp32-…"
+                >
+                  {(id) => (
+                    <Input
+                      id={id}
+                      value={form.newDeviceId}
+                      maxLength={64}
+                      placeholder="esp32-a4cf12e8b901"
+                      onChange={(event) => set('newDeviceId', event.target.value)}
+                      invalid={Boolean(errors.newDeviceId)}
+                    />
+                  )}
+                </Field>
+              ) : null}
+            </div>
+          </Section>
+        ) : null}
       </div>
+
+      {/*
+        ⚠️ SHAXSIY KALIT — FAQAT BIR MARTA. Server umumiy tokensiz
+        ishlaganda qaytadi; oyna yopilgandan keyin uni olib bo'lmaydi
+        (bazada faqat hash). Umumiy token yoqilgan bo'lsa bu oyna
+        umuman chiqmaydi.
+      */}
+      <Modal
+        open={Boolean(issuedKey)}
+        onClose={() => {
+          setIssuedKey(null);
+          onClose();
+        }}
+        size="sm"
+        title="Modul kaliti — faqat bir marta"
+        description={issuedKey ? `Modul: ${issuedKey.deviceId}` : undefined}
+      >
+        {issuedKey ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-meta text-muted">
+              Bu kalitni ESP32 proshivkasiga yozing. Oyna yopilgandan keyin
+              uni qayta ko‘rib bo‘lmaydi — faqat yangisini yaratish mumkin.
+            </p>
+            <code className="block break-all rounded-tile bg-[var(--surface-sunken)] px-3 py-2 font-mono text-micro text-strong">
+              {issuedKey.apiKey}
+            </code>
+            <Button
+              variant="primary"
+              onClick={() => {
+                void navigator.clipboard
+                  .writeText(issuedKey.apiKey)
+                  .then(() => toast.success('Nusxalandi'))
+                  .catch(() => toast.error('Nusxalab bo‘lmadi — qo‘lda belgilang'));
+              }}
+            >
+              Nusxalash
+            </Button>
+          </div>
+        ) : null}
+      </Modal>
     </Modal>
   );
 }

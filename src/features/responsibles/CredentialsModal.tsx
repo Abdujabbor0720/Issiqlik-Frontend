@@ -1,6 +1,7 @@
 import { Check, Copy, ShieldAlert } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import { BRAND } from '@/shared/constants/brand';
 import { Button, Modal } from '@/shared/ui';
 import { cn } from '@/shared/utils/cn';
 import type { IssuedCredentials } from './ResponsibleFormModal';
@@ -28,7 +29,7 @@ export function CredentialsModal({
 
   const text = value
     ? [
-        'Issiqlik — qozonxonalar monitoring tizimi',
+        BRAND.full,
         `Tuman: ${value.districtName}`,
         `Mas‘ul: ${value.fullName}`,
         `Login: ${value.login}`,

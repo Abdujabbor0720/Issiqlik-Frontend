@@ -41,6 +41,7 @@ import {
 } from '@/shared/utils/date';
 import { formatNumber, formatTemperature, orDash } from '@/shared/utils/format';
 import { useUiStore } from '@/store/ui.store';
+import { RoomsPanel } from '@/features/rooms/RoomsPanel';
 
 type Range = '24h' | '7d' | '30d';
 
@@ -367,6 +368,11 @@ export function BoilerDetailPage() {
           )}
         </CardBody>
       </Card>
+
+      {/* ───── Xonalar (havo harorati) ─────
+          ⚠️ Kotyol grafigidan KEYIN: avval «qozon ishlayaptimi», keyin
+          «issiqlik xonalarga yetib boryaptimi» — sabab-oqibat tartibi. */}
+      <RoomsPanel boilerId={id} />
 
       {/* ───── Hujjat ma'lumotlari ───── */}
       <div className="grid gap-3 lg:grid-cols-2">

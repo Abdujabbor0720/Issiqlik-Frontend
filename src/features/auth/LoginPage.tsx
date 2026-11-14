@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { errorMessage } from '@/shared/api/client';
 import { Logo } from '@/layouts/components/Logo';
+import { BRAND } from '@/shared/constants/brand';
 import { Button, Field, Input } from '@/shared/ui';
 import { useAuthStore } from '@/store/auth.store';
 
@@ -83,9 +84,11 @@ export function LoginPage() {
               <Flame className="size-5 text-[#ffb454]" />
             </span>
             <div className="leading-none">
-              <p className="text-lede font-semibold text-white">Issiqlik</p>
+              <p className="text-lede font-semibold text-white">
+                {BRAND.short}
+              </p>
               <p className="mt-1 text-nano font-medium tracking-wide text-white/55 uppercase">
-                Andijon viloyati
+                {BRAND.scope}
               </p>
             </div>
           </div>
@@ -95,10 +98,10 @@ export function LoginPage() {
               Hududlardagi qozonxonalar — bitta ekranda
             </h1>
             <p className="mt-4 text-lede leading-relaxed text-white/65">
-              ESP32 modullari har bir qozonxonaning chiqish haroratini
-              yuboradi. Tizim uni me‘yor bilan solishtiradi va qaysi
-              kotyol ishlayotganini, qaysi biri to‘xtaganini real vaqtda
-              ko‘rsatadi.
+              ESP32 modullari har bir qozonxonaning kirish-chiqish suvi va bino
+              xonalari haroratini yuboradi. Tizim ularni me‘yor bilan
+              solishtiradi va qaysi kotyol ishlayotganini, qaysi binoda sovuq
+              qolganini real vaqtda ko‘rsatadi.
             </p>
 
             <dl className="mt-8 grid grid-cols-3 gap-4">
@@ -120,7 +123,7 @@ export function LoginPage() {
           </div>
 
           <p className="text-micro text-white/40">
-            © {new Date().getFullYear()} · Issiqlik ta‘minoti monitoring tizimi
+            © {new Date().getFullYear()} · {BRAND.full}
           </p>
         </div>
       </aside>
@@ -182,7 +185,9 @@ export function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword((value) => !value)}
-                    aria-label={showPassword ? 'Parolni yashirish' : 'Parolni ko‘rsatish'}
+                    aria-label={
+                      showPassword ? 'Parolni yashirish' : 'Parolni ko‘rsatish'
+                    }
                     className="absolute inset-y-0 right-0 grid w-10 place-items-center text-faint transition-colors hover:text-ink"
                   >
                     {showPassword ? (

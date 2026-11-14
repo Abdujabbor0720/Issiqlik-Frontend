@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Layers, MapPin, Table2 } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { errorMessage, get } from '@/shared/api/client';
 import { API, qk } from '@/shared/api/endpoints';
 import type {
@@ -25,6 +24,7 @@ import {
 import { cn } from '@/shared/utils/cn';
 import { formatNumber, formatTemperature } from '@/shared/utils/format';
 import { useFiltersStore } from '@/store/filters.store';
+import { BoilerRoomsModal } from './BoilerRoomsModal';
 import { DistrictMap } from './DistrictMap';
 
 /**
@@ -40,10 +40,10 @@ import { DistrictMap } from './DistrictMap';
  * DOM elementi qilib chizadi va xarita harakatlanmay qoladi.
  */
 export function MapPage() {
-  const navigate = useNavigate();
   const districtId = useFiltersStore((state) => state.districtId);
   const setDistrict = useFiltersStore((state) => state.setDistrict);
   const [showPoints, setShowPoints] = useState(true);
+  const [selectedPoint, setSelectedPoint] = useState<BoilerPoint | null>(null);
 
   const mapQuery = useQuery({
     queryKey: qk.map(null),
@@ -130,7 +130,13 @@ export function MapPage() {
               points={showPoints ? pointsQuery.data : undefined}
               selectedId={districtId}
               onSelectDistrict={setDistrict}
-              onPointClick={(point) => navigate(`/boilers/${point.id}`)}
+              /*
+               * ⚠️ Nuqta bosilganda AVVAL bino oynasi (kotyol + xonalar),
+               * kotyol sahifasiga o'tish — undagi tugma bilan. Ilgari
+               * to'g'ridan-to'g'ri o'tilardi va xonalarni ko'rish uchun
+               * xaritani tark etish kerak edi.
+               */
+              onPointClick={setSelectedPoint}
               heightClass="h-[min(74vh,760px)]"
             />
           </div>
@@ -244,6 +250,11 @@ export function MapPage() {
           </Table>
         )}
       </Card>
+
+      <BoilerRoomsModal
+        point={selectedPoint}
+        onClose={() => setSelectedPoint(null)}
+      />
     </div>
   );
 }

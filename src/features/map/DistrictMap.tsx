@@ -21,7 +21,11 @@ import type {
   DistrictStats,
 } from '@/shared/api/types';
 import { BASEMAP, BASEMAP_DEFAULT_ON } from '@/shared/constants/basemap';
-import { BOILER_STATUS, STATUS_ORDER } from '@/shared/constants/status';
+import {
+  BOILER_STATUS,
+  ROOM_CONDITION,
+  STATUS_ORDER,
+} from '@/shared/constants/status';
 import { cn } from '@/shared/utils/cn';
 import {
   boilerPointIcon,
@@ -201,6 +205,12 @@ export function DistrictMap({
            turardi; o'tish bilan esa idish xaritaning o'z muhitiga
            aylanadi. */
         'relative overflow-hidden rounded-card',
+        /* ⚠️⚠️ `isolate` — Leaflet qatlamlari (z-index 400–1000) shu
+           konteyner ICHIDA qoladi. Usiz ular sahifaning ildiz
+           kontekstiga chiqib, oynalar (`z-50`) USTIDAN chizilardi:
+           nuqta bosilganda ochilgan xonalar oynasi xarita ostida
+           qolib, faqat qoraygan fon ko'rinardi. */
+        'isolate',
         /* ⚠️ Gradient FAQAT fon xaritasiz: taylar ustiga qo'yilsa,
            ular ko'kish parda ostida qolib, ko'chalar o'qilmasdi. */
         showTiles
@@ -363,6 +373,18 @@ function MapLegend() {
           {BOILER_STATUS[status].short}
         </span>
       ))}
+      {/* ⚠️ Halqa ma'nosi AFSONADA bo'lishi shart: aks holda ko'k
+          halqani «tanlangan nuqta» deb o'qishardi. */}
+      <span className="flex items-center gap-1.5 text-nano font-medium text-muted">
+        <span
+          className="size-2 shrink-0 rounded-full"
+          style={{
+            boxShadow: `0 0 0 1.5px ${ROOM_CONDITION.cold.hex}`,
+            backgroundColor: 'var(--surface)',
+          }}
+        />
+        Sovuq xona bor
+      </span>
     </div>
   );
 }

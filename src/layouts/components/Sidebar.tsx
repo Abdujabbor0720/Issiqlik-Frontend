@@ -4,6 +4,7 @@ import { NavLink } from 'react-router-dom';
 import { getPaged } from '@/shared/api/client';
 import { API, qk } from '@/shared/api/endpoints';
 import type { Alert } from '@/shared/api/types';
+import { BRAND } from '@/shared/constants/brand';
 import {
   NAV_GROUP_LABELS,
   NAV_ITEMS,
@@ -52,7 +53,9 @@ export function Sidebar({
   const { data: alerts } = useQuery({
     queryKey: qk.alerts({ badge: true }),
     queryFn: () =>
-      getPaged<Alert>(API.alerts.list, { params: { limit: 1, states: 'open' } }),
+      getPaged<Alert>(API.alerts.list, {
+        params: { limit: 1, states: 'open' },
+      }),
     enabled: can('alerts.view'),
     refetchInterval: 60_000,
   });
@@ -88,11 +91,7 @@ export function Sidebar({
           )}
         >
           <NavLink to="/" onClick={onCloseMobile} className="min-w-0">
-            {collapsed ? (
-              <Logo size="sm" withText={false} />
-            ) : (
-              <RailLogo />
-            )}
+            {collapsed ? <Logo size="sm" withText={false} /> : <RailLogo />}
           </NavLink>
 
           <button
@@ -144,7 +143,10 @@ export function Sidebar({
                           )
                         }
                       >
-                        <item.icon className="size-4 shrink-0" strokeWidth={2} />
+                        <item.icon
+                          className="size-4 shrink-0"
+                          strokeWidth={2}
+                        />
                         {!collapsed ? (
                           <span className="flex-1 truncate">{item.label}</span>
                         ) : null}
@@ -212,10 +214,10 @@ function RailLogo() {
       </span>
       <span className="flex min-w-0 flex-col leading-none">
         <span className="truncate text-lede font-semibold tracking-tight text-white">
-          Issiqlik
+          {BRAND.short}
         </span>
         <span className="mt-0.5 truncate text-nano font-medium tracking-wide text-white/45 uppercase">
-          Andijon viloyati
+          {BRAND.scope}
         </span>
       </span>
     </span>

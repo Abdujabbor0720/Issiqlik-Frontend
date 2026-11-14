@@ -36,6 +36,7 @@ import { BrandBars } from './components/BrandBars';
 import { DistrictBars } from './components/DistrictBars';
 import { KpiRow } from './components/KpiRow';
 import { TemperatureChart } from './components/TemperatureChart';
+import { RoomsSummaryCard } from './components/RoomsSummaryCard';
 
 type Range = '24h' | '7d' | '30d';
 
@@ -183,6 +184,11 @@ export function DashboardPage() {
           ))}
         </div>
       )}
+
+      {/* ───── Xonalar harorati ─────
+          ⚠️ Kotyol ko'rsatkichlaridan KEYIN, xaritadan OLDIN: «qozonlar
+          ishlayaptimi» → «binolar iliqmi» — sabab-oqibat tartibi. */}
+      <RoomsSummaryCard districtId={districtId} />
 
       {/* ───── Xarita + diqqat ───── */}
       <div className="grid gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">

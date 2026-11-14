@@ -63,6 +63,18 @@ export const API = {
     series: '/telemetry/series',
     recent: (boilerId: string) => `/telemetry/boilers/${boilerId}/recent`,
   },
+  /**
+   * XONALAR (havo harorati).
+   * ⚠️ Xona KOTYOLGA tegishli — ro'yxat kotyol bo'yicha olinadi.
+   */
+  rooms: {
+    byBoiler: (boilerId: string) => `/rooms/by-boiler/${boilerId}`,
+    history: (boilerId: string) => `/rooms/by-boiler/${boilerId}/history`,
+    summary: '/rooms/summary',
+    one: (id: string) => `/rooms/${id}`,
+  },
+  /** Kotyol + modul (+ yangi muassasa) — BITTA tranzaksiyada. */
+  boilerSetup: '/boiler-setup',
   alerts: {
     list: '/alerts',
     acknowledge: (id: string) => `/alerts/${id}/acknowledge`,
@@ -130,4 +142,9 @@ export const qk = {
   users: (params: unknown) => ['users', params] as const,
   responsibles: ['responsibles'] as const,
   settings: ['settings'] as const,
+  rooms: (boilerId: string) => ['rooms', boilerId] as const,
+  roomHistory: (boilerId: string, hours: number) =>
+    ['roomHistory', boilerId, hours] as const,
+  roomsSummary: (districtId: string | null) =>
+    ['roomsSummary', districtId] as const,
 } as const;

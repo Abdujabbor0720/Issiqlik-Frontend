@@ -18,7 +18,12 @@ export type AlertType =
   /** Chiqish datchigi qiymat bermayapti — harorat NOMA'LUM. */
   | 'sensor_fault'
   /** Kirish va chiqish harorati deyarli teng — suv aylanmayapti. */
-  | 'no_circulation';
+  | 'no_circulation'
+  /**
+   * XONA SOVUQ — havo harorati sozlamadagi minimumdan past.
+   * ⚠️ Kotyol ogohlantirishlaridan ALOHIDA: `room` maydoni to'ldirilgan.
+   */
+  | 'room_cold';
 
 /**
  * O'LCHOVDA QAYSI DATCHIK QATNASHGANI.
@@ -140,6 +145,80 @@ export interface BoilerPoint {
   temperature: number | null;
   boilerCount: number;
   lastReadingAt: string | null;
+  /**
+   * Xonalar — faqat NAZORATDAGI va DOLZARB o'lchovlilar.
+   * `null` — xona yo'q yoki hammasining o'lchovi eskirgan.
+   */
+  rooms: {
+    count: number;
+    avg: number | null;
+    min: number | null;
+    /** Minimumdan past xonalar soni. */
+    cold: number;
+  } | null;
+}
+
+// ───────────────── Xonalar (havo harorati) ─────────────────
+
+/**
+ * Xona holati — sozlamadagi chegaralarga nisbatan:
+ *   • `cold`   — minimumdan past (qizil, ogohlantirish);
+ *   • `cool`   — minimum bilan me'yor orasida (sariq);
+ *   • `normal` — me'yorda (yashil).
+ * `null` — o'lchov ESKIRGAN: holat noma'lum.
+ */
+export type RoomCondition = 'cold' | 'cool' | 'normal';
+
+export interface Room {
+  id: string;
+  boilerId: string;
+  /** Datchik manzili — o'zgarmaydi. */
+  sensorKey: string;
+  name: string;
+  note: string | null;
+  sortOrder: number;
+  /** Datchikdan avtomatik yaratilgan va hali nomlanmagan. */
+  isAutoCreated: boolean;
+  /** `false` — o'rtachaga va ogohlantirishga kirmaydi. */
+  isMonitored: boolean;
+  temperature: number | null;
+  lastReadingAt: string | null;
+  isFresh: boolean;
+  condition: RoomCondition | null;
+}
+
+/** Kotyol xonalari + grafik chiziqlari uchun chegaralar. */
+export interface BoilerRooms {
+  thresholds: { minC: number; normC: number };
+  rooms: Room[];
+}
+
+export interface RoomHistorySeries {
+  roomId: string;
+  name: string;
+  points: Array<{ t: number; at: string }>;
+}
+
+export interface RoomsSummary {
+  measured: number;
+  stale: number;
+  avg: number | null;
+  min: number | null;
+  cold: number;
+  cool: number;
+  normal: number;
+  buildingsWithCold: number;
+  minC: number;
+  normC: number;
+  coldest: Array<{
+    roomId: string;
+    roomName: string;
+    temperature: number;
+    boilerId: string;
+    lotNumber: string;
+    organizationName: string | null;
+    districtName: string;
+  }>;
 }
 
 // ───────────────── Kataloglar ─────────────────
@@ -352,6 +431,8 @@ export interface Alert {
     organization?: { id: string; name: string } | null;
   };
   acknowledgedBy?: { id: string; fullName: string } | null;
+  /** Faqat xona ogohlantirishida (`room_cold`). */
+  room?: { id: string; name: string } | null;
 }
 
 // ───────────────── Telemetriya ─────────────────
@@ -473,6 +554,12 @@ export interface SystemSettings {
   overheatC: number;
   offlineAfterMinutes: number;
   normTemperature: number;
+  /** Xona: eng past ruxsat etilgan harorat, °C (sukut 15). */
+  roomMinC: number;
+  /** Xona: me'yoriy harorat, °C (sukut 25). */
+  roomNormC: number;
+  /** Xona tarixi necha daqiqada bir yoziladi (sukut 10). */
+  roomSampleMinutes: number;
   retentionDays: number;
   seasonLabel: string | null;
   updatedAt: string;

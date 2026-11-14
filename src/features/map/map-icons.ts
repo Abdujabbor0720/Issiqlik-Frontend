@@ -1,6 +1,6 @@
 import L from 'leaflet';
 import type { BoilerPoint, DistrictStats } from '@/shared/api/types';
-import { BOILER_STATUS } from '@/shared/constants/status';
+import { BOILER_STATUS, ROOM_CONDITION } from '@/shared/constants/status';
 
 /**
  * XARITA BELGILARI — Leaflet HTML SATRINI talab qiladi.
@@ -103,14 +103,37 @@ export function boilerPointIcon(point: BoilerPoint): L.DivIcon {
    * `\n` haqiqiy qator uzilishi bo'lib ishlaydi (`title` buni
    * qo'llab-quvvatlaydi), `<br>` esa matn bo'lib ko'rinib qolardi.
    */
+  const temp = (value: number | null): string =>
+    value === null ? '—' : `${value.toFixed(1).replace('.', ',')} °C`;
+
+  const rooms = point.rooms;
   const tooltip = [
     `${point.organizationName ?? point.lotNumber}`,
     `Holati: ${meta.label}`,
     point.temperature === null
       ? 'Harorat: o‘lchov yo‘q'
-      : `Harorat: ${point.temperature.toFixed(1).replace('.', ',')} °C`,
+      : `Harorat: ${temp(point.temperature)}`,
     `Kotyollar soni: ${point.boilerCount}`,
+    ...(rooms
+      ? [
+          `Xonalar (${rooms.count}): o‘rtacha ${temp(rooms.avg)}, eng past ${temp(rooms.min)}`,
+          ...(rooms.cold > 0 ? [`❄ Sovuq xonalar: ${rooms.cold}`] : []),
+        ]
+      : []),
+    'Bosing — xonalar ro‘yxati',
   ].join('\n');
+
+  /*
+   * ⚠️⚠️ SOVUQ XONASI BOR BINO — KO'K HALQA, nuqta rangi O'ZGARMAYDI.
+   * Nuqta rangi — KOTYOL holati (asosiy signal). Uni xona bilan
+   * aralashtirilsa, «qozon ishlayapti, lekin 1-sinf sovuq» va «qozon
+   * to'xtagan» bir xil ko'rinardi — holbuki biri santexnikni, ikkinchisi
+   * qozonxona ustasini talab qiladi. Halqa ikkinchi, mustaqil belgi.
+   */
+  const hasCold = Boolean(rooms && rooms.cold > 0);
+  const ring = hasCold
+    ? `0 0 0 2px var(--surface), 0 0 0 4px ${ROOM_CONDITION.cold.hex}, 0 1px 3px rgba(8,30,60,.42)`
+    : '0 1px 3px rgba(8,30,60,.42)';
 
   return L.divIcon({
     className: '',
@@ -120,7 +143,7 @@ export function boilerPointIcon(point: BoilerPoint): L.DivIcon {
       display:block;width:12px;height:12px;border-radius:999px;cursor:pointer;
       background:${meta.hex};
       border:2px solid var(--surface);
-      box-shadow:0 1px 3px rgba(8,30,60,.42);
+      box-shadow:${ring};
     "></span>`,
   });
 }

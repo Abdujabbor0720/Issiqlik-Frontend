@@ -5,6 +5,7 @@ import {
   Flame,
   PlugZap,
   Search,
+  Snowflake,
   ThermometerSnowflake,
   ThermometerSun,
   TriangleAlert,
@@ -54,6 +55,12 @@ const TYPE_ICONS: Record<AlertType, typeof PlugZap> = {
   sensor_fault: TriangleAlert,
   /* Suv aylanmayapti — oqim muammosi. */
   no_circulation: Waves,
+  /*
+   * ⚠️ Qor parchasi — kotyolning «sovuq» belgisidan (termometr) FARQLI:
+   * biri «qozon sovuq», ikkinchisi «xona sovuq» va ular boshqa ishni
+   * talab qiladi (qozonxona yoki bino/radiator).
+   */
+  room_cold: Snowflake,
 };
 
 const TABS: Array<{
@@ -246,6 +253,18 @@ export function AlertsPage() {
                         <p className="mt-1 text-ui font-medium text-strong">
                           {alert.boiler?.organization?.name ??
                             `Lot ${alert.boiler?.lotNumber ?? '—'}`}
+                          {/*
+                            ⚠️ Xona nomi JORIY nomdan olinadi: xabar matni
+                            ochilgan paytdagi nomni saqlaydi («Xona 2»),
+                            admin keyin uni «1-sinf» deb nomlagan bo'lishi
+                            mumkin.
+                          */}
+                          {alert.room ? (
+                            <span className="font-normal text-muted">
+                              {' '}
+                              · {alert.room.name}
+                            </span>
+                          ) : null}
                         </p>
                         <p className="text-meta text-muted">{alert.message}</p>
 
