@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  FileUp,
   Archive,
   ArchiveRestore,
   Download,
@@ -39,6 +40,7 @@ import { formatNumber, formatTemperature, orDash } from '@/shared/utils/format';
 import { useAuthStore } from '@/store/auth.store';
 import { districtParams, useFiltersStore } from '@/store/filters.store';
 import { BoilerFormModal } from './components/BoilerFormModal';
+import { BoilerImportModal } from './components/BoilerImportModal';
 import { boilerName } from '@/shared/utils/boiler';
 
 /**
@@ -65,6 +67,7 @@ export function BoilersPage() {
   const [includeArchived, setIncludeArchived] = useState(false);
   const [editing, setEditing] = useState<Boiler | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [archiving, setArchiving] = useState<Boiler | null>(null);
   const [exporting, setExporting] = useState(false);
 
@@ -164,6 +167,17 @@ export function BoilersPage() {
               loading={exporting}
             >
               Excel
+            </Button>
+          ) : null}
+
+          {can('boilers.create') ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<FileUp className="size-3.5" />}
+              onClick={() => setImportOpen(true)}
+            >
+              Excel'dan import
             </Button>
           ) : null}
 
@@ -408,6 +422,11 @@ export function BoilersPage() {
           </>
         )}
       </Card>
+
+      <BoilerImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+      />
 
       <BoilerFormModal
         open={formOpen}

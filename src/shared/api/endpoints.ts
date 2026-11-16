@@ -34,6 +34,8 @@ export const API = {
     archive: (id: string) => `/boilers/${id}/archive`,
     restore: (id: string) => `/boilers/${id}/restore`,
     export: '/boilers/export',
+    importPreview: '/boiler-import/preview',
+    import: '/boiler-import',
   },
   devices: {
     list: '/devices',

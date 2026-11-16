@@ -19,9 +19,9 @@ import {
   errorMessage,
   get,
   getPaged,
-  http,
   patch,
   post,
+  postForm,
 } from '@/shared/api/client';
 import { API, qk } from '@/shared/api/endpoints';
 import type {
@@ -637,20 +637,10 @@ function UploadModal({
       if (note.trim()) form.append('note', note.trim());
 
       /*
-       * ⚠️ `Content-Type` QO'LDA QO'YILMAYDI: brauzer `FormData`
-       * uchun `boundary` bilan birga o'zi qo'yadi. Qo'lda yozilsa
-       * `boundary` tushib qolib, server yukni o'qiy olmasdi.
+       * ⚠️ `postForm()` — `FormData` ni JSON'ga aylantirmaydi va
+       * `boundary` li sarlavhani brauzerga qo'ydiradi (`client.ts` izohi).
        */
-      /*
-       * ⚠️ `post()` yordamchisi ISHLATILMAYDI: u `FormData` ni
-       * `JSON.stringify` qilib yuborardi. Shu bitta joyda xom
-       * `http` mijozi kerak — bu YAGONA fayl yuklash nuqtasi.
-       */
-      const response = await http.post<{ data: FirmwareRelease }>(
-        API.firmware.releases,
-        form,
-      );
-      return response.data.data;
+      return postForm<FirmwareRelease>(API.firmware.releases, form);
     },
     onSuccess: (release) => {
       toast.success(

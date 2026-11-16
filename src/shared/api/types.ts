@@ -624,3 +624,38 @@ export interface AlertEvent {
   message: string;
   at: string;
 }
+
+// ───────────────── Excel import (qozonxonalar ro'yxati) ─────────────────
+
+export interface BoilerImportRow {
+  excelRow: number;
+  sourceName: string;
+  name: string;
+  kind: 'school' | 'kindergarten';
+  organizationId: string | null;
+  /** Yaratiladigan qozonxonalar — har biri kotyol soni. */
+  boilerCounts: number[];
+  skipReason: string | null;
+  serial: string | null;
+}
+
+export interface BoilerImportPlan {
+  fileName: string;
+  date: string | null;
+  tag: string;
+  district: { id: string; name: string; code: string; shortName: string };
+  rows: BoilerImportRow[];
+  totals: {
+    institutions: number;
+    newOrganizations: number;
+    existingOrganizations: number;
+    boilers: number;
+    units: number;
+    withoutBoiler: number;
+  };
+  warnings: string[];
+  /** Faqat yozishdan keyin. */
+  result?: { organizationsCreated: number; boilersCreated: number };
+  /** Arxivga (DO Spaces, private) saqlangan asl fayllar — arxiv sozlangan bo'lsa. */
+  archived?: Array<{ bucket: string; key: string; size: number }>;
+}

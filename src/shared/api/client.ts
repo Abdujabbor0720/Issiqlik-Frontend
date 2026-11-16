@@ -170,6 +170,23 @@ export async function post<T>(
   return data?.data;
 }
 
+/**
+ * FAYL YUKLASH (multipart/form-data).
+ *
+ * ⚠️⚠️ `http` instansiyasi sukut bo'yicha `Content-Type: application/json`
+ * yuboradi va axios 1.x shunday holda `FormData` ni JSON'ga AYLANTIRIB
+ * yuboradi: fayl `{}` bo'lib qoladi, server esa «property file should not
+ * exist» deb rad etadi. Shuning uchun sarlavha aniq `multipart/form-data`
+ * qilinadi — axios uni o'chirib, `boundary` bilan to'g'ri sarlavhani
+ * brauzerning o'ziga qo'ydiradi. Har bir fayl yuklash SHU yerdan o'tadi.
+ */
+export async function postForm<T>(url: string, form: FormData): Promise<T> {
+  const { data } = await http.post<ApiEnvelope<T>>(url, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data?.data;
+}
+
 export async function patch<T>(url: string, body?: unknown): Promise<T> {
   const { data } = await http.patch<ApiEnvelope<T>>(url, body);
   return data.data;
