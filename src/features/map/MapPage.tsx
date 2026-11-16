@@ -54,10 +54,13 @@ export function MapPage() {
     queryKey: qk.points(districtId),
     queryFn: () =>
       get<BoilerPoint[]>(API.geo.points, {
-        params: { districtIds: districtId ?? '' },
+        params: districtId ? { districtIds: districtId } : {},
       }),
-    // ⚠️ Tanlovsiz so'ralmaydi — yuqoridagi izohga qarang.
-    enabled: showPoints && Boolean(districtId),
+    /*
+     * ⚠️ Viloyat ko'rinishida HAM — oqim kanallari uchun (canvas, DOM emas,
+     * shuning uchun 2000 kotyol ham xaritani qotirmaydi).
+     */
+    enabled: showPoints,
   });
 
   const districtsQuery = useQuery({
@@ -137,7 +140,7 @@ export function MapPage() {
                * xaritani tark etish kerak edi.
                */
               onPointClick={setSelectedPoint}
-              heightClass="h-[min(74vh,760px)]"
+              heightClass="aspect-square sm:aspect-auto sm:h-[min(74vh,760px)]"
             />
           </div>
         </Card>

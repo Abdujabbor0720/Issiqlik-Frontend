@@ -186,7 +186,9 @@ export function SettingsPage() {
         <CardBody className="flex flex-col gap-5">
           {/* Vizual shkala — chegaralarning ma'nosini bir qarashda
               ko'rsatadi. */}
-          <div className="flex overflow-hidden rounded-lg text-center text-micro font-semibold text-white">
+          {/* ⚠️ Telefonda 2×2 to'r: to'rtta bo'lak bir qatorga sig'masdi va
+              oxirgisi («Faol») ekrandan chiqib, kesilib qolardi. */}
+          <div className="grid grid-cols-2 overflow-hidden rounded-lg text-center text-micro font-semibold text-white sm:flex">
             <ScaleBlock
               color={BOILER_STATUS.offline.hex}
               label="Aloqa yo‘q / sovuq"
@@ -209,7 +211,7 @@ export function SettingsPage() {
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="«Faol» chegarasi, °C" hint="Shundan yuqorisi — faol">
               {(id) => (
                 <Input
@@ -277,7 +279,7 @@ export function SettingsPage() {
           subtitle="Maktab, bog‘cha va boshqa binolardagi xonalar havosi uchun"
         />
         <CardBody>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Field
               label="Me‘yor, °C"
               hint="Shundan boshlab xona yashil — «me‘yorda»"
@@ -353,7 +355,7 @@ export function SettingsPage() {
           title="Aloqa va ma‘lumot saqlash"
         />
         <CardBody>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Field
               label="«Aloqa yo‘q», daqiqa"
               hint="Signal kelmasa shuncha vaqtdan so‘ng"
@@ -459,7 +461,9 @@ function ScaleBlock({
 }) {
   return (
     <div
-      className="flex-1 px-2 py-2.5 leading-tight"
+      /* ⚠️ `min-w-0` — usiz flex bo'lagi matnidan torroq bo'la olmaydi va
+         `truncate` ishlamay, qator ekrandan chiqib ketardi. */
+      className="min-w-0 flex-1 px-2 py-2.5 leading-tight"
       style={{ backgroundColor: color }}
     >
       <div className="truncate">{label}</div>

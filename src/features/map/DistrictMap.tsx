@@ -27,16 +27,18 @@ import {
   STATUS_ORDER,
 } from '@/shared/constants/status';
 import { cn } from '@/shared/utils/cn';
+import { useUiStore } from '@/store/ui.store';
+import { FlowChannels } from './flow/FlowChannels';
+import { useMapCompact, useMapViewTick } from './useMapCompact';
 import {
-  boilerPointIcon,
+  boilerModelIcon,
   districtBadgeIcon,
+  districtBadgeSize,
   districtTooltipHtml,
   esc,
   geometryBounds,
 } from './map-icons';
 import { useDensityPalette } from './useDensityPalette';
-
-
 
 /** Qo'shni viloyatlar — mo'ljal uchun yorliqlar. */
 const NEIGHBOURS: Array<{ label: string; position: [number, number] }> = [
@@ -96,6 +98,7 @@ export function DistrictMap({
    * ular bir-biridan farq qilardi.
    */
   const [showTiles, setShowTiles] = useState(BASEMAP_DEFAULT_ON);
+  const dark = useUiStore((state) => state.theme === 'dark');
 
   /*
    * ⚠️⚠️ IKKI KO'RINISH, BITTA komponent:
@@ -131,7 +134,9 @@ export function DistrictMap({
     () =>
       Math.max(
         1,
-        ...(geojson?.features.map((feature) => feature.properties.total) ?? [1]),
+        ...(geojson?.features.map((feature) => feature.properties.total) ?? [
+          1,
+        ]),
       ),
     [geojson],
   );
@@ -149,7 +154,7 @@ export function DistrictMap({
    * «ishlamayotgandek» tuyulardi.
    */
   const bboxKey = geojson?.bbox?.join(',') ?? '';
-  const bounds = useMemo<L.LatLngBoundsExpression | undefined>(() => {
+  const bounds = useMemo<L.LatLngBoundsLiteral | undefined>(() => {
     /*
      * ⚠️ TUMAN ko'rinishida chegara uning O'Z geometriyasidan
      * hisoblanadi. Serverdagi `bbox` butun VILOYATNIKI va u bilan
@@ -268,15 +273,14 @@ export function DistrictMap({
             url={BASEMAP.url}
             attribution={BASEMAP.attribution}
             maxZoom={BASEMAP.maxZoom}
-            {...(BASEMAP.subdomains
-              ? { subdomains: BASEMAP.subdomains }
-              : {})}
+            {...(BASEMAP.subdomains ? { subdomains: BASEMAP.subdomains } : {})}
             /* ⚠️ Yuqori piksel zichligidagi ekranda ikki baravar
                aniqroq tayl so'raladi — usiz xarita xira ko'rinardi. */
             detectRetina
-            className={
-              BASEMAP.invertOnDark ? 'issiqlik-basemap-tiles' : undefined
-            }
+            className={cn(
+              'issiqlik-tiles-muted',
+              BASEMAP.invertOnDark && 'issiqlik-basemap-tiles',
+            )}
           />
         ) : null}
 
@@ -285,23 +289,29 @@ export function DistrictMap({
           selectedId={selectedId}
           onSelect={handleSelect}
           palette={palette}
-          fullscreen={fullscreen}
           solo={isDistrictView}
           overTiles={showTiles}
         />
 
-        {/* ⚠️ Nuqtalar chegaralar USTIDAN chiziladi: ular aniq
-            joyni ko'rsatadi va ko'pburchak ostida qolib ketmasligi
-            kerak. */}
-        {points?.map((point) => (
-          <Marker
-            key={point.id}
-            position={[point.lat, point.lng]}
-            icon={boilerPointIcon(point)}
-            eventHandlers={{ click: () => onPointClick?.(point) }}
-            zIndexOffset={600}
-          />
-        ))}
+        {/*
+          ⚠️⚠️ OQIM KANALLARI — har kotyoldan o'z tuman markaziga.
+          Canvas qatlamida (DOM emas): viloyat ko'rinishida 2000 tagacha
+          kanal bo'lishi mumkin va har biri DOM elementi bo'lsa, xarita
+          qotib qolardi. Kotyol belgilari (quyida) faqat tuman ochilganda.
+        */}
+        <FlowChannels
+          geojson={visibleGeoJson}
+          points={points}
+          solo={isDistrictView}
+          dark={dark}
+        />
+
+        {/* ⚠️ 3D kotyol belgilari FAQAT tuman ko'rinishida: viloyatda
+            ular yuzlab bo'lib, bir-birini yopib, «uyum» bo'lib qolardi —
+            u yerda kotyolni kanal boshidagi nurli tugun ko'rsatadi. */}
+        {isDistrictView && points ? (
+          <BoilerModels points={points} onPointClick={onPointClick} />
+        ) : null}
 
         {/* ⚠️ Qo'shni viloyat yorliqlari FAQAT viloyat ko'rinishida:
             tuman masshtabida ular ekrandan tashqarida qolib, faqat
@@ -331,6 +341,7 @@ export function DistrictMap({
             ekrandan tashqarida chizilardi. */}
         <BoundsKeeper
           bounds={bounds}
+          outline={selectedFeature?.geometry}
           viewKey={`${bboxKey}:${selectedId ?? 'all'}:${fullscreen}`}
         />
 
@@ -357,10 +368,52 @@ export function DistrictMap({
   );
 }
 
+/**
+ * 3D KOTYOL BELGILARI — faqat tuman ko'rinishida.
+ *
+ * ⚠️ Tor xaritada (telefon) model kichikroq: 54 px model 340 px xaritada
+ * tuman chegarasining katta qismini yopib qo'yardi.
+ *
+ * ⚠️ Ikonkalar `useMemo` da: har renderda yangi `divIcon` berilsa,
+ * Leaflet belgini qayta yaratib, holat to'lqinini boshidan boshlardi.
+ */
+function BoilerModels({
+  points,
+  onPointClick,
+}: {
+  points: BoilerPoint[];
+  onPointClick?: (point: BoilerPoint) => void;
+}) {
+  const compact = useMapCompact();
+  const icons = useMemo(
+    () =>
+      new Map(
+        points.map((point) => [point.id, boilerModelIcon(point, compact)]),
+      ),
+    [points, compact],
+  );
+  return (
+    <>
+      {points.map((point) => (
+        <Marker
+          key={point.id}
+          position={[point.lat, point.lng]}
+          icon={icons.get(point.id) ?? boilerModelIcon(point, compact)}
+          eventHandlers={{ click: () => onPointClick?.(point) }}
+          zIndexOffset={600}
+        />
+      ))}
+    </>
+  );
+}
+
 /** Xarita afsonasi — holat ranglarining ma'nosi. */
 function MapLegend() {
   return (
-    <div className="pointer-events-none absolute bottom-3 left-3 z-[400] flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-[var(--surface)]/92 px-2.5 py-1.5 shadow-[var(--shadow-card)] backdrop-blur-sm">
+    <div
+      data-map-chrome="legend"
+      className="pointer-events-none absolute bottom-3 left-3 z-[400] mr-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-[var(--surface)]/92 px-2.5 py-1.5 shadow-[var(--shadow-card)] backdrop-blur-sm"
+    >
       {STATUS_ORDER.map((status) => (
         <span
           key={status}
@@ -394,7 +447,6 @@ function DistrictLayer({
   selectedId,
   onSelect,
   palette,
-  fullscreen,
   solo,
   overTiles,
 }: {
@@ -402,7 +454,6 @@ function DistrictLayer({
   selectedId: string | null;
   onSelect: (props: DistrictStats) => void;
   palette: ReturnType<typeof useDensityPalette>;
-  fullscreen: boolean;
   /** Yolg'iz tuman ko'rinishi — ekranda bitta ko'pburchak. */
   solo: boolean;
   /** Ostida fon xaritasi (ko'chalar) bormi. */
@@ -442,17 +493,61 @@ function DistrictLayer({
    *
    * ⚠️ To'liq ekranda joy yetarli — hamma nom ko'rsatiladi.
    */
-  const crowded = useMemo(() => {
-    if (fullscreen) return new Set<string>();
-    const spans = geojson.features
-      .map((feature) => ({
-        id: feature.properties.districtId,
-        span: bboxSpan(feature.geometry),
-      }))
-      .sort((a, b) => a.span - b.span);
-    const hidden = Math.floor(spans.length / 4);
-    return new Set(spans.slice(0, hidden).map((item) => item.id));
-  }, [geojson, fullscreen]);
+  const map = useMap();
+  const compact = useMapCompact();
+  const viewTick = useMapViewTick();
+
+  /*
+   * ⚠️⚠️ NOMLAR — HAQIQIY PIKSEL TO'QNASHUVI BO'YICHA. Har zoom va ekran
+   * o'lchamida har belgining doirasi va nom yorlig'i ekrandagi to'rtburchak
+   * sifatida hisoblanadi; boshqasiga tegsa, nom yashiriladi (doira qoladi).
+   * Ustunlik — kotyoli KO'P tumanga. Ilgari «eng kichik 25%» doim
+   * yashirilardi: telefonda nomlar baribir ustma-ust tushardi, katta
+   * ekranda esa joy bo'la turib yashirilardi.
+   */
+  const visibleNames = useMemo(() => {
+    void viewTick;
+    /* ⚠️ Xaritaga hali ko'rinish berilmagan bo'lsa (chegara topilmadi),
+       Leaflet piksel hisobida «Set map center and zoom first» bilan
+       yiqilib, butun xaritani xato oynasiga tushirardi. */
+    if (!(map as L.Map & { _loaded?: boolean })._loaded) {
+      return new Set<string>();
+    }
+    const placed: Array<[number, number, number, number]> = [];
+    const hits = (a: [number, number, number, number]): boolean =>
+      placed.some(
+        (b) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1],
+      );
+    const order = [...geojson.features].sort(
+      (a, b) => b.properties.total - a.properties.total,
+    );
+    // Avval HAMMA doiralar joylashadi (ular doim ko'rinadi).
+    for (const feature of order) {
+      const props = feature.properties;
+      const p = map.latLngToContainerPoint([props.centerLat, props.centerLng]);
+      const r = districtBadgeSize(props.total, solo, compact) / 2;
+      placed.push([p.x - r, p.y - r, p.x + r, p.y + r]);
+    }
+    const visible = new Set<string>();
+    for (const feature of order) {
+      const props = feature.properties;
+      const p = map.latLngToContainerPoint([props.centerLat, props.centerLng]);
+      const r = districtBadgeSize(props.total, solo, compact) / 2;
+      // Yorliq: 10px shrift ≈ 6px/harf + ichki chekka; doira ostida.
+      const w = props.shortName.length * 6 + 14;
+      const rect: [number, number, number, number] = [
+        p.x - w / 2,
+        p.y + r + 2,
+        p.x + w / 2,
+        p.y + r + 19,
+      ];
+      if (solo || !hits(rect)) {
+        visible.add(props.districtId);
+        placed.push(rect);
+      }
+    }
+    return visible;
+  }, [geojson, map, solo, compact, viewTick]);
 
   const hasSelection = Boolean(selectedId);
 
@@ -568,15 +663,7 @@ function DistrictLayer({
         /* ⚠️ Yolg'iz tumanda belgi KATTAROQ: ekranda bitta ko'pburchak
            bor va uning raqami asosiy ma'lumot — qo'shnilari bilan
            kesishib qolish xavfi yo'q. */
-        const size = solo
-          ? 40
-          : props.total >= 20
-            ? 34
-            : props.total >= 10
-              ? 30
-              : props.total >= 1
-                ? 27
-                : 24;
+        const size = districtBadgeSize(props.total, solo, compact);
 
         return (
           <Marker
@@ -587,10 +674,13 @@ function DistrictLayer({
                yonma-yon va ularning yorliqlari kesishadi; tartibsiz
                bo'lsa, kichik tumanning nomi kattasining ustini
                yopib, ikkalasi ham o'qilmay qolardi. */
-            zIndexOffset={props.total}
+            /* ⚠️ Tuman ko'rinishida markaz belgisi HAR DOIM ustda: unga
+               yaqin turgan 3D kotyollar (`zIndexOffset` 600) uning raqami
+               va nomini yopib qo'ymasin — kanallar aynan shu belgiga oqadi. */
+            zIndexOffset={solo ? 5000 : props.total}
             icon={districtBadgeIcon(props, {
               size,
-              showName: solo || !crowded.has(props.districtId),
+              showName: visibleNames.has(props.districtId),
               selected: !solo && selectedId === props.districtId,
             })}
           />
@@ -600,33 +690,198 @@ function DistrictLayer({
   );
 }
 
-/** Geometriya chegaralovchi to'rtburchagining yuzasi (daraja²). */
-function bboxSpan(geometry: GeoJSON.Geometry | null): number {
-  if (!geometry) return 0;
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
+/** Chegara bilan xarita cheti / boshqaruvlar orasidagi bo'shliq, px. */
+const FIT_GAP = 14;
 
-  const visit = (coords: unknown): void => {
-    if (
-      Array.isArray(coords) &&
-      typeof coords[0] === 'number' &&
-      typeof coords[1] === 'number'
-    ) {
-      const [x, y] = coords as [number, number];
-      if (x < minX) minX = x;
-      if (x > maxX) maxX = x;
-      if (y < minY) minY = y;
-      if (y > maxY) maxY = y;
-      return;
+/**
+ * Dastur moslashidan keyin `zoomstart` «odamniki» deb sanalmaydigan
+ * oyna, ms. Leaflet zoom animatsiyasi 250 ms + bir kadr kechikish.
+ */
+const FIT_GRACE_MS = 600;
+
+interface MapChrome {
+  /** Tor tugmalar ustunining o'ng cheti + bo'shliq. */
+  left: number;
+  /** Afsonaning yuqori cheti (pastdan) + bo'shliq. */
+  bottom: number;
+  /** Yorliqli keng tugmalar — konteyner koordinatasida, bo'shliq bilan. */
+  obstacles: L.Bounds[];
+  size: L.Point;
+}
+
+/**
+ * Xarita USTIDAGI boshqaruvlar egallagan joy — DOM'dagi HAQIQIY o'lcham.
+ *
+ * ⚠️⚠️ Bir xil `padding` yetmaydi: chapda tugmalar ustuni, pastda afsona
+ * turadi va chegaraning cheti aynan ular OSTIGA tushib, ko'rinmay qolardi
+ * (Xonobod shahrining janubiy uchi afsona ostida edi). O'lcham
+ * qotirilmaydi: telefonda afsona ikki qatorga o'raladi.
+ *
+ * ⚠️ Chekinish xaritaning ma'lum ulushidan oshmaydi — juda tor xaritada
+ * chegara nuqtaga aylanib qolmasligi uchun.
+ */
+function measureChrome(map: L.Map): MapChrome {
+  const container = map.getContainer();
+  const box = container.getBoundingClientRect();
+  const half = FIT_GAP / 2;
+  let left = FIT_GAP;
+  let bottom = FIT_GAP;
+  const obstacles: L.Bounds[] = [];
+
+  const controls = container.querySelector('[data-map-chrome="controls"]');
+  for (const child of Array.from(controls?.children ?? [])) {
+    const rect = child.getBoundingClientRect();
+    if (child.matches('[data-map-chrome="wide"]')) {
+      obstacles.push(
+        L.bounds(
+          [rect.left - box.left - half, rect.top - box.top - half],
+          [rect.right - box.left + half, rect.bottom - box.top + half],
+        ),
+      );
+    } else {
+      left = Math.max(left, rect.right - box.left + FIT_GAP);
     }
-    if (Array.isArray(coords)) coords.forEach(visit);
-  };
+  }
 
-  visit((geometry as { coordinates?: unknown }).coordinates);
-  if (minX === Infinity) return 0;
-  return (maxX - minX) * (maxY - minY);
+  // Afsona MapContainer'dan TASHQARIDA — ota konteynerda.
+  const legend = container.parentElement?.querySelector(
+    '[data-map-chrome="legend"]',
+  );
+  if (legend) {
+    bottom = Math.max(
+      bottom,
+      box.bottom - legend.getBoundingClientRect().top + FIT_GAP,
+    );
+  }
+
+  return {
+    left: Math.min(left, box.width * 0.3),
+    bottom: Math.min(bottom, box.height * 0.25),
+    obstacles,
+    size: L.point(box.width, box.height),
+  };
+}
+
+function fitPadding(
+  left: number,
+  bottom: number,
+  top: number = FIT_GAP,
+): Pick<L.FitBoundsOptions, 'paddingTopLeft' | 'paddingBottomRight'> {
+  return {
+    paddingTopLeft: [left, top],
+    paddingBottomRight: [FIT_GAP, bottom],
+  };
+}
+
+function outlineRings(geometry: GeoJSON.Geometry): GeoJSON.Position[][] {
+  if (geometry.type === 'Polygon') return geometry.coordinates;
+  if (geometry.type === 'MultiPolygon') return geometry.coordinates.flat();
+  return [];
+}
+
+/**
+ * Shu chekinish bilan joylashtirilsa, chegara CHIZIG'I keng tugma ostiga
+ * tushadimi.
+ *
+ * ⚠️ Leaflet `fitBounds` hisobini AYNAN takrorlaydi (zoom + markaz),
+ * xaritani siljitmasdan. Tekshiruv chizig'i 4 px qadam bilan: OSM
+ * chegarasida ikki uch orasi tuman masshtabida 100 px gacha bo'ladi va
+ * faqat uchlar tekshirilsa, tugma burchagidan o'tgan chiziq sezilmasdi.
+ */
+function outlineHitsObstacle(
+  map: L.Map,
+  bounds: L.LatLngBounds,
+  padding: ReturnType<typeof fitPadding>,
+  outline: GeoJSON.Geometry,
+  obstacles: L.Bounds[],
+): boolean {
+  if (obstacles.length === 0) return false;
+  const tl = L.point(padding.paddingTopLeft as L.PointTuple);
+  const br = L.point(padding.paddingBottomRight as L.PointTuple);
+  const zoom = map.getBoundsZoom(bounds, false, tl.add(br));
+  const center = map
+    .project(bounds.getSouthWest(), zoom)
+    .add(map.project(bounds.getNorthEast(), zoom))
+    .divideBy(2)
+    .add(br.subtract(tl).divideBy(2));
+  const origin = center.subtract(map.getSize().divideBy(2));
+  const toPx = (position: GeoJSON.Position): L.Point =>
+    map.project([position[1], position[0]], zoom).subtract(origin);
+  const hit = (point: L.Point): boolean =>
+    obstacles.some((obstacle) => obstacle.contains(point));
+
+  for (const ring of outlineRings(outline)) {
+    if (ring.length === 0) continue;
+    let prev = toPx(ring[0]);
+    if (hit(prev)) return true;
+    for (let i = 1; i < ring.length; i++) {
+      const next = toPx(ring[i]);
+      const steps = Math.max(1, Math.ceil(prev.distanceTo(next) / 4));
+      const delta = next.subtract(prev);
+      for (let step = 1; step <= steps; step++) {
+        if (hit(prev.add(delta.multiplyBy(step / steps)))) return true;
+      }
+      prev = next;
+    }
+  }
+  return false;
+}
+
+/**
+ * `fitBounds` chekinishi.
+ *
+ * ⚠️ Keng tugma («Viloyatga qaytish») chekinishga SHARTSIZ qo'shilsa,
+ * planshetda tuman 25% kichrayib, o'ngga surilib ketardi — holbuki
+ * ko'pincha chegara uning ostidan o'tmaydi ham. Shuning uchun u TO'SIQ:
+ * avval tor chekinish sinab ko'riladi va faqat chegara chizig'i tugma
+ * ostiga tushsagina tugmani chetlab o'tadigan ikki variant — CHAPDAN yoki
+ * TEPADAN — solishtiriladi va tumanni KATTAROQ ko'rsatgani olinadi
+ * (enli tumanda tepada bo'sh joy baribir bor, ingichkasida — yonda).
+ */
+function fitOptionsFor(
+  map: L.Map,
+  bounds: L.LatLngBoundsLiteral,
+  outline: GeoJSON.Geometry | null | undefined,
+): ReturnType<typeof fitPadding> {
+  const chrome = measureChrome(map);
+  const latLngBounds = L.latLngBounds(bounds);
+  const narrow = fitPadding(chrome.left, chrome.bottom);
+  const hits = (padding: ReturnType<typeof fitPadding>): boolean =>
+    Boolean(outline) &&
+    outlineHitsObstacle(
+      map,
+      latLngBounds,
+      padding,
+      outline as GeoJSON.Geometry,
+      chrome.obstacles,
+    );
+  if (!hits(narrow)) return narrow;
+
+  const pastX = Math.max(...chrome.obstacles.map((o) => o.max?.x ?? 0));
+  const pastY = Math.max(...chrome.obstacles.map((o) => o.max?.y ?? 0));
+  const besideLeft = fitPadding(
+    Math.min(Math.max(chrome.left, pastX + FIT_GAP / 2), chrome.size.x * 0.3),
+    chrome.bottom,
+  );
+  const belowTop = fitPadding(
+    chrome.left,
+    chrome.bottom,
+    Math.min(pastY + FIT_GAP / 2, chrome.size.y * 0.3),
+  );
+  const zoomOf = (padding: ReturnType<typeof fitPadding>): number =>
+    map.getBoundsZoom(
+      latLngBounds,
+      false,
+      L.point(padding.paddingTopLeft as L.PointTuple).add(
+        L.point(padding.paddingBottomRight as L.PointTuple),
+      ),
+    );
+
+  // Kattaroq ko'rsatadigani birinchi; to'siqqa tegmaydigani tanlanadi.
+  const candidates = [besideLeft, belowTop].sort(
+    (a, b) => zoomOf(b) - zoomOf(a),
+  );
+  return candidates.find((padding) => !hits(padding)) ?? besideLeft;
 }
 
 /**
@@ -646,9 +901,12 @@ function bboxSpan(geometry: GeoJSON.Geometry | null): number {
  */
 function BoundsKeeper({
   bounds,
+  outline,
   viewKey,
 }: {
-  bounds?: L.LatLngBoundsExpression;
+  bounds?: L.LatLngBoundsLiteral;
+  /** Tuman ko'rinishida — chegara chizig'i (to'siq tekshiruvi uchun). */
+  outline?: GeoJSON.Geometry | null;
   viewKey: string;
 }) {
   const map = useMap();
@@ -658,20 +916,49 @@ function BoundsKeeper({
   const userMoved = useRef(false);
 
   /*
-   * ⚠️ Faqat ODAM qilgan harakat hisobga olinadi. `fitBounds` ning
-   * o'zi ham `zoomend`/`moveend` hodisasini yuboradi; ular ham
-   * sanalsa, birinchi moslashdan keyin avtomatik rejim darhol
-   * o'chib qolardi.
+   * ⚠️ Effektlar `bounds`/`outline` OBYEKTIGA emas, QIYMAT kalitiga
+   * bog'lanadi: react-query oyna fokusi qaytganda geojson'ni qayta
+   * olib, YANGI obyekt beradi (qiymati o'sha). Obyektga bog'lansa,
+   * tuman ko'rinishida foydalanuvchi kattalashtirgan xarita boshqa
+   * oynadan qaytishi bilan o'z-o'zidan dastlabki holatga qaytardi.
    */
+  const boundsKey = bounds ? bounds.flat().join(',') : '';
+  const latest = useRef({ bounds, outline });
   useEffect(() => {
-    const onUserMove = (): void => {
+    latest.current = { bounds, outline };
+  });
+
+  /*
+   * ⚠️ Faqat ODAM qilgan harakat hisobga olinadi.
+   *
+   * ⚠️⚠️ Animatsiyali `fitBounds` ning O'ZI ham `zoomstart` yuboradi
+   * (keyingi kadrda). Ilgari u ham «odam zoom qildi» deb sanalardi:
+   * birinchi moslashdan keyin avtomatik rejim jimgina o'chib, telefon
+   * burilganda yoki oyna o'lchami o'zgarganda viloyat chetlari kesilib
+   * qolardi. Endi dastur moslagandan keyingi qisqa OYNA (`fitUntil`)
+   * ichidagi `zoomstart` hisobga olinmaydi. `dragstart` faqat odamdan.
+   *
+   * ⚠️ Vaqt oynasi, `moveend` gacha turadigan bayroq EMAS: ikki moslash
+   * (taymer + ResizeObserver) bir kadrda kelsa, birinchisining `moveend`
+   * i bayroqni ikkinchisining kechiktirilgan `zoomstart` idan OLDIN
+   * tushirib, avtomatik rejimni baribir o'chirib qo'yardi.
+   */
+  const fitUntil = useRef(0);
+  const markFitting = (): void => {
+    fitUntil.current = performance.now() + FIT_GRACE_MS;
+  };
+  useEffect(() => {
+    const onZoomStart = (): void => {
+      if (performance.now() > fitUntil.current) userMoved.current = true;
+    };
+    const onDragStart = (): void => {
       userMoved.current = true;
     };
-    map.on('zoomstart', onUserMove);
-    map.on('dragstart', onUserMove);
+    map.on('zoomstart', onZoomStart);
+    map.on('dragstart', onDragStart);
     return () => {
-      map.off('zoomstart', onUserMove);
-      map.off('dragstart', onUserMove);
+      map.off('zoomstart', onZoomStart);
+      map.off('dragstart', onDragStart);
     };
   }, [map]);
 
@@ -679,12 +966,14 @@ function BoundsKeeper({
     userMoved.current = false;
     const timer = setTimeout(() => {
       map.invalidateSize();
-      if (bounds && !userMoved.current) {
-        map.fitBounds(bounds, { padding: [14, 14] });
+      const { bounds: target, outline: shape } = latest.current;
+      if (target && !userMoved.current) {
+        markFitting();
+        map.fitBounds(target, fitOptionsFor(map, target, shape));
       }
     }, 200);
     return () => clearTimeout(timer);
-  }, [map, bounds, viewKey]);
+  }, [map, boundsKey, viewKey]);
 
   /*
    * ⚠️ `ResizeObserver` — TAYMERDAN TASHQARI va undan muhimroq.
@@ -701,8 +990,13 @@ function BoundsKeeper({
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         map.invalidateSize({ animate: false });
-        if (bounds && !userMoved.current) {
-          map.fitBounds(bounds, { padding: [14, 14], animate: false });
+        const { bounds: target, outline: shape } = latest.current;
+        if (target && !userMoved.current) {
+          markFitting();
+          map.fitBounds(target, {
+            ...fitOptionsFor(map, target, shape),
+            animate: false,
+          });
         }
       });
     });
@@ -711,7 +1005,7 @@ function BoundsKeeper({
       cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [map, bounds]);
+  }, [map]);
 
   return null;
 }
@@ -731,6 +1025,7 @@ function MapControls({
   showTiles: boolean;
   onToggleTiles: () => void;
 }) {
+  const compact = useMapCompact();
   return (
     <div
       /*
@@ -740,6 +1035,7 @@ function MapControls({
        * CHO'ZILIB ketgan va ekranda 130 px lik bo'sh oq to'rtburchak
        * bo'lib turardi.
        */
+      data-map-chrome="controls"
       className="absolute top-3 left-3 z-[400] flex flex-col items-start gap-1.5"
       // Tugma bosilganda xarita ham siljib/kattalashib ketmasligi kerak.
       onClick={(event) => event.stopPropagation()}
@@ -760,7 +1056,9 @@ function MapControls({
         type="button"
         onClick={onToggleTiles}
         aria-pressed={showTiles}
-        aria-label={showTiles ? 'Fon xaritasini o‘chirish' : 'Fon xaritasini yoqish'}
+        aria-label={
+          showTiles ? 'Fon xaritasini o‘chirish' : 'Fon xaritasini yoqish'
+        }
         title={
           showTiles
             ? 'Fon xaritasini o‘chirish (toza ko‘rinish)'
@@ -796,14 +1094,25 @@ function MapControls({
         qaytaman» degan savolga darhol javob topishi kerak. Ikonka
         bilan u xaritani qo'lda kichraytirib, adashib yurardi.
       */}
+      {/*
+        ⚠️ TOR xaritada (telefon) faqat ikonka: yorliqli tugma 150 px
+        bo'lib, chegara uning ostida qolmasligi uchun xaritaning chap
+        40% ini bo'sh qoldirishga to'g'ri kelardi.
+      */}
       {canReset && onReset ? (
         <button
           type="button"
           onClick={onReset}
-          className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[var(--surface)] px-2.5 text-micro font-semibold text-brand-600 shadow-[var(--shadow-card)] transition-colors hover:text-brand-700"
+          data-map-chrome="wide"
+          aria-label="Viloyatga qaytish"
+          title="Viloyatga qaytish"
+          className={cn(
+            'inline-flex h-8 items-center gap-1.5 rounded-lg bg-[var(--surface)] text-micro font-semibold text-brand-600 shadow-[var(--shadow-card)] transition-colors hover:text-brand-700',
+            compact ? 'w-8 justify-center' : 'px-2.5',
+          )}
         >
           <ArrowLeft className="size-3.5" />
-          Viloyatga qaytish
+          {compact ? null : 'Viloyatga qaytish'}
         </button>
       ) : null}
     </div>

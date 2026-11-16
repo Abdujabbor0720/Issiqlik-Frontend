@@ -85,19 +85,19 @@ export function DashboardPage() {
   });
 
   /*
-   * ⚠️ Qozonxona nuqtalari FAQAT tuman tanlanganda yuklanadi. Butun
-   * viloyat bo'yicha ular ~1700 ta marker bo'lardi: Leaflet har birini
-   * alohida DOM elementi qilib chizadi va xarita harakatlanmay
-   * qolardi. Tuman ko'rinishida esa ular ekranning butun ma'nosi —
-   * «bu tumanda nima bor» degan savolga javob aynan nuqtalarda.
+   * ⚠️ Qozonxona nuqtalari VILOYAT ko'rinishida ham yuklanadi — oqim
+   * kanallari (kotyol → tuman markazi) uchun. Ular CANVAS'da chiziladi,
+   * shuning uchun 2000 kotyol ham xaritani qotirmaydi. DOM belgilari
+   * (3D kotyol) esa faqat tuman ochilganda chiqadi (`DistrictMap`).
+   *
+   * ⚠️ Tanlov yo'q bo'lsa parametr UMUMAN yuborilmaydi (bo'sh satr emas).
    */
   const pointsQuery = useQuery({
     queryKey: qk.points(districtId),
     queryFn: () =>
       get<BoilerPoint[]>(API.geo.points, {
-        params: { districtIds: districtId ?? '' },
+        params: districtId ? { districtIds: districtId } : {},
       }),
-    enabled: Boolean(districtId),
   });
 
   const districtsQuery = useQuery({
@@ -191,7 +191,7 @@ export function DashboardPage() {
       <RoomsSummaryCard districtId={districtId} />
 
       {/* ───── Xarita + diqqat ───── */}
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
         <Card className="overflow-hidden">
           <CardHeader
             icon={<MapIcon className="size-4" />}
@@ -221,7 +221,7 @@ export function DashboardPage() {
               selectedId={districtId}
               onSelectDistrict={setDistrict}
               onPointClick={(point) => navigate(`/boilers/${point.id}`)}
-              heightClass="h-[620px]"
+              heightClass="aspect-square sm:aspect-auto sm:h-[620px]"
             />
           </div>
         </Card>
@@ -266,7 +266,7 @@ export function DashboardPage() {
       </div>
 
       {/* ───── Trend + tumanlar ───── */}
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
         <Card>
           <CardHeader
             icon={<Thermometer className="size-4" />}

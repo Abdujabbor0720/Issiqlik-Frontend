@@ -417,6 +417,15 @@
     saturate(0.85);
 }
 
+/* ⚠️ YORUG' REJIMDA fon xaritasi KUMUSHRANG. Rangli OSM uslubida yo'llar
+   (to'q sariq), parklar (yashil) va yozuvlar kotyol holati ranglari va
+   oqim kanallari bilan RAQOBATLASHARDI — yashil «faol» kanal yashil park
+   ustida yo'qolib ketardi. Premium kartografiyada ma'lumot qatlami rangli,
+   asos esa betaraf bo'ladi. Qorong'i rejimga tegilmaydi (u yuqorida). */
+html:not(.dark) .issiqlik-tiles-muted {
+  filter: grayscale(0.92) contrast(0.88) brightness(1.06);
+}
+
 /* ⚠️ Atributsiya OLIB TASHLANMAYDI (ODbL talabi), faqat interfeysga
    moslanadi: Leaflet'ning sukut uslubi katta oq quti bo'lib,
    xaritaning burchagini yopib turardi. */
@@ -449,4 +458,141 @@
 }
 *::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* ═══════════════════════ XARITA: OQIM KANALLARI ═══════════════════════
+   Kotyoldan tuman markaziga oqim (`features/map/flow`). Canvas zoom
+   animatsiyasi paytida so'nadi: u taylar bilan birga CSS orqali
+   kattalashmaydi va bir zum kanallar boshqa joyda «osilib» qolardi. */
+.issiqlik-flow-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease;
+}
+.issiqlik-flow-canvas.is-zooming {
+  opacity: 0;
+  transition-duration: 0.12s;
+}
+
+/* KOTYOL — 3D model belgisi. Holat rangi modelda EMAS, ostidagi nur va
+   to'lqinda: model hamma joyda bir xil, tanish obyekt bo'lib qoladi. */
+/* ⚠️ Masshtab (`--s`) poydevordan (transform-origin): langar nuqtasi va
+   kanal boshi joyida qoladi, telefonda faqat model kichrayadi. */
+.iss-boiler {
+  position: relative;
+  display: block;
+  cursor: pointer;
+  transform-origin: 50% 86%;
+  transform: scale(var(--s, 1));
+  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.iss-boiler:hover {
+  transform: translateY(-3px) scale(calc(var(--s, 1) * 1.14));
+}
+.iss-boiler__img {
+  position: absolute;
+  left: 0;
+  bottom: 5px;
+  pointer-events: none;
+  user-select: none;
+  /* Ikki qavat soya: yaqin (kontakt) va uzoq (havo) — model xaritada
+     «yopishtirilgan rasm» emas, yer ustida turgan obyekt bo'lib ko'rinadi. */
+  /* Oq hoshiya (ikki qavat) — kulrang model har qanday fon ustida
+     siluet bo'lib ajralib turadi; keyin kontakt va havo soyalari. */
+  filter: drop-shadow(0 0 0.6px #fff) drop-shadow(0 0 0.6px #fff)
+    drop-shadow(0 1px 1px rgb(8 20 40 / 0.4))
+    drop-shadow(0 8px 8px rgb(8 20 40 / 0.3));
+}
+/* Poydevor ostidagi holat nuri. */
+.iss-boiler__glow {
+  position: absolute;
+  left: 50%;
+  bottom: -2px;
+  width: 62px;
+  height: 20px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--st-glow), var(--st-soft));
+}
+/* Sovuq xonasi bor bino — poydevor atrofida ko'k halqa (xarita afsonasi bilan bir xil). */
+.iss-boiler.is-cold .iss-boiler__glow {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 3.5px #0284c7;
+}
+/* Holat to'lqini — kotyoldan tarqaladi (kanal boshi). */
+.iss-boiler__pulse {
+  position: absolute;
+  left: 50%;
+  bottom: -2px;
+  width: 62px;
+  height: 20px;
+  margin-left: -31px;
+  border-radius: 50%;
+  border: 1.5px solid var(--st);
+  opacity: 0;
+  animation: iss-boiler-pulse 2.4s cubic-bezier(0.22, 0.7, 0.3, 1) infinite;
+  animation-delay: var(--delay, 0s);
+}
+@keyframes iss-boiler-pulse {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.75);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .iss-boiler,
+  .issiqlik-flow-canvas {
+    transition: none;
+  }
+  .iss-boiler__pulse {
+    animation: none;
+    opacity: 0.35;
+    transform: scale(1.2);
+  }
+}
+
+/* ───────── YON PANEL ─────────
+   «Jonli ulanish» nuqtasi — sekin, sokin to'lqin (Tailwind `animate-ping`
+   1 s da tinmay urib, nazorat ekranida asabiy ko'rinardi). */
+@keyframes rail-live {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  70%,
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+.rail-live-ping {
+  animation: rail-live 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+/* Yig'ilgan menyu tooltipi. ⚠️ `transform` — Tailwind v4 dagi
+   `translate` xossasidan ALOHIDA, shuning uchun -50% markazlash buzilmaydi. */
+@keyframes rail-tip-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rail-tip {
+  animation: rail-tip-in 0.14s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rail-live-ping,
+  .rail-tip {
+    animation: none;
+  }
 }

@@ -66,7 +66,7 @@ export function RoomsSummaryCard({
             ko‘rinadi.
           </p>
         ) : (
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
             <div className="flex flex-col gap-3">
               <dl className="grid grid-cols-2 gap-2">
                 <Tile label="O‘rtacha" value={formatTemperature(s.avg)} />

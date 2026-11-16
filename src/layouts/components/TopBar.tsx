@@ -53,15 +53,20 @@ export function TopBar({ onOpenMobileMenu }: { onOpenMobileMenu: () => void }) {
         <Menu className="size-4.5" />
       </button>
 
-      <h1 className="min-w-0 flex-1 truncate text-head font-semibold tracking-tight text-strong">
+      {/*
+        ⚠️ Telefonda sahifa nomi panelda KO'RSATILMAYDI: sahifaning o'zida katta
+        sarlavha bor, panelda esa u «Umu…» bo'lib qisqarib, tuman filtrini
+        siqib qo'yardi. Bo'shagan joyni filtr egallaydi.
+      */}
+      <h1 className="hidden min-w-0 flex-1 truncate text-head font-semibold tracking-tight text-strong sm:block">
         {navTitleFor(pathname)}
       </h1>
 
-      <div className="flex shrink-0 items-center gap-1.5">
+      <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 sm:flex-none">
         {/* ⚠️ Tor ekranda filtr yashirilmaydi, faqat torayadi: u
             ko'rsatkichlarning MA'NOSINI belgilaydi va yashirilsa,
             raqamlar qaysi kesimniki ekani bilinmay qolardi. */}
-        <DistrictFilter className="w-[9.5rem] sm:w-56" />
+        <DistrictFilter className="min-w-0 flex-1 sm:w-56 sm:flex-none" />
 
         <button
           type="button"
@@ -89,7 +94,7 @@ export function TopBar({ onOpenMobileMenu }: { onOpenMobileMenu: () => void }) {
                 {user ? ROLE_LABELS[user.role] : ''}
               </span>
             </span>
-            <ChevronDown className="size-3.5 shrink-0 text-faint" />
+            <ChevronDown className="hidden size-3.5 shrink-0 text-faint sm:block" />
           </MenuButton>
 
           <Transition

@@ -407,7 +407,7 @@ export function BoilerFormModal({
     >
       <div className="flex flex-col gap-5">
         <Section title="Hujjat ma‘lumotlari">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Tuman / shahar" required error={errors.districtId}>
               {(id) => (
                 <Select
@@ -603,7 +603,7 @@ export function BoilerFormModal({
         </Section>
 
         <Section title="Joylashuv">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Manzil" className="sm:col-span-2">
               {(id) => (
                 <Input
@@ -646,7 +646,7 @@ export function BoilerFormModal({
         </Section>
 
         <Section title="Qo‘shimcha">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Quvvat, kVt">
               {(id) => (
                 <Input
@@ -716,7 +716,7 @@ export function BoilerFormModal({
               <div
                 role="radiogroup"
                 aria-label="Modul"
-                className="grid gap-2 sm:grid-cols-3"
+                className="grid grid-cols-1 gap-2 sm:grid-cols-3"
               >
                 {(
                   [

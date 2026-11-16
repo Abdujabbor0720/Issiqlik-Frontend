@@ -665,7 +665,7 @@ function DeviceFormModal({
         </Field>
 
         {isEdit && device ? (
-          <dl className="grid gap-2 rounded-tile bg-[var(--surface-sunken)] px-3 py-2.5 text-meta sm:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-2 rounded-tile bg-[var(--surface-sunken)] px-3 py-2.5 text-meta sm:grid-cols-2">
             <div>
               <dt className="flex items-center gap-1 text-micro text-muted">
                 <Lock className="size-3" aria-hidden />

@@ -375,7 +375,7 @@ export function BoilerDetailPage() {
       <RoomsPanel boilerId={id} />
 
       {/* ───── Hujjat ma'lumotlari ───── */}
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <Card>
           <CardHeader
             icon={<Building2 className="size-4" />}

@@ -1,6 +1,8 @@
 import L from 'leaflet';
+import kotyolModelUrl from '@/assets/map/kotyol.webp';
 import type { BoilerPoint, DistrictStats } from '@/shared/api/types';
-import { BOILER_STATUS, ROOM_CONDITION } from '@/shared/constants/status';
+import { BOILER_STATUS } from '@/shared/constants/status';
+import { hexToRgb, stablePhase } from './flow/flow-geometry';
 
 /**
  * XARITA BELGILARI — Leaflet HTML SATRINI talab qiladi.
@@ -18,6 +20,24 @@ export function esc(value: string | number | null | undefined): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+/**
+ * TUMAN BELGISI O'LCHAMI, px — YAGONA joy.
+ *
+ * ⚠️ Uni ikki narsa ishlatadi: belgining o'zi va oqim kanallari (kanal
+ * aynan belgi CHETIGA kiradi). O'lcham ikki joyda yozilsa, birinchi
+ * o'zgarishdayoq kanallar belgi ichiga kirib yoki undan oldin to'xtab
+ * qolardi.
+ */
+export function districtBadgeSize(
+  total: number,
+  solo: boolean,
+  compact = false,
+): number {
+  const base = solo ? 40 : total >= 20 ? 34 : total >= 10 ? 30 : total >= 1 ? 27 : 24;
+  // Telefonda (tor xarita) ~18% kichikroq — 16 tuman bir-birini yopmasin.
+  return compact ? Math.round(base * 0.82) : base;
 }
 
 /**
@@ -83,31 +103,19 @@ export function districtBadgeIcon(
 }
 
 /**
- * KOTYOL NUQTASI — tuman kesimidagi kichik doira.
+ * KOTYOL KO'RSATMASI — sichqoncha olib borilganda (`title`, ko'p qatorli).
  *
- * ⚠️ Tuman pufakchasidan ANCHA kichik (12px va 26–34px) va oq
- * halqali: ikkalasi bir xil o'lchamda bo'lsa, «bu tumanda 29 ta
- * kotyol» degan son bilan «mana shu bitta qozonxona» degan nuqta
- * aralashib ketardi.
- *
- * ⚠️ Rang — HOLAT rangi: nuqta «qayerda» emas, «ahvoli qanday»
- * degan savolga javob beradi.
+ * ⚠️ `title` da: Leaflet `Popup` bosishni talab qiladi, bosish esa xonalar
+ * oynasini ochadi. «Qayerda va qanday» degan savolga javob shu yerda.
+ * `\n` haqiqiy qator uzilishi bo'lib ishlaydi, `<br>` esa matn bo'lib qolardi.
  */
-export function boilerPointIcon(point: BoilerPoint): L.DivIcon {
+function boilerTooltip(point: BoilerPoint): string {
   const meta = BOILER_STATUS[point.status];
-
-  /*
-   * ⚠️ Ko'rsatma KO'P QATORLI va `title` atributida: nuqta atigi
-   * 12px — unga Leaflet `Popup` sig'maydi, bosilganda esa kotyol
-   * kartasiga o'tadi. «Qayerda va qancha» savoliga javob shu yerda.
-   * `\n` haqiqiy qator uzilishi bo'lib ishlaydi (`title` buni
-   * qo'llab-quvvatlaydi), `<br>` esa matn bo'lib ko'rinib qolardi.
-   */
   const temp = (value: number | null): string =>
     value === null ? '—' : `${value.toFixed(1).replace('.', ',')} °C`;
 
   const rooms = point.rooms;
-  const tooltip = [
+  return [
     `${point.organizationName ?? point.lotNumber}`,
     `Holati: ${meta.label}`,
     point.temperature === null
@@ -122,29 +130,59 @@ export function boilerPointIcon(point: BoilerPoint): L.DivIcon {
       : []),
     'Bosing — xonalar ro‘yxati',
   ].join('\n');
+}
 
-  /*
-   * ⚠️⚠️ SOVUQ XONASI BOR BINO — KO'K HALQA, nuqta rangi O'ZGARMAYDI.
-   * Nuqta rangi — KOTYOL holati (asosiy signal). Uni xona bilan
-   * aralashtirilsa, «qozon ishlayapti, lekin 1-sinf sovuq» va «qozon
-   * to'xtagan» bir xil ko'rinardi — holbuki biri santexnikni, ikkinchisi
-   * qozonxona ustasini talab qiladi. Halqa ikkinchi, mustaqil belgi.
-   */
-  const hasCold = Boolean(rooms && rooms.cold > 0);
-  const ring = hasCold
-    ? `0 0 0 2px var(--surface), 0 0 0 4px ${ROOM_CONDITION.cold.hex}, 0 1px 3px rgba(8,30,60,.42)`
-    : '0 1px 3px rgba(8,30,60,.42)';
+/** Kotyol belgisi o'lchami, px (rasm 112×105 — 2x zichlikda). */
+export const BOILER_MODEL_W = 54;
+export const BOILER_MODEL_H = 51;
+
+/**
+ * KOTYOL — 3D MODEL, tuman ko'rinishida.
+ *
+ * ⚠️ Langar nuqtasi — POYDEVOR markazi (rasm pastidan ~7px), rasm o'rtasi
+ * EMAS: geografik nuqta binoning O'RNI, va kanal aynan shu yerdan —
+ * kotyol tagidan chiqib, tuman markaziga oqadi.
+ *
+ * ⚠️⚠️ O'lcham INLINE uslubda, `width` atributida emas: Leaflet'ning o'z
+ * CSS'i marker ichidagi har bir `<img>` ga `width: auto` beradi va u
+ * atributni bosib ketadi — rasm asl 112px o'lchamida chiqib, xaritani
+ * to'sib qo'yardi.
+ *
+ * ⚠️ Holat RANGI — model ostidagi nur va to'lqin halqasida; modelning
+ * o'zi bo'yalmaydi (u hamma joyda bir xil, tanish obyekt bo'lib qoladi).
+ *
+ * ⚠️⚠️ SOVUQ XONASI BOR BINO — poydevor atrofida KO'K halqa; kotyol
+ * holati rangi O'ZGARMAYDI. «Qozon ishlayapti, lekin 1-sinf sovuq» va
+ * «qozon to'xtagan» boshqa-boshqa usta talab qiladi.
+ */
+/** Tor xaritada (telefon) model masshtabi — tuman chegarasini yopmasin. */
+const BOILER_MODEL_COMPACT_SCALE = 0.72;
+
+export function boilerModelIcon(
+  point: BoilerPoint,
+  compact = false,
+): L.DivIcon {
+  const meta = BOILER_STATUS[point.status];
+  const rgb = hexToRgb(meta.hex);
+  const cold = Boolean(point.rooms && point.rooms.cold > 0);
+  // To'lqinlar sinxron «miltillamasin» — har kotyolning o'z fazasi.
+  const delay = (-stablePhase(point.id) * 2.4).toFixed(2);
+  const w = BOILER_MODEL_W;
+  const h = BOILER_MODEL_H + 6;
 
   return L.divIcon({
     className: '',
-    iconSize: [12, 12],
-    iconAnchor: [6, 6],
-    html: `<span title="${esc(tooltip)}" style="
-      display:block;width:12px;height:12px;border-radius:999px;cursor:pointer;
-      background:${meta.hex};
-      border:2px solid var(--surface);
-      box-shadow:${ring};
-    "></span>`,
+    iconSize: [w, h],
+    iconAnchor: [w / 2, h - 7],
+    html: `<span class="iss-boiler${cold ? ' is-cold' : ''}" title="${esc(boilerTooltip(point))}" style="
+        --st:${meta.hex};--st-glow:rgba(${rgb},.78);--st-soft:rgba(${rgb},.0);--delay:${delay}s;
+        --s:${compact ? BOILER_MODEL_COMPACT_SCALE : 1};
+        width:${w}px;height:${h}px;">
+      <span class="iss-boiler__pulse"></span>
+      <span class="iss-boiler__glow"></span>
+      <img class="iss-boiler__img" src="${kotyolModelUrl}" alt="" width="${w}" height="${BOILER_MODEL_H}" draggable="false"
+        style="width:${w}px;height:${BOILER_MODEL_H}px" />
+    </span>`,
   });
 }
 

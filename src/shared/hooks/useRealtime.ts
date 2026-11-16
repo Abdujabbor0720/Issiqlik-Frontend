@@ -4,6 +4,7 @@ import { io, type Socket } from 'socket.io-client';
 import toast from 'react-hot-toast';
 import type { AlertEvent, BoilerStatusEvent } from '@/shared/api/types';
 import { useAuthStore } from '@/store/auth.store';
+import { useRealtimeStore } from '@/store/realtime.store';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ?? 'http://localhost:3000';
 
@@ -53,6 +54,7 @@ export function useRealtime(): void {
      */
     let disposed = false;
     let socket: Socket | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     const starter = setTimeout(() => {
       if (disposed) return;
@@ -72,6 +74,34 @@ export function useRealtime(): void {
       });
 
       socketRef.current = instance;
+
+      /*
+       * ⚠️ Ulanish holati yon panelda ko'rsatiladi. `connect_error` —
+       * server javob bermadi (socket.io o'zi qayta urinadi). Oddiy
+       * uzilishdan keyin ham u O'ZI qayta ulanadi — bu «ulanmoqda».
+       *
+       * ⚠️⚠️ ISTISNO — `io server disconnect` (serverning o'zi uzdi):
+       * socket.io bu holda QAYTA ULANMAYDI. Usiz panel abadiy
+       * «Ulanmoqda…» da qolib, operator eskirgan xaritaga qarab
+       * o'tirardi. Endi u «Aloqa uzilgan» va 5 s dan keyin qo'lda qayta
+       * urinish (darhol emas: server yana uzsa, tinimsiz halqa bo'lardi).
+       */
+      const { setLink } = useRealtimeStore.getState();
+      setLink('connecting');
+      instance.on('connect', () => setLink('live'));
+      instance.on('disconnect', (reason) => {
+        if (reason === 'io server disconnect') {
+          setLink('offline');
+          if (retryTimer) clearTimeout(retryTimer);
+          retryTimer = setTimeout(() => {
+            retryTimer = null;
+            if (!disposed) instance.connect();
+          }, 5000);
+          return;
+        }
+        setLink('connecting');
+      });
+      instance.on('connect_error', () => setLink('offline'));
 
       const scheduleRefresh = (): void => {
         if (flushTimer.current) return;
@@ -141,6 +171,7 @@ export function useRealtime(): void {
     return () => {
       disposed = true;
       clearTimeout(starter);
+      if (retryTimer) clearTimeout(retryTimer);
       if (flushTimer.current) clearTimeout(flushTimer.current);
       // ⚠️ To'da hisoblagichi ham tozalanadi: aks holda sahifa
       // almashganda eski hisob yangi to'daga qo'shilib, «yana 9 ta»
@@ -150,6 +181,7 @@ export function useRealtime(): void {
       socket?.removeAllListeners();
       socket?.disconnect();
       socketRef.current = null;
+      useRealtimeStore.getState().setLink('idle');
     };
   }, [user, queryClient]);
 }

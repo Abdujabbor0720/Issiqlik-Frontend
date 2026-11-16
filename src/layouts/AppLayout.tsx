@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Outlet } from 'react-router-dom';
+import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
 import { useRealtime } from '@/shared/hooks/useRealtime';
 import { cn } from '@/shared/utils/cn';
 import { useUiStore } from '@/store/ui.store';
@@ -23,13 +24,16 @@ export function AppLayout() {
   useRealtime();
   const collapsed = useUiStore((state) => state.railCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
+  /* ⚠️ Barqaror funksiya: Sidebar uni effekt bog'liqligida ishlatadi va
+     har renderda yangi funksiya bo'lsa, ochiq tortmada fokus qayta-qayta
+     yopish tugmasiga sakrardi. */
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
+  const openMobile = useCallback(() => setMobileOpen(true), []);
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
 
   return (
     <div className="min-h-dvh bg-[var(--canvas)]">
-      <Sidebar
-        mobileOpen={mobileOpen}
-        onCloseMobile={() => setMobileOpen(false)}
-      />
+      <Sidebar mobileOpen={mobileOpen} onCloseMobile={closeMobile} />
 
       {/*
        * ⚠️ Kontent `margin-left` bilan suriladi, `flex` bilan EMAS.
@@ -37,13 +41,17 @@ export function AppLayout() {
        * qatorida u o'z joyini egallamaydi — kontent uning ostiga
        * kirib ketardi.
        */}
+      {/* ⚠️ Telefonda tortma ochiq bo'lsa orqadagi sahifa `inert`: Tab
+          tortmadan chiqib, ko'rinmayotgan sahifa tugmalariga o'tib
+          ketmasin (fokus tortma ichida qoladi). */}
       <div
+        inert={mobileOpen && !isDesktop}
         className={cn(
-          'flex min-h-dvh flex-col transition-[margin] duration-200',
+          'flex min-h-dvh flex-col transition-[margin] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
           collapsed ? 'lg:ml-rail-tight' : 'lg:ml-rail',
         )}
       >
-        <TopBar onOpenMobileMenu={() => setMobileOpen(true)} />
+        <TopBar onOpenMobileMenu={openMobile} />
         <main className="flex-1 px-3 py-4 sm:px-5 sm:py-5">
           <Outlet />
         </main>

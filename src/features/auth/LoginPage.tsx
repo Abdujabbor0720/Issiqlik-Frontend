@@ -55,7 +55,7 @@ export function LoginPage() {
   };
 
   return (
-    <div className="grid min-h-dvh lg:grid-cols-[1fr_minmax(0,520px)]">
+    <div className="grid grid-cols-1 min-h-dvh lg:grid-cols-[1fr_minmax(0,520px)]">
       {/* ───── Chap: brend paneli ───── */}
       <aside className="relative hidden overflow-hidden bg-brand-900 lg:block">
         {/* Nozik to'r naqsh — yassi to'q ko'k maydon «bo'yalgan devor»
