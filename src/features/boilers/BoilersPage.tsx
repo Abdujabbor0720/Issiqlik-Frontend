@@ -39,6 +39,7 @@ import { formatNumber, formatTemperature, orDash } from '@/shared/utils/format';
 import { useAuthStore } from '@/store/auth.store';
 import { districtParams, useFiltersStore } from '@/store/filters.store';
 import { BoilerFormModal } from './components/BoilerFormModal';
+import { boilerName } from '@/shared/utils/boiler';
 
 /**
  * KOTYOLLAR RO'YXATI.
@@ -307,7 +308,7 @@ export function BoilersPage() {
                       {boiler.district?.shortName ?? '—'}
                     </Td>
                     <Td className="font-medium whitespace-nowrap text-strong">
-                      {boiler.lotNumber}
+                      {boiler.lotNumber ?? <span className="text-faint">—</span>}
                       {boiler.isArchived ? (
                         <span className="ml-1.5 rounded bg-[var(--surface-sunken)] px-1 py-0.5 text-nano text-faint">
                           arxiv
@@ -429,7 +430,10 @@ export function BoilersPage() {
         confirmLabel="Arxivlash"
         message={
           <>
-            <strong>Lot {archiving?.lotNumber}</strong> arxivga ko‘chiriladi.
+            <strong>
+              {boilerName(archiving?.organization?.name, archiving?.lotNumber)}
+            </strong>{' '}
+            arxivga ko‘chiriladi.
             <br />
             <span className="text-muted">
               Yozuv o‘chirilmaydi: telemetriya tarixi va hisobotlar saqlanib

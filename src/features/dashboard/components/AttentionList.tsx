@@ -6,6 +6,7 @@ import { EmptyState } from '@/shared/ui';
 import { cn } from '@/shared/utils/cn';
 import { formatRelativeUz } from '@/shared/utils/date';
 import { formatTemperature } from '@/shared/utils/format';
+import { boilerName } from '@/shared/utils/boiler';
 
 const ICONS = {
   offline: PlugZap,
@@ -65,7 +66,7 @@ export function AttentionList({ rows }: { rows: AttentionRow[] }) {
 
               <div className="min-w-0 flex-1">
                 <p className="truncate text-ui font-medium text-strong">
-                  {row.organizationName ?? `Lot ${row.lotNumber}`}
+                  {boilerName(row.organizationName, row.lotNumber)}
                 </p>
                 <p className="truncate text-micro text-muted">
                   {row.districtName} ·{' '}

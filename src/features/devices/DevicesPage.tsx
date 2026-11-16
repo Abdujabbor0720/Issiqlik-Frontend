@@ -55,6 +55,7 @@ import { cn } from '@/shared/utils/cn';
 import { formatRelativeUz } from '@/shared/utils/date';
 import { formatNumber, orDash } from '@/shared/utils/format';
 import { useAuthStore } from '@/store/auth.store';
+import { boilerName, lotLabel } from '@/shared/utils/boiler';
 
 /**
  * ESP32 MODULLARI.
@@ -268,7 +269,7 @@ export function DevicesPage() {
                       </Td>
                       <Td className="whitespace-nowrap">
                         {device.boiler ? (
-                          `Lot ${device.boiler.lotNumber}`
+                          boilerName(device.boiler.organization?.name, device.boiler.lotNumber)
                         ) : (
                           <span className="text-faint">biriktirilmagan</span>
                         )}
@@ -717,7 +718,7 @@ function DeviceFormModal({
               <option value="">Biriktirilmagan</option>
               {(boilers.data ?? []).map((boiler) => (
                 <option key={boiler.id} value={boiler.id}>
-                  Lot {boiler.lotNumber}
+                  {lotLabel(boiler.lotNumber)}
                   {boiler.organization?.name
                     ? ` — ${boiler.organization.name}`
                     : ''}

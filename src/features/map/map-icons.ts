@@ -3,6 +3,7 @@ import kotyolModelUrl from '@/assets/map/kotyol.webp';
 import type { BoilerPoint, DistrictStats } from '@/shared/api/types';
 import { BOILER_STATUS } from '@/shared/constants/status';
 import { hexToRgb, stablePhase } from './flow/flow-geometry';
+import { boilerName } from '@/shared/utils/boiler';
 
 /**
  * XARITA BELGILARI — Leaflet HTML SATRINI talab qiladi.
@@ -116,7 +117,7 @@ function boilerTooltip(point: BoilerPoint): string {
 
   const rooms = point.rooms;
   return [
-    `${point.organizationName ?? point.lotNumber}`,
+    boilerName(point.organizationName, point.lotNumber),
     `Holati: ${meta.label}`,
     point.temperature === null
       ? 'Harorat: o‘lchov yo‘q'

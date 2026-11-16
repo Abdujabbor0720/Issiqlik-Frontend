@@ -64,7 +64,7 @@ const collator = new Intl.Collator('uz', {
 export function compareItems(a: GaugeItem, b: GaugeItem): number {
   return (
     collator.compare(a.organizationName ?? '', b.organizationName ?? '') ||
-    collator.compare(a.lotNumber, b.lotNumber)
+    collator.compare(a.lotNumber ?? '', b.lotNumber ?? '')
   );
 }
 

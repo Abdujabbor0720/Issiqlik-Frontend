@@ -14,6 +14,7 @@ import {
 } from '@/shared/ui';
 import { formatTemperature } from '@/shared/utils/format';
 import { RoomList, summarizeRooms } from '@/features/rooms/RoomsPanel';
+import { boilerName } from '@/shared/utils/boiler';
 
 /**
  * XARITADAGI NUQTA BOSILGANDA — bino va uning xonalari.
@@ -51,9 +52,11 @@ export function BoilerRoomsModal({
       open={Boolean(point)}
       onClose={onClose}
       size="sm"
-      title={point?.organizationName ?? `Lot ${point?.lotNumber ?? ''}`}
+      title={boilerName(point?.organizationName, point?.lotNumber)}
       description={
-        point ? `${point.districtName} · lot ${point.lotNumber}` : undefined
+        point
+          ? `${point.districtName}${point.lotNumber ? ` · lot ${point.lotNumber}` : ''}`
+          : undefined
       }
       footer={
         point ? (

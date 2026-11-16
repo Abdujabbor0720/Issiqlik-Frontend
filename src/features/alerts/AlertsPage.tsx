@@ -38,6 +38,7 @@ import { formatDateTimeUz, formatRelativeUz } from '@/shared/utils/date';
 import { formatNumber, formatTemperature } from '@/shared/utils/format';
 import { useAuthStore } from '@/store/auth.store';
 import { districtParams, useFiltersStore } from '@/store/filters.store';
+import { boilerName } from '@/shared/utils/boiler';
 
 /**
  * ⚠️ Ro'yxat TO'LIQ bo'lishi shart: `Record<AlertType, …>` tipi
@@ -251,8 +252,10 @@ export function AlertsPage() {
                         </div>
 
                         <p className="mt-1 text-ui font-medium text-strong">
-                          {alert.boiler?.organization?.name ??
-                            `Lot ${alert.boiler?.lotNumber ?? '—'}`}
+                          {boilerName(
+                            alert.boiler?.organization?.name,
+                            alert.boiler?.lotNumber,
+                          )}
                           {/*
                             ⚠️ Xona nomi JORIY nomdan olinadi: xabar matni
                             ochilgan paytdagi nomni saqlaydi («Xona 2»),

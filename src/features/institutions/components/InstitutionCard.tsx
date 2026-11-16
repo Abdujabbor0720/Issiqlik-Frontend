@@ -9,6 +9,7 @@ import { formatRelativeUz, formatTimeUz } from '@/shared/utils/date';
 import { formatTemperature } from '@/shared/utils/format';
 import { deltaT, isLive, typeIcon } from '../institution-meta';
 import { TempGauge, type GaugeKind } from './TempGauge';
+import { boilerName, lotLabel } from '@/shared/utils/boiler';
 
 /**
  * MUASSASA KARTASI — bitta qozonxona: kirish va chiqish shkalalari.
@@ -36,7 +37,7 @@ export const InstitutionCard = memo(function InstitutionCard({
   const Icon = typeIcon(item.objectTypeCode);
   const phase = stablePhase(item.boilerId);
   const dt = deltaT(item);
-  const name = item.organizationName ?? `Lot ${item.lotNumber}`;
+  const name = boilerName(item.organizationName, item.lotNumber);
 
   const inspect = useCallback(
     (kind: GaugeKind, trigger: HTMLButtonElement) =>
@@ -83,7 +84,7 @@ export const InstitutionCard = memo(function InstitutionCard({
           <p className="mt-0.5 truncate text-micro text-muted">
             {item.objectTypeName ?? 'Turi belgilanmagan'}
             <span className="text-faint"> · </span>
-            <span className="tabular-nums">{item.lotNumber}</span>
+            <span className="tabular-nums">{lotLabel(item.lotNumber)}</span>
           </p>
         </div>
         <Link

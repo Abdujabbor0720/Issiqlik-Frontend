@@ -15,6 +15,7 @@ import {
 } from '@/shared/ui';
 import { cn } from '@/shared/utils/cn';
 import { formatNumber, formatTemperature } from '@/shared/utils/format';
+import { boilerName } from '@/shared/utils/boiler';
 
 /**
  * DASHBOARD: XONALAR HARORATI — viloyat (yoki tanlangan tuman) bo'yicha.
@@ -160,7 +161,7 @@ export function RoomsSummaryCard({
                               {item.roomName}
                             </span>
                             <span className="block truncate text-micro text-faint">
-                              {item.organizationName ?? `Lot ${item.lotNumber}`}{' '}
+                              {boilerName(item.organizationName, item.lotNumber)}{' '}
                               · {item.districtName}
                             </span>
                           </span>

@@ -10,6 +10,7 @@ import { formatTemperature } from '@/shared/utils/format';
 import { useFiltersStore } from '@/store/filters.store';
 import { deltaT, isLive } from '../institution-meta';
 import type { GaugeKind } from './TempGauge';
+import { boilerName, lotLabel } from '@/shared/utils/boiler';
 
 export interface InspectTarget {
   item: GaugeItem;
@@ -143,7 +144,7 @@ export function GaugeInspector({
   const live = isLive(item);
   const status = BOILER_STATUS[item.status];
   const dt = deltaT(item);
-  const name = item.organizationName ?? `Lot ${item.lotNumber}`;
+  const name = boilerName(item.organizationName, item.lotNumber);
 
   const showOnMap = (): void => {
     setDistrict(item.districtId);
@@ -194,7 +195,7 @@ export function GaugeInspector({
         </p>
         <p className="mt-0.5 text-micro text-muted">
           {item.objectTypeName ?? 'Turi belgilanmagan'} ·{' '}
-          <span className="tabular-nums">{item.lotNumber}</span>
+          <span className="tabular-nums">{lotLabel(item.lotNumber)}</span>
         </p>
       </div>
 

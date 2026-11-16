@@ -15,6 +15,7 @@ import { Button, Field, Input, Modal, Select, Textarea } from '@/shared/ui';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { formatRelativeUz } from '@/shared/utils/date';
 import { useAuthStore } from '@/store/auth.store';
+import { boilerName } from '@/shared/utils/boiler';
 
 /** «Yangi muassasa» varianti — Select'dagi maxsus qiymat. */
 const NEW_ORGANIZATION = '__new__';
@@ -134,7 +135,7 @@ export function BoilerFormModal({
     if (boiler) {
       setForm({
         districtId: boiler.districtId,
-        lotNumber: boiler.lotNumber,
+        lotNumber: boiler.lotNumber ?? '',
         firmId: boiler.firmId ?? '',
         organizationId: boiler.organizationId ?? '',
         brandId: boiler.brandId ?? '',
@@ -342,7 +343,6 @@ export function BoilerFormModal({
   const handleSubmit = (): void => {
     const nextErrors: Record<string, string> = {};
     if (!form.districtId) nextErrors.districtId = 'Tuman tanlanmagan';
-    if (!form.lotNumber.trim()) nextErrors.lotNumber = 'Lot raqami kiritilmagan';
     const count = Number(form.boilerCount);
     if (!Number.isInteger(count) || count < 1) {
       nextErrors.boilerCount = 'Kamida 1 bo‘lishi kerak';
@@ -387,7 +387,7 @@ export function BoilerFormModal({
       title={isEdit ? 'Kotyolni tahrirlash' : 'Yangi qozonxona'}
       description={
         isEdit
-          ? `Lot ${boiler?.lotNumber}`
+          ? boilerName(boiler?.organization?.name, boiler?.lotNumber)
           : 'Hujjat ma‘lumotlarini kiriting — holat telemetriyadan avtomatik to‘ladi'
       }
       footer={
@@ -439,7 +439,13 @@ export function BoilerFormModal({
               )}
             </Field>
 
-            <Field label="Lot raqami" required error={errors.lotNumber}>
+            {/* ⚠️ Ixtiyoriy: rasmiy ro'yxatlarda lot ko'pincha yo'q va
+                o'ylab topilgan raqam haqiqiy xarid hujjati bilan adashardi. */}
+            <Field
+              label="Lot raqami"
+              hint="Ixtiyoriy — bo‘lmasa bo‘sh qoldiring"
+              error={errors.lotNumber}
+            >
               {(id) => (
                 <Input
                   id={id}
@@ -944,7 +950,7 @@ function buildPayload(form: FormState): Record<string, unknown> {
 
   return {
     districtId: form.districtId,
-    lotNumber: form.lotNumber.trim(),
+    lotNumber: form.lotNumber.trim() || null,
     firmId: text(form.firmId),
     organizationId: text(form.organizationId),
     brandId: text(form.brandId),

@@ -42,6 +42,7 @@ import {
 import { formatNumber, formatTemperature, orDash } from '@/shared/utils/format';
 import { useUiStore } from '@/store/ui.store';
 import { RoomsPanel } from '@/features/rooms/RoomsPanel';
+import { boilerName } from '@/shared/utils/boiler';
 
 type Range = '24h' | '7d' | '30d';
 
@@ -135,7 +136,7 @@ export function BoilerDetailPage() {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-sub font-semibold tracking-tight text-strong">
-                {boiler.organization?.name ?? `Lot ${boiler.lotNumber}`}
+                {boilerName(boiler.organization?.name, boiler.lotNumber)}
               </h1>
               <StatusBadge status={boiler.currentStatus} />
               {boiler.isArchived ? (
@@ -145,7 +146,8 @@ export function BoilerDetailPage() {
               ) : null}
             </div>
             <p className="mt-1 text-meta text-muted">
-              {boiler.district?.name} · Lot {boiler.lotNumber}
+              {boiler.district?.name}
+              {boiler.lotNumber ? ` · Lot ${boiler.lotNumber}` : ''}
               {boiler.address ? ` · ${boiler.address}` : ''}
             </p>
           </div>
@@ -384,7 +386,7 @@ export function BoilerDetailPage() {
           />
           <CardBody className="flex flex-col gap-0">
             <Row label="Tuman / shahar" value={boiler.district?.name} />
-            <Row label="Lot raqami" value={boiler.lotNumber} />
+            <Row label="Lot raqami" value={boiler.lotNumber ?? '—'} />
             <Row label="DXSH firma nomi" value={boiler.firm?.name} />
             <Row label="Tashkilot nomi" value={boiler.organization?.name} />
             <Row label="Kotyol markasi" value={boiler.brand?.name} />

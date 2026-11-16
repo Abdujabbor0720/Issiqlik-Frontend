@@ -135,7 +135,7 @@ export interface DistrictGeoJson {
 
 export interface BoilerPoint {
   id: string;
-  lotNumber: string;
+  lotNumber: string | null;
   organizationName: string | null;
   districtId: string;
   districtName: string;
@@ -215,7 +215,7 @@ export interface RoomsSummary {
     roomName: string;
     temperature: number;
     boilerId: string;
-    lotNumber: string;
+    lotNumber: string | null;
     organizationName: string | null;
     districtName: string;
   }>;
@@ -256,7 +256,7 @@ export interface Boiler {
   address: string | null;
   lat: number | null;
   lng: number | null;
-  lotNumber: string;
+  lotNumber: string | null;
   firmId: string | null;
   firm?: { id: string; name: string; phone: string | null } | null;
   organizationId: string | null;
@@ -295,9 +295,10 @@ export interface Device extends DeviceBrief {
   boilerId: string | null;
   boiler?: {
     id: string;
-    lotNumber: string;
+    lotNumber: string | null;
     districtId: string;
     district?: { id: string; name: string; shortName: string };
+    organization?: { id: string; name: string } | null;
   } | null;
   lastIpAddress: string | null;
   firmwareVersion: string | null;
@@ -371,7 +372,7 @@ export interface DashboardSummary {
 /** Muassasalar shkalasi — bitta kotyol (qozonxona). */
 export interface GaugeItem {
   boilerId: string;
-  lotNumber: string;
+  lotNumber: string | null;
   organizationName: string | null;
   objectTypeId: string | null;
   objectTypeName: string | null;
@@ -424,7 +425,7 @@ export interface TrendPoint {
 
 export interface AttentionRow {
   id: string;
-  lotNumber: string;
+  lotNumber: string | null;
   status: BoilerStatus;
   temperature: number | null;
   lastReadingAt: string | null;
@@ -461,7 +462,7 @@ export interface Alert {
   ackNote: string | null;
   boiler?: {
     id: string;
-    lotNumber: string;
+    lotNumber: string | null;
     address: string | null;
     districtId: string;
     lastTemperature: number | null;
@@ -608,7 +609,7 @@ export interface SystemSettings {
 export interface BoilerStatusEvent {
   boilerId: string;
   districtId: string;
-  lotNumber: string;
+  lotNumber: string | null;
   status: BoilerStatus;
   temperature: number | null;
   at: string;
@@ -617,7 +618,7 @@ export interface BoilerStatusEvent {
 export interface AlertEvent {
   alertId: string;
   boilerId: string;
-  lotNumber: string;
+  lotNumber: string | null;
   type: AlertType;
   severity: AlertSeverity;
   message: string;
