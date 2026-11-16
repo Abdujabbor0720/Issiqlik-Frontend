@@ -207,6 +207,16 @@
     --ink-muted: #66778c;
     --ink-faint: #97a5b7;
     --ink-invert: #ffffff;
+
+    /* SHKALA: kirish (qaytuvchi, sovuqroq) va chiqish (uzatuvchi, issiq).
+       ⚠️ dataviz validatori bilan tekshirilgan juftlik (oq fonda: CVD ΔE
+       24,7, oddiy ko'z 33,6, kontrast ≥ 3:1). Holat ranglari (yashil /
+       sariq / qizil / kulrang) ATAYLAB ishlatilmaydi — ular band. */
+    --gauge-inlet: #2a78d6;
+    --gauge-outlet: #eb6834;
+    --gauge-track: #e9eef4;
+    --gauge-tick: #d3dbe5;
+    --gauge-stale: #aeb9c8;
   }
 
   .dark {
@@ -226,6 +236,14 @@
     --ink-muted: #8da0b5;
     --ink-faint: #64788f;
     --ink-invert: #0e151d;
+
+    /* Qorong'i fon (#151d27) uchun ALOHIDA tanlangan qadamlar —
+       avtomatik teskari emas (validator: CVD ΔE 26,8, kontrast ≥ 3:1). */
+    --gauge-inlet: #3987e5;
+    --gauge-outlet: #d95926;
+    --gauge-track: #1e2935;
+    --gauge-tick: #2c3a4a;
+    --gauge-stale: #5b6b7e;
   }
 
   * {
@@ -594,5 +612,112 @@ html:not(.dark) .issiqlik-tiles-muted {
   .rail-live-ping,
   .rail-tip {
     animation: none;
+  }
+}
+
+/* ───────── MUASSASALAR SHKALASI ─────────
+   ⚠️ Doimiy animatsiyalar FAQAT jonli (onlayn) shkalada va faqat
+   `transform` / `opacity` / `stroke-dashoffset` — yuzlab karta bir
+   vaqtda ekranda bo'lsa ham kompozitor qatlamida yengil qoladi.
+   Ekrandan tashqaridagi kartalar `content-visibility: auto` bilan
+   umuman chizilmaydi (animatsiyasi ham). */
+.gauge-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 296px;
+}
+/* Qiymat yoyi va uchi BIR XIL egri va muddat bilan siljiydi — aks holda
+   uch yoydan «ajralib» qolardi. */
+.gauge-value {
+  transition: stroke-dashoffset 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+    stroke 0.4s ease;
+}
+.gauge-tip {
+  transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.gauge-tick {
+  transition: stroke 0.4s ease;
+}
+/* Issiqlik oqimi — yoy bo'ylab yuguradigan nur, qiymat oxirida so'nadi.
+   `--pct` — elementning o'z qiymati (0–100). */
+/* ⚠️ Ikkala uchida ham `px`: son (`7`) va `calc(... px)` aralashsa,
+   brauzer ularni silliq o'tkaza olmaydi va nur bir joyda «qotib» qoladi. */
+@keyframes gauge-sheen {
+  0% {
+    stroke-dashoffset: 7px;
+    opacity: 0;
+  }
+  14% {
+    opacity: 0.85;
+  }
+  82% {
+    opacity: 0.85;
+  }
+  100% {
+    stroke-dashoffset: calc((7 - var(--pct)) * 1px);
+    opacity: 0;
+  }
+}
+.gauge-sheen {
+  animation: gauge-sheen 2.8s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  animation-delay: var(--phase, 0s);
+}
+/* Uchdagi nur — sekin nafas. */
+@keyframes gauge-tip-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+.gauge-tip-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: gauge-tip-pulse 2.4s ease-in-out infinite;
+  animation-delay: var(--phase, 0s);
+}
+/* Yoqilgan bo'linmalar — butun guruh bilan yengil «nafas». */
+@keyframes gauge-ticks-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.62;
+  }
+}
+.gauge-ticks-live {
+  animation: gauge-ticks-breathe 3.6s ease-in-out infinite;
+  animation-delay: var(--phase, 0s);
+}
+/* Yangi o'lchov kelganda raqam bir lahza yorishadi. */
+@keyframes gauge-flash {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.gauge-flash {
+  animation: gauge-flash 0.6s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gauge-value,
+  .gauge-tip,
+  .gauge-tick {
+    transition: none;
+  }
+  .gauge-sheen,
+  .gauge-tip-pulse,
+  .gauge-ticks-live,
+  .gauge-flash {
+    animation: none;
+  }
+  .gauge-sheen {
+    opacity: 0;
   }
 }

@@ -368,6 +368,35 @@ export interface DashboardSummary {
   updatedAt: string;
 }
 
+/** Muassasalar shkalasi — bitta kotyol (qozonxona). */
+export interface GaugeItem {
+  boilerId: string;
+  lotNumber: string;
+  organizationName: string | null;
+  objectTypeId: string | null;
+  objectTypeName: string | null;
+  objectTypeCode: string | null;
+  districtId: string;
+  districtName: string;
+  districtShortName: string;
+  status: BoilerStatus;
+  /** Kirish (qaytuvchi suv), °C. */
+  inlet: number | null;
+  /** Chiqish (uzatuvchi suv), °C. */
+  outlet: number | null;
+  /** Oldingi o'lchovga nisbatan o'zgarish, °C (`null` — noma'lum). */
+  inletDelta: number | null;
+  outletDelta: number | null;
+  lastReadingAt: string | null;
+  hasDevice: boolean;
+}
+
+export interface GaugeBoard {
+  normTemperature: number;
+  items: GaugeItem[];
+  updatedAt: string;
+}
+
 export interface DistrictRow {
   districtId: string;
   name: string;

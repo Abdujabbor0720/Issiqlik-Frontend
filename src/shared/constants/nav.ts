@@ -3,6 +3,7 @@ import {
   Cpu,
   HardDriveDownload,
   Flame,
+  Gauge,
   LayoutDashboard,
   Library,
   Map,
@@ -49,6 +50,19 @@ export const NAV_ITEMS: NavItem[] = [
     to: '/map',
     label: 'Xarita',
     icon: Map,
+    permission: 'reports.view',
+    group: 'main',
+  },
+  /*
+   * ⚠️ «Muassasalar» — JONLI SHKALALAR (kirish/chiqish harorati) muassasa
+   * TURI bo'yicha (maktab, bog'cha…). «Kotyollar» esa reyestr (jadval,
+   * tahrirlash). Ikkalasi bitta ma'lumot, lekin boshqa savol: «hozir
+   * qayerda sovuq» va «qaysi kotyol qayerda, kimniki».
+   */
+  {
+    to: '/institutions',
+    label: 'Muassasalar',
+    icon: Gauge,
     permission: 'reports.view',
     group: 'main',
   },

@@ -108,6 +108,7 @@ export function useRealtime(): void {
         flushTimer.current = setTimeout(() => {
           flushTimer.current = null;
           void queryClient.invalidateQueries({ queryKey: ['summary'] });
+          void queryClient.invalidateQueries({ queryKey: ['gauges'] });
           void queryClient.invalidateQueries({ queryKey: ['districtRows'] });
           void queryClient.invalidateQueries({ queryKey: ['map'] });
           void queryClient.invalidateQueries({ queryKey: ['points'] });

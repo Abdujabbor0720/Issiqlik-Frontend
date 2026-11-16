@@ -19,6 +19,11 @@ const DashboardPage = lazy(() =>
 const MapPage = lazy(() =>
   import('@/features/map/MapPage').then((m) => ({ default: m.MapPage })),
 );
+const InstitutionsPage = lazy(() =>
+  import('@/features/institutions/InstitutionsPage').then((m) => ({
+    default: m.InstitutionsPage,
+  })),
+);
 const BoilersPage = lazy(() =>
   import('@/features/boilers/BoilersPage').then((m) => ({
     default: m.BoilersPage,
@@ -74,6 +79,7 @@ export function AppRouter() {
       <Route element={<Private><AppLayout /></Private>}>
         <Route index element={<Lazy><DashboardPage /></Lazy>} />
         <Route path="map" element={<Lazy><MapPage /></Lazy>} />
+        <Route path="institutions" element={<Lazy><InstitutionsPage /></Lazy>} />
         <Route path="boilers" element={<Lazy><BoilersPage /></Lazy>} />
         <Route path="boilers/:id" element={<Lazy><BoilerDetailPage /></Lazy>} />
         <Route path="devices" element={<Lazy><DevicesPage /></Lazy>} />

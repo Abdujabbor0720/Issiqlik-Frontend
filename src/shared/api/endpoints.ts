@@ -26,6 +26,7 @@ export const API = {
     trend: '/dashboard/trend',
     attention: '/dashboard/attention',
     brands: '/dashboard/brands',
+    gauges: '/dashboard/gauges',
   },
   boilers: {
     list: '/boilers',
@@ -120,6 +121,7 @@ export const qk = {
   map: (districtId: string | null) => ['map', districtId] as const,
   points: (districtId: string | null) => ['points', districtId] as const,
   summary: (districtId: string | null) => ['summary', districtId] as const,
+  gauges: (districtId: string | null) => ['gauges', districtId] as const,
   districtRows: (districtId: string | null) =>
     ['districtRows', districtId] as const,
   trend: (districtId: string | null, range: string) =>
