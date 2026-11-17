@@ -653,11 +653,18 @@ function UploadModal({
   const fileRef = useRef<HTMLInputElement>(null);
   const [version, setVersion] = useState('');
   const [note, setNote] = useState('');
+  /*
+   * ⚠️ TUR ONGLI TANLANADI va server uni fayl ichidagi belgi bilan
+   * SOLISHTIRADI: mos kelmasa yuklash rad etiladi. Ikki tomonlama tekshiruv —
+   * qozonxona proshivkasi adashib xona moduliga (yoki aksincha) ketmasligi uchun.
+   */
+  const [moduleType, setModuleType] = useState<ModuleType | ''>('');
 
   const mutation = useMutation({
     mutationFn: async () => {
       const file = fileRef.current?.files?.[0];
       if (!file) throw new Error('Fayl tanlanmagan');
+      if (!moduleType) throw new Error('Modul turini tanlang');
 
       /*
        * ⚠️ Hajm BROUZERDA ham tekshiriladi: 500 MB lik faylni
@@ -675,6 +682,7 @@ function UploadModal({
       form.append('file', file);
       if (version.trim()) form.append('version', version.trim());
       if (note.trim()) form.append('note', note.trim());
+      form.append('moduleType', moduleType);
 
       /*
        * ⚠️ `postForm()` — `FormData` ni JSON'ga aylantirmaydi va
@@ -684,10 +692,11 @@ function UploadModal({
     },
     onSuccess: (release) => {
       toast.success(
-        `v${release.version} yuklandi (${formatBytes(release.size)})`,
+        `v${release.version} — ${MODULE_TYPE_META[release.moduleType ?? 'boiler'].label.toLowerCase()} yuklandi (${formatBytes(release.size)})`,
       );
       setVersion('');
       setNote('');
+      setModuleType('');
       if (fileRef.current) fileRef.current.value = '';
       onDone();
     },
@@ -709,6 +718,7 @@ function UploadModal({
           <Button
             variant="primary"
             loading={mutation.isPending}
+            disabled={!moduleType}
             onClick={() => mutation.mutate()}
           >
             Yuklash
@@ -717,6 +727,30 @@ function UploadModal({
       }
     >
       <div className="flex flex-col gap-3">
+        <Field
+          label="Modul turi"
+          required
+          hint="Fayl ichidagi belgi bilan solishtiriladi — mos kelmasa rad etiladi"
+        >
+          {(id) => (
+            <Select
+              id={id}
+              value={moduleType}
+              onChange={(event) =>
+                setModuleType(event.target.value as ModuleType | '')
+              }
+            >
+              <option value="">Tanlang…</option>
+              <option value="boiler">
+                {MODULE_TYPE_META.boiler.label} (XONOBOD_FW_VERSION)
+              </option>
+              <option value="room">
+                {MODULE_TYPE_META.room.label} (XONA_FW_VERSION)
+              </option>
+            </Select>
+          )}
+        </Field>
+
         <Field
           label="Fayl (.bin)"
           hint="pio run natijasi: .pio/build/esp32dev/firmware.bin"

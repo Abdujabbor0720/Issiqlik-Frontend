@@ -682,8 +682,8 @@ function DeviceFormModal({
   }, [open, device]);
 
   /*
-   * ⚠️ FAQAT moduli yo'q kotyollar ro'yxatga olinadi: bitta kotyolga
-   * ikkita modul biriktirib bo'lmaydi (baza darajasida ham taqiqlangan)
+   * ⚠️ QOZONXONA moduli uchun FAQAT qozonxona modulisiz kotyollar: bitta
+   * kotyolga ikkita qozonxona moduli biriktirib bo'lmaydi (bazada ham taqiqlangan)
    * va band kotyolni ro'yxatda ko'rsatish foydalanuvchini xatoga
    * yetaklardi. Tahrirlashda esa JORIY kotyol ham qo'shiladi — aks
    * holda u ro'yxatdan yo'qolib, maydon bo'sh ko'rinardi.
@@ -693,24 +693,36 @@ function DeviceFormModal({
    * boshqasini baribir rad etadi (modul faqat o'z tumanidagi kotyolga).
    */
   const deviceDistrictId = device?.districtId ?? null;
+  /*
+   * ⚠️⚠️ XONA MODULI uchun «modulsiz» filtri QO'LLANMAYDI: u qozonxona moduli
+   * bor maktab kotyoliga ham ulanadi (bitta binoda bir nechta xona moduli,
+   * har biri alohida xona). Filtr qolsa, xona modulini aynan kerakli binoga
+   * ulab bo'lmasdi — server esa buni qabul qiladi.
+   */
+  const isRoomModule = device ? moduleTypeOf(device) === 'room' : false;
   const boilers = useQuery({
     queryKey: [
       'boilers',
-      'without-device',
+      isRoomModule ? 'any' : 'without-device',
       device?.boilerId ?? null,
       deviceDistrictId,
     ],
     queryFn: async (): Promise<Boiler[]> => {
-      const free = await getPaged<Boiler>(API.boilers.list, {
+      const list = await getPaged<Boiler>(API.boilers.list, {
         params: {
-          withoutDevice: true,
+          ...(isRoomModule ? {} : { withoutDevice: true }),
           limit: 200,
           ...(deviceDistrictId ? { districtIds: deviceDistrictId } : {}),
         },
       });
-      if (!device?.boilerId) return free.items;
+      if (
+        !device?.boilerId ||
+        list.items.some((item) => item.id === device.boilerId)
+      ) {
+        return list.items;
+      }
       const current = await get<Boiler>(API.boilers.one(device.boilerId));
-      return [current, ...free.items];
+      return [current, ...list.items];
     },
     enabled: open,
   });
@@ -821,11 +833,36 @@ function DeviceFormModal({
               </dd>
             </div>
             <div>
+              <dt className="text-micro text-muted">Modul turi</dt>
+              <dd className="font-medium text-strong">
+                {MODULE_TYPE_META[moduleTypeOf(device)].label}
+              </dd>
+            </div>
+            {/*
+              ⚠️ «QURILMA XABAR QILDI» — plata menyusida tanlangan joylashuv.
+              Biriktirishda aynan shu yordam beradi (montajchi qaysi binoga
+              o'rnatganini aytadi), lekin hech narsani yo'naltirmaydi.
+            */}
+            <div>
               <dt className="text-micro text-muted">
-                Montajchi yozgan muassasa
+                Muassasa (qurilma xabar qildi)
               </dt>
               <dd className="font-medium text-strong">
-                {orDash(device.institutionHint)}
+                {orDash(device.reportedInstitution ?? device.institutionHint)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-micro text-muted">MFY · obyekt turi</dt>
+              <dd className="font-medium text-strong">
+                {orDash(
+                  [
+                    device.reportedMfy,
+                    device.reportedObjectTypeRef?.name ??
+                      device.reportedObjectType,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || null,
+                )}
               </dd>
             </div>
             {/*
@@ -833,9 +870,9 @@ function DeviceFormModal({
               admin «tahrirlash tugmasi yo'q — xato» deb o'ylardi.
             */}
             <p className="text-micro text-faint sm:col-span-2">
-              Tuman platada tanlanadi va bu yerda o‘zgartirilmaydi — modul faqat
-              shu tumandagi kotyolga ulanadi. Haqiqiy muassasa — quyida
-              tanlangan kotyolniki; montajchi yozgani faqat eslatma.
+              Tuman va modul turi platadan keladi va bu yerda o‘zgartirilmaydi —
+              modul faqat shu tumandagi kotyolga ulanadi. Haqiqiy muassasa —
+              quyida tanlangan kotyolniki; qurilma xabar qilgani faqat eslatma.
             </p>
           </dl>
         ) : null}
@@ -843,9 +880,11 @@ function DeviceFormModal({
         <Field
           label="Biriktirilgan kotyol"
           hint={
-            deviceDistrictId
-              ? 'Faqat modul tumanidagi kotyollar ko‘rsatiladi'
-              : 'Biriktirilmagan qurilmadan kelgan signal ham saqlanadi'
+            isRoomModule
+              ? 'Xona moduli qozonxona moduli bor kotyolga ham ulanadi — har modul alohida xona bo‘ladi'
+              : deviceDistrictId
+                ? 'Faqat modul tumanidagi kotyollar ko‘rsatiladi'
+                : 'Biriktirilmagan qurilmadan kelgan signal ham saqlanadi'
           }
         >
           {(id) => (
