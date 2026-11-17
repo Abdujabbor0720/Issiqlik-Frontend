@@ -8,6 +8,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Thermometer,
   Trash2,
   Wifi,
   WifiOff,
@@ -27,9 +28,11 @@ import type {
   Boiler,
   Device,
   DeviceWithKey,
+  ModuleType,
   Paged,
   PendingDevice,
 } from '@/shared/api/types';
+import { MODULE_TYPE_META, moduleTypeOf } from '@/shared/constants/module-type';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import {
   Badge,
@@ -53,7 +56,12 @@ import {
 } from '@/shared/ui';
 import { cn } from '@/shared/utils/cn';
 import { formatRelativeUz } from '@/shared/utils/date';
-import { formatNumber, orDash } from '@/shared/utils/format';
+import {
+  formatNumber,
+  formatPercent,
+  formatTemperature,
+  orDash,
+} from '@/shared/utils/format';
 import { useAuthStore } from '@/store/auth.store';
 import { boilerName, lotLabel } from '@/shared/utils/boiler';
 
@@ -74,6 +82,7 @@ export function DevicesPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'unassigned' | 'offline'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | ModuleType>('all');
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Device | null>(null);
   const [removing, setRemoving] = useState<Device | null>(null);
@@ -89,8 +98,9 @@ export function DevicesPage() {
       ...(debouncedSearch ? { search: debouncedSearch } : {}),
       ...(filter === 'unassigned' ? { unassigned: true } : {}),
       ...(filter === 'offline' ? { offline: true } : {}),
+      ...(typeFilter !== 'all' ? { moduleType: typeFilter } : {}),
     }),
-    [page, debouncedSearch, filter],
+    [page, debouncedSearch, filter, typeFilter],
   );
 
   const query = useQuery({
@@ -162,36 +172,37 @@ export function DevicesPage() {
                 setSearch(event.target.value);
                 setPage(1);
               }}
-              placeholder="Qurilma identifikatori, nomi, lot raqami…"
+              placeholder="Identifikator, nom, lot, muassasa yoki MFY…"
               leading={<Search className="size-4" />}
             />
           </div>
 
-          <div className="flex rounded-full bg-[var(--surface-sunken)] p-0.5">
-            {(
-              [
-                { key: 'all', label: 'Hammasi' },
-                { key: 'unassigned', label: 'Biriktirilmagan' },
-                { key: 'offline', label: 'Aloqasi yo‘q' },
-              ] as const
-            ).map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => {
-                  setFilter(item.key);
-                  setPage(1);
-                }}
-                className={
-                  filter === item.key
-                    ? 'rounded-full bg-[var(--surface)] px-3 py-1.5 text-micro font-semibold text-strong shadow-[var(--shadow-hair)]'
-                    : 'rounded-full px-3 py-1.5 text-micro font-medium text-muted transition-colors hover:text-strong'
-                }
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedFilter
+            label="Holat bo‘yicha"
+            value={filter}
+            options={[
+              { key: 'all', label: 'Hammasi' },
+              { key: 'unassigned', label: 'Biriktirilmagan' },
+              { key: 'offline', label: 'Aloqasi yo‘q' },
+            ]}
+            onChange={(key) => {
+              setFilter(key);
+              setPage(1);
+            }}
+          />
+          <SegmentedFilter
+            label="Modul turi bo‘yicha"
+            value={typeFilter}
+            options={[
+              { key: 'all', label: 'Barcha turlar' },
+              { key: 'boiler', label: MODULE_TYPE_META.boiler.short },
+              { key: 'room', label: MODULE_TYPE_META.room.short },
+            ]}
+            onChange={(key) => {
+              setTypeFilter(key);
+              setPage(1);
+            }}
+          />
         </CardBody>
       </Card>
 
@@ -219,6 +230,12 @@ export function DevicesPage() {
                   <Th>Qurilma</Th>
                   <Th>Biriktirilgan kotyol</Th>
                   <Th>Tuman</Th>
+                  {/*
+                    ⚠️ XONA HARORATI — QURILMA darajasida: kotyolga ulanmagan
+                    modul ham nimani o'lchayotgani ko'rinadi (montajchi uni
+                    qaysi binoga ulashni shu bo'yicha tekshiradi).
+                  */}
+                  <Th>Xona</Th>
                   <Th>Kalit</Th>
                   {/*
                     ⚠️ PROSHIVKA VERSIYASI va OTA TEKSHIRUVI — ikkisi
@@ -239,6 +256,8 @@ export function DevicesPage() {
               <tbody>
                 {items.map((device) => {
                   const online = isOnline(device.lastSeenAt);
+                  const isRoom = moduleTypeOf(device) === 'room';
+                  const location = reportedLocation(device);
                   return (
                     <Tr key={device.id}>
                       <Td>
@@ -258,18 +277,54 @@ export function DevicesPage() {
                             )}
                           </span>
                           <div className="min-w-0">
-                            <p className="font-medium text-strong">
+                            {/*
+                              ⚠️ Identifikator BITTA qatorda: u montajchi
+                              platadan o'qib solishtiradigan qiymat, ikkiga
+                              bo'linsa adashtirish oson.
+                            */}
+                            <p className="font-medium whitespace-nowrap text-strong">
                               {device.deviceId}
                             </p>
-                            <p className="truncate text-micro text-muted">
-                              {orDash(device.name)}
-                            </p>
+                            {isRoom ? (
+                              <p className="flex max-w-[18rem] items-center gap-1 text-micro text-muted">
+                                <span className="inline-flex shrink-0 items-center gap-1 font-medium text-brand-700 dark:text-brand-300">
+                                  <Thermometer className="size-3" aria-hidden />
+                                  {MODULE_TYPE_META.room.label}
+                                </span>
+                                {device.name ? (
+                                  <span className="truncate">
+                                    · {device.name}
+                                  </span>
+                                ) : null}
+                              </p>
+                            ) : device.name || !location ? (
+                              <p className="truncate text-micro text-muted">
+                                {orDash(device.name)}
+                              </p>
+                            ) : null}
+                            {/*
+                              ⚠️ PLATA AYTGAN joylashuv — faqat ma'lumot,
+                              hech narsani yo'naltirmaydi. Tuman mas'uli
+                              yuzlab modul orasidan o'zinikini shu bo'yicha
+                              topadi.
+                            */}
+                            {location ? (
+                              <p
+                                className="max-w-[18rem] truncate text-micro text-faint"
+                                title={`Platada tanlangan: ${location}`}
+                              >
+                                {location}
+                              </p>
+                            ) : null}
                           </div>
                         </div>
                       </Td>
                       <Td className="whitespace-nowrap">
                         {device.boiler ? (
-                          boilerName(device.boiler.organization?.name, device.boiler.lotNumber)
+                          boilerName(
+                            device.boiler.organization?.name,
+                            device.boiler.lotNumber,
+                          )
                         ) : (
                           <span className="text-faint">biriktirilmagan</span>
                         )}
@@ -299,7 +354,10 @@ export function DevicesPage() {
                           orDash(device.boiler?.district?.shortName)
                         )}
                       </Td>
-                      <Td>
+                      <Td className="whitespace-nowrap">
+                        <RoomReading device={device} />
+                      </Td>
+                      <Td className="whitespace-nowrap">
                         <code className="rounded bg-[var(--surface-sunken)] px-1.5 py-0.5 font-mono text-micro text-muted">
                           …{device.apiKeyPreview}
                         </code>
@@ -451,8 +509,8 @@ export function DevicesPage() {
         confirmLabel="Almashtirish"
         message={
           <>
-            <strong>{rotating?.deviceId}</strong> uchun yangi kalit
-            generatsiya qilinadi.
+            <strong>{rotating?.deviceId}</strong> uchun yangi kalit generatsiya
+            qilinadi.
             <br />
             <span className="text-danger-600">
               Eski kalit DARHOL ishlamay qoladi — proshivka yangilanmaguncha
@@ -491,6 +549,89 @@ function IconButton({
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * PLATA AYTGAN JOYLASHUV — «Maktab · 12-maktab · Baraka MFY».
+ * ⚠️ Obyekt turi katalogda bo'lsa uning NOMI, bo'lmasa xom kod (montajchi
+ * xatosini topish uchun).
+ */
+function reportedLocation(device: Device): string | null {
+  const objectType =
+    device.reportedObjectTypeRef?.name ?? device.reportedObjectType ?? null;
+  const mfy = device.reportedMfy
+    ? /\bmfy\b/i.test(device.reportedMfy)
+      ? device.reportedMfy
+      : `${device.reportedMfy} MFY`
+    : null;
+  const parts = [objectType, device.reportedInstitution ?? null, mfy].filter(
+    (part): part is string => Boolean(part),
+  );
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
+/** Oxirgi xona harorati va namligi; eskirgan o'lchov xira ko'rinadi. */
+function RoomReading({ device }: { device: Device }) {
+  const temperature = device.lastRoomTemperature;
+  if (temperature === null || temperature === undefined) {
+    return <span className="text-faint">—</span>;
+  }
+  const fresh = isOnline(device.lastRoomReadingAt ?? null);
+  return (
+    <span
+      className={cn('tabular-nums', fresh ? 'text-strong' : 'text-faint')}
+      title={
+        device.lastRoomReadingAt
+          ? `O‘lchandi: ${formatRelativeUz(device.lastRoomReadingAt)}`
+          : undefined
+      }
+    >
+      <span className="font-medium">{formatTemperature(temperature)}</span>
+      {device.lastHumidity !== null && device.lastHumidity !== undefined ? (
+        <span className="text-muted">
+          {' · '}
+          {formatPercent(device.lastHumidity)}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+/** Ro'yxat filtri — bir xil ko'rinishdagi tugmalar guruhi. */
+function SegmentedFilter<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: ReadonlyArray<{ key: T; label: string }>;
+  onChange: (key: T) => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={label}
+      className="flex rounded-full bg-[var(--surface-sunken)] p-0.5"
+    >
+      {options.map((item) => (
+        <button
+          key={item.key}
+          type="button"
+          aria-pressed={value === item.key}
+          onClick={() => onChange(item.key)}
+          className={
+            value === item.key
+              ? 'rounded-full bg-[var(--surface)] px-3 py-1.5 text-micro font-semibold text-strong shadow-[var(--shadow-hair)]'
+              : 'rounded-full px-3 py-1.5 text-micro font-medium text-muted transition-colors hover:text-strong'
+          }
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -692,9 +833,9 @@ function DeviceFormModal({
               admin «tahrirlash tugmasi yo'q — xato» deb o'ylardi.
             */}
             <p className="text-micro text-faint sm:col-span-2">
-              Tuman platada tanlanadi va bu yerda o‘zgartirilmaydi — modul
-              faqat shu tumandagi kotyolga ulanadi. Haqiqiy muassasa —
-              quyida tanlangan kotyolniki; montajchi yozgani faqat eslatma.
+              Tuman platada tanlanadi va bu yerda o‘zgartirilmaydi — modul faqat
+              shu tumandagi kotyolga ulanadi. Haqiqiy muassasa — quyida
+              tanlangan kotyolniki; montajchi yozgani faqat eslatma.
             </p>
           </dl>
         ) : null}
@@ -893,9 +1034,8 @@ function PendingDevicesCard() {
               {rows.length} ta notanish qurilma ulanishga urinmoqda
             </p>
             <p className="text-meta text-muted">
-              Ular ro‘yxatda yo‘q, shuning uchun MA‘LUMOT YOZILMAYDI.
-              Qurilmani «Yangi modul» bilan qo‘shsangiz, so‘rov o‘z-o‘zidan
-              yopiladi.
+              Ular ro‘yxatda yo‘q, shuning uchun MA‘LUMOT YOZILMAYDI. Qurilmani
+              «Yangi modul» bilan qo‘shsangiz, so‘rov o‘z-o‘zidan yopiladi.
             </p>
           </div>
         </div>

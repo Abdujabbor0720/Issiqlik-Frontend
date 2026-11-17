@@ -24,6 +24,7 @@ import {
 import { errorMessage, get } from '@/shared/api/client';
 import { API, qk } from '@/shared/api/endpoints';
 import type { Boiler, SeriesPoint } from '@/shared/api/types';
+import { moduleTypeOf } from '@/shared/constants/module-type';
 import { BOILER_STATUS, FUEL_LABELS } from '@/shared/constants/status';
 import {
   Card,
@@ -113,7 +114,17 @@ export function BoilerDetailPage() {
 
   const boiler = boilerQuery.data;
   const meta = BOILER_STATUS[boiler.currentStatus];
-  const device = boiler.devices?.[0];
+  /*
+   * ⚠️ QOZONXONA moduli — kotyol harorati faqat undan keladi. Bitta binoda
+   * xona modullari ham bo'lishi mumkin (ular xona haroratini beradi va
+   * «Xonalar» bo'limida ko'rinadi); `devices[0]` olinsa, kotyol kartasida
+   * xona moduli «ESP32 moduli» bo'lib turib qolardi.
+   */
+  const device = boiler.devices?.find(
+    (item) => moduleTypeOf(item) === 'boiler',
+  );
+  const roomModules =
+    boiler.devices?.filter((item) => moduleTypeOf(item) === 'room').length ?? 0;
 
   const chartData = (seriesQuery.data ?? []).map((point) => ({
     ...point,
@@ -302,9 +313,7 @@ export function BoilerDetailPage() {
                         {point.inletAvg !== null ? (
                           <p className="mt-0.5">
                             Kirish:{' '}
-                            <strong>
-                              {formatTemperature(point.inletAvg)}
-                            </strong>
+                            <strong>{formatTemperature(point.inletAvg)}</strong>
                             {point.avg !== null ? (
                               <span className="text-white/65">
                                 {' '}
@@ -450,11 +459,12 @@ export function BoilerDetailPage() {
                 device ? `${device.deviceId} (${device.name ?? '—'})` : null
               }
               hint={
-                device
+                (device
                   ? device.lastSeenAt
                     ? `Oxirgi aloqa: ${formatRelativeUz(device.lastSeenAt)}`
                     : 'Hali signal kelmagan'
-                  : 'Modul ulanmagan — telemetriya kelmaydi'
+                  : 'Modul ulanmagan — telemetriya kelmaydi') +
+                (roomModules > 0 ? ` · Xona modullari: ${roomModules} ta` : '')
               }
             />
             <Row label="Izoh" value={boiler.note} />

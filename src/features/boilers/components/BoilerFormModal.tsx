@@ -190,7 +190,9 @@ export function BoilerFormModal({
   const firms = useQuery({
     queryKey: qk.catalog('firms', 'form'),
     queryFn: () =>
-      get<CatalogItem[]>(API.catalogs.list('firms'), { params: { limit: 200 } }),
+      get<CatalogItem[]>(API.catalogs.list('firms'), {
+        params: { limit: 200 },
+      }),
     staleTime: 10 * 60 * 1000,
     enabled: open,
   });
@@ -250,6 +252,12 @@ export function BoilerFormModal({
            * tumanga qulflangan va server boshqasini baribir rad etadi.
            */
           districtId: form.districtId,
+          /*
+           * ⚠️ Faqat QOZONXONA modullari: bu kotyolning o'z moduli (suv
+           * harorati). Xona moduli kotyol haroratini bermaydi — u «ESP32
+           * modullari» sahifasidan binoga biriktiriladi.
+           */
+          moduleType: 'boiler',
           ...(debouncedDeviceSearch ? { search: debouncedDeviceSearch } : {}),
         },
       }),
@@ -265,7 +273,9 @@ export function BoilerFormModal({
   const brands = useQuery({
     queryKey: qk.catalog('brands', 'form'),
     queryFn: () =>
-      get<CatalogItem[]>(API.catalogs.list('brands'), { params: { limit: 200 } }),
+      get<CatalogItem[]>(API.catalogs.list('brands'), {
+        params: { limit: 200 },
+      }),
     staleTime: 10 * 60 * 1000,
     enabled: open,
   });
@@ -283,7 +293,10 @@ export function BoilerFormModal({
        */
       const isNewOrg = form.organizationId === NEW_ORGANIZATION;
       return post<BoilerSetupResult>(API.boilerSetup, {
-        boiler: { ...payload, organizationId: isNewOrg ? null : payload.organizationId },
+        boiler: {
+          ...payload,
+          organizationId: isNewOrg ? null : payload.organizationId,
+        },
         ...(isNewOrg
           ? {
               newOrganizationName: form.newOrganizationName.trim(),
@@ -427,7 +440,11 @@ export function BoilerFormModal({
                   }}
                   invalid={Boolean(errors.districtId)}
                   disabled={isOperator}
-                  title={isOperator ? 'Tuman mas‘uli faqat o‘z tumaniga qo‘shadi' : undefined}
+                  title={
+                    isOperator
+                      ? 'Tuman mas‘uli faqat o‘z tumaniga qo‘shadi'
+                      : undefined
+                  }
                 >
                   <option value="">Tanlang…</option>
                   {(districts.data ?? []).map((district) => (
@@ -479,7 +496,9 @@ export function BoilerFormModal({
                 <Select
                   id={id}
                   value={form.organizationId}
-                  onChange={(event) => set('organizationId', event.target.value)}
+                  onChange={(event) =>
+                    set('organizationId', event.target.value)
+                  }
                 >
                   <option value="">Tanlanmagan</option>
                   {/*
@@ -732,7 +751,11 @@ export function BoilerFormModal({
                       label: 'Ro‘yxatdagi moduldan',
                       allowed: canAttachDevice,
                     },
-                    { key: 'new', label: 'Yangi modul', allowed: canCreateDevice },
+                    {
+                      key: 'new',
+                      label: 'Yangi modul',
+                      allowed: canCreateDevice,
+                    },
                   ] as const
                 )
                   .filter((option) => option.allowed)
@@ -805,12 +828,12 @@ export function BoilerFormModal({
                         {!form.districtId
                           ? 'Avval yuqorida tumanni tanlang'
                           : unassignedDevices.isFetching
-                          ? 'Yuklanmoqda…'
-                          : (unassignedDevices.data?.items.length ?? 0) === 0
-                            ? debouncedDeviceSearch
-                              ? 'Bu qidiruv bo‘yicha modul topilmadi'
-                              : 'Biriktirilmagan modul yo‘q'
-                            : 'Tanlang…'}
+                            ? 'Yuklanmoqda…'
+                            : (unassignedDevices.data?.items.length ?? 0) === 0
+                              ? debouncedDeviceSearch
+                                ? 'Bu qidiruv bo‘yicha modul topilmadi'
+                                : 'Biriktirilmagan modul yo‘q'
+                              : 'Tanlang…'}
                       </option>
                       {(unassignedDevices.data?.items ?? []).map((device) => (
                         <option key={device.id} value={device.id}>
@@ -861,7 +884,9 @@ export function BoilerFormModal({
                       autoComplete="off"
                       autoCapitalize="off"
                       spellCheck={false}
-                      onChange={(event) => set('newDeviceId', event.target.value)}
+                      onChange={(event) =>
+                        set('newDeviceId', event.target.value)
+                      }
                       invalid={Boolean(errors.newDeviceId)}
                     />
                   )}
@@ -891,8 +916,8 @@ export function BoilerFormModal({
         {issuedKey ? (
           <div className="flex flex-col gap-3">
             <p className="text-meta text-muted">
-              Bu kalitni ESP32 proshivkasiga yozing. Oyna yopilgandan keyin
-              uni qayta ko‘rib bo‘lmaydi — faqat yangisini yaratish mumkin.
+              Bu kalitni ESP32 proshivkasiga yozing. Oyna yopilgandan keyin uni
+              qayta ko‘rib bo‘lmaydi — faqat yangisini yaratish mumkin.
             </p>
             <code className="block break-all rounded-tile bg-[var(--surface-sunken)] px-3 py-2 font-mono text-micro text-strong">
               {issuedKey.apiKey}
@@ -903,7 +928,9 @@ export function BoilerFormModal({
                 void navigator.clipboard
                   .writeText(issuedKey.apiKey)
                   .then(() => toast.success('Nusxalandi'))
-                  .catch(() => toast.error('Nusxalab bo‘lmadi — qo‘lda belgilang'));
+                  .catch(() =>
+                    toast.error('Nusxalab bo‘lmadi — qo‘lda belgilang'),
+                  );
               }}
             >
               Nusxalash

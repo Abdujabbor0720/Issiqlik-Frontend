@@ -281,12 +281,23 @@ export interface Boiler {
   devices?: DeviceBrief[];
 }
 
+/**
+ * ESP32 MODULI TURI — plata o'zi aytadi (yoki yukidan aniqlanadi), kabinetda
+ * o'zgartirilmaydi. ⚠️ OTA shu bo'yicha ajratiladi: qozonxona proshivkasi
+ * xona moduliga hech qachon berilmaydi.
+ */
+export type ModuleType = 'boiler' | 'room';
+
 export interface DeviceBrief {
   id: string;
   deviceId: string;
   name: string | null;
   isActive: boolean;
   lastSeenAt: string | null;
+  /** Eski javoblarda bo'lmasligi mumkin — `boiler` deb olinadi. */
+  moduleType?: ModuleType;
+  lastRoomTemperature?: number | null;
+  lastRoomReadingAt?: string | null;
 }
 
 export interface Device extends DeviceBrief {
@@ -323,6 +334,16 @@ export interface Device extends DeviceBrief {
   district?: { id: string; name: string; shortName: string } | null;
   /** Plata yuborgan xom qiymat (server taniy olmasa ham ko'rinadi). */
   reportedDistrict?: string | null;
+
+  // ───────── Plata aytgan joylashuv — FAQAT ko'rsatish uchun ─────────
+  reportedMfy?: string | null;
+  reportedInstitution?: string | null;
+  /** Katalog kodi (`school`) — xom. */
+  reportedObjectType?: string | null;
+  /** Kod katalogda bo'lsa — uning nomi. */
+  reportedObjectTypeRef?: { id: string; name: string; code: string } | null;
+  /** Havo namligi, % (DHT22). */
+  lastHumidity?: number | null;
 }
 
 /** «Yangi qurilma so'rayapti» — ro'yxatdan o'tmagan plata. */
@@ -511,6 +532,8 @@ export interface TelemetryReading {
 export interface FirmwareRelease {
   id: string;
   version: string;
+  /** `.bin` ichidagi belgidan — qaysi modul uchun. */
+  moduleType: ModuleType;
   size: number;
   sha256: string;
   note: string | null;
@@ -522,6 +545,7 @@ export interface FirmwareRelease {
 export interface FirmwareRollout {
   id: string;
   version: string;
+  moduleType: ModuleType;
   status: RolloutStatus;
   targetType: RolloutTargetType;
   targetIds: string[];

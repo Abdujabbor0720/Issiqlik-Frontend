@@ -30,10 +30,12 @@ import type {
   FirmwareBlock,
   FirmwareRelease,
   FirmwareRollout,
+  ModuleType,
   RolloutProgress,
   RolloutStatus,
   RolloutTargetType,
 } from '@/shared/api/types';
+import { MODULE_TYPE_META } from '@/shared/constants/module-type';
 import {
   Badge,
   Button,
@@ -124,6 +126,25 @@ const STATE_LABELS: Record<string, { label: string; chip: string }> = {
   },
 };
 
+/**
+ * Reliz/tarqatish qaysi modul uchun — `.bin` ichidagi belgidan.
+ * ⚠️ Eski javobda maydon bo'lmasa qozonxona (avval faqat shu tur bor edi).
+ */
+function ModuleTypeBadge({ type }: { type: ModuleType | undefined }) {
+  const key = type ?? 'boiler';
+  return (
+    <Badge
+      className={
+        key === 'room'
+          ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-200 dark:bg-brand-500/12 dark:text-brand-300'
+          : 'bg-[var(--surface-sunken)] text-muted ring-1 ring-[var(--border-subtle)]'
+      }
+    >
+      {MODULE_TYPE_META[key].label}
+    </Badge>
+  );
+}
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -172,8 +193,12 @@ export function FirmwarePage() {
     queryFn: () => get<FirmwareBlock[]>(API.firmware.blocks),
   });
 
-  const activeRollout = useMemo(
-    () => rollouts.data?.find((item) => item.status === 'active') ?? null,
+  /*
+   * ⚠️ HAR MODUL TURI uchun bittadan faol tarqatish (qozonxona va xona
+   * modullari mustaqil yangilanadi) — shuning uchun ro'yxat.
+   */
+  const activeRollouts = useMemo(
+    () => rollouts.data?.filter((item) => item.status === 'active') ?? [],
     [rollouts.data],
   );
 
@@ -238,16 +263,20 @@ export function FirmwarePage() {
         urinib, «nega ishlamayapti» degan savolga tushardi (bir vaqtda
         faqat bitta faol tarqatish bo'lishi mumkin).
       */}
-      {activeRollout ? (
-        <Card className="border-brand-200 bg-brand-50/40 dark:border-brand-500/20 dark:bg-brand-500/5">
+      {activeRollouts.map((activeRollout) => (
+        <Card
+          key={activeRollout.id}
+          className="border-brand-200 bg-brand-50/40 dark:border-brand-500/20 dark:bg-brand-500/5"
+        >
           <CardBody className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <span className="grid size-9 shrink-0 place-items-center rounded-tile bg-brand-100 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
                 <Rocket className="size-4" strokeWidth={2} />
               </span>
               <div>
-                <p className="text-ui font-semibold text-strong">
+                <p className="flex flex-wrap items-center gap-2 text-ui font-semibold text-strong">
                   v{activeRollout.version} tarqatilmoqda
+                  <ModuleTypeBadge type={activeRollout.moduleType} />
                 </p>
                 <p className="text-meta text-muted">
                   {TARGET_LABELS[activeRollout.targetType]}
@@ -308,7 +337,7 @@ export function FirmwarePage() {
             </div>
           </CardBody>
         </Card>
-      ) : null}
+      ))}
 
       {/* ───────── Relizlar ───────── */}
       <Card className="overflow-hidden">
@@ -326,7 +355,7 @@ export function FirmwarePage() {
           <EmptyState
             icon={Cpu}
             title="Hali proshivka yuklanmagan"
-            description="«.bin» faylni yuklang — versiya fayl ichidagi XONOBOD_FW_VERSION belgisidan avtomatik o‘qiladi."
+            description="«.bin» faylni yuklang — versiya va modul turi fayl ichidagi XONOBOD_FW_VERSION (qozonxona) yoki XONA_FW_VERSION (xona) belgisidan avtomatik o‘qiladi."
           />
         ) : (
           <div className="overflow-x-auto">
@@ -355,6 +384,7 @@ export function FirmwarePage() {
                         >
                           v{release.version}
                         </span>
+                        <ModuleTypeBadge type={release.moduleType} />
                         {release.isArchived ? (
                           <Badge className="bg-[var(--surface-sunken)] text-muted">
                             Arxiv
@@ -394,10 +424,19 @@ export function FirmwarePage() {
                           <Button
                             size="sm"
                             variant="secondary"
-                            disabled={Boolean(activeRollout)}
+                            /*
+                             * ⚠️ Faqat SHU turdagi faol tarqatish to'sadi:
+                             * qozonxona tarqatishi xona relizini kuttirmaydi.
+                             */
+                            disabled={activeRollouts.some(
+                              (item) => item.moduleType === release.moduleType,
+                            )}
                             title={
-                              activeRollout
-                                ? 'Avval faol tarqatishni to‘xtatish kerak'
+                              activeRollouts.some(
+                                (item) =>
+                                  item.moduleType === release.moduleType,
+                              )
+                                ? `Avval ${MODULE_TYPE_META[release.moduleType].plural.toLowerCase()} uchun faol tarqatishni to‘xtatish kerak`
                                 : undefined
                             }
                             onClick={() => setRolloutFor(release)}
@@ -458,6 +497,7 @@ export function FirmwarePage() {
                         >
                           v{rollout.version}
                         </span>
+                        <ModuleTypeBadge type={rollout.moduleType} />
                         <Badge className={meta.chip} dot={meta.dot}>
                           {meta.label}
                         </Badge>
@@ -659,7 +699,7 @@ function UploadModal({
       open={open}
       onClose={onClose}
       title="Proshivka yuklash"
-      description="Versiya fayl ichidagi XONOBOD_FW_VERSION belgisidan o‘qiladi."
+      description="Versiya va modul turi fayl ichidagi belgidan o‘qiladi: XONOBOD_FW_VERSION — qozonxona moduli, XONA_FW_VERSION — xona moduli."
       size="md"
       footer={
         <>
@@ -812,7 +852,17 @@ function RolloutModal({
       open={release !== null}
       onClose={onClose}
       title={release ? `v${release.version} ni tarqatish` : 'Tarqatish'}
-      description="Qurilmalar 30 daqiqa ichida yangilanishni oladi."
+      /*
+       * ⚠️ Reliz faqat O'Z turidagi modullarga boradi — «Barcha qurilmalar»
+       * ham shu tur ichida. Buni oynada aniq aytish kerak, aks holda
+       * administrator «hammasi» deb tanlab, xona modullari ham yangilanadi
+       * deb o'ylardi.
+       */
+      description={
+        release
+          ? `Faqat ${MODULE_TYPE_META[release.moduleType ?? 'boiler'].plural.toLowerCase()}ga boradi. Qurilmalar 30 daqiqa ichida yangilanishni oladi.`
+          : 'Qurilmalar 30 daqiqa ichida yangilanishni oladi.'
+      }
       size="md"
       footer={
         <>
@@ -852,7 +902,7 @@ function RolloutModal({
         {needsIds ? (
           <Field
             label="Qurilma identifikatorlari (UUID)"
-            hint="Vergul bilan ajratiladi. UUID «ESP32 modullari» sahifasidan olinadi."
+            hint="Vergul bilan ajratiladi. UUID «ESP32 modullari» sahifasidan olinadi; qurilmalar relizning turiga mos bo‘lishi kerak."
           >
             {(id) => (
               <Textarea
