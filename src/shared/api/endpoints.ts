@@ -41,7 +41,13 @@ export const API = {
     list: '/devices',
     one: (id: string) => `/devices/${id}`,
     rotateKey: (id: string) => `/devices/${id}/rotate-key`,
+    /** Plata aytgan joylashuv taklifini tasdiqlash. */
+    confirmLocation: (id: string) => `/devices/${id}/location/confirm`,
+    /** Filtr uchun: proshivka versiyalari va soni. */
+    versions: '/devices/versions',
     pending: '/devices/pending',
+    /** «Yangi qurilmalar» → bir bosishda ro'yxatga olish. */
+    registerPending: (id: string) => `/devices/pending/${id}/register`,
     dismissPending: (id: string) => `/devices/pending/${id}/dismiss`,
     restorePending: (id: string) => `/devices/pending/${id}/restore`,
   },
@@ -56,8 +62,12 @@ export const API = {
   firmware: {
     releases: '/firmware/releases',
     release: (id: string) => `/firmware/releases/${id}`,
+    /** Yuklashdan OLDIN tekshirish — fayl saqlanmaydi. */
+    inspect: '/firmware/releases/inspect',
     rollouts: '/firmware/rollouts',
     rolloutStatus: (id: string) => `/firmware/rollouts/${id}/status`,
+    /** Bosqich: 1 → 10 → 50 → `null` (hammasi). */
+    rolloutLimit: (id: string) => `/firmware/rollouts/${id}/limit`,
     rolloutProgress: (id: string) => `/firmware/rollouts/${id}/progress`,
     blocks: '/firmware/blocks',
     block: (id: string) => `/firmware/blocks/${id}`,
@@ -65,6 +75,8 @@ export const API = {
   telemetry: {
     series: '/telemetry/series',
     recent: (boilerId: string) => `/telemetry/boilers/${boilerId}/recent`,
+    /** Qurilma grafigi: kotyol — kirish/chiqish, xona — xona harorati. */
+    deviceSeries: (deviceId: string) => `/telemetry/devices/${deviceId}/series`,
   },
   /**
    * XONALAR (havo harorati).
@@ -101,7 +113,9 @@ export type CatalogKind =
   | 'brands'
   | 'firms'
   | 'organizations'
-  | 'object-types';
+  | 'object-types'
+  /** MFYlar — tumanga (kalit bilan) tegishli. */
+  | 'mahallas';
 
 /**
  * QUERY KALITLARI — TanStack Query uchun.
@@ -122,21 +136,43 @@ export const qk = {
    */
   map: (districtId: string | null) => ['map', districtId] as const,
   points: (districtId: string | null) => ['points', districtId] as const,
-  summary: (districtId: string | null) => ['summary', districtId] as const,
+  /*
+   * ⚠️ Dashboard kalitlarida obyekt turlari ham bor: usiz «hamma turlar»
+   * va «faqat maktablar» natijalari bitta keshga tushardi. Sukut `[]` —
+   * yon panel (`qk.summary(null)`) dashboard bilan AYNI keshni o'qiydi.
+   */
+  summary: (districtId: string | null, objectTypeIds: readonly string[] = []) =>
+    ['summary', districtId, objectTypeIds] as const,
   gauges: (districtId: string | null) => ['gauges', districtId] as const,
-  districtRows: (districtId: string | null) =>
-    ['districtRows', districtId] as const,
-  trend: (districtId: string | null, range: string) =>
-    ['trend', districtId, range] as const,
-  attention: (districtId: string | null) => ['attention', districtId] as const,
-  brands: (districtId: string | null) => ['brands', districtId] as const,
+  districtRows: (
+    districtId: string | null,
+    objectTypeIds: readonly string[] = [],
+  ) => ['districtRows', districtId, objectTypeIds] as const,
+  trend: (
+    districtId: string | null,
+    range: string,
+    objectTypeIds: readonly string[] = [],
+  ) => ['trend', districtId, range, objectTypeIds] as const,
+  attention: (
+    districtId: string | null,
+    objectTypeIds: readonly string[] = [],
+  ) => ['attention', districtId, objectTypeIds] as const,
+  brands: (districtId: string | null, objectTypeIds: readonly string[] = []) =>
+    ['brands', districtId, objectTypeIds] as const,
   boilers: (params: unknown) => ['boilers', params] as const,
   boiler: (id: string) => ['boiler', id] as const,
   boilerSeries: (id: string, range: string) =>
     ['boilerSeries', id, range] as const,
   devices: (params: unknown) => ['devices', params] as const,
+  deviceVersions: ['devices', 'versions'] as const,
+  deviceSeries: (id: string, range: string) =>
+    ['deviceSeries', id, range] as const,
+  /** Prefiks — invalidatsiya uchun (rad etilganlar bilan ham, ularsiz ham). */
   pendingDevices: ['pendingDevices'] as const,
+  pendingDevicesList: (includeDismissed: boolean) =>
+    ['pendingDevices', includeDismissed] as const,
   releases: ['releases'] as const,
+  objectTypes: ['catalog', 'object-types', 'options'] as const,
   rollouts: ['rollouts'] as const,
   rolloutProgress: (id: string) => ['rolloutProgress', id] as const,
   firmwareBlocks: ['firmwareBlocks'] as const,

@@ -5,9 +5,10 @@ import {
   Library,
   Map as MapIcon,
   RefreshCw,
+  Table2,
   Thermometer,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { errorMessage, get } from '@/shared/api/client';
 import { API, qk } from '@/shared/api/endpoints';
@@ -34,6 +35,8 @@ import { DistrictMap } from '@/features/map/DistrictMap';
 import { AttentionList } from './components/AttentionList';
 import { BrandBars } from './components/BrandBars';
 import { DistrictBars } from './components/DistrictBars';
+import { DistrictTable } from './components/DistrictTable';
+import { ObjectTypeFilter } from './components/ObjectTypeFilter';
 import { KpiRow } from './components/KpiRow';
 import { TemperatureChart } from './components/TemperatureChart';
 import { RoomsSummaryCard } from './components/RoomsSummaryCard';
@@ -63,13 +66,26 @@ export function DashboardPage() {
   const districtId = useFiltersStore((state) => state.districtId);
   const setDistrict = useFiltersStore((state) => state.setDistrict);
   const [range, setRange] = useState<Range>('24h');
+  /*
+   * ⚠️ OBYEKT TURI FILTRI — faqat dashboard so'rovlariga (`/dashboard/*`)
+   * qo'shiladi. Xarita nuqtalari va xonalar kartasi uni QABUL QILMAYDI
+   * (server noma'lum parametrni rad etadi), shuning uchun ularga
+   * yuborilmaydi. Kalit uchun tartiblangan nusxa: tanlash tartibi
+   * boshqacha bo'lsa ham kesh bitta.
+   */
+  const [objectTypeIds, setObjectTypeIds] = useState<string[]>([]);
+  const typeKey = useMemo(() => [...objectTypeIds].sort(), [objectTypeIds]);
+  const params = useMemo(
+    () => ({
+      ...districtParams(districtId),
+      ...(typeKey.length > 0 ? { objectTypeIds: typeKey.join(',') } : {}),
+    }),
+    [districtId, typeKey],
+  );
 
   const summaryQuery = useQuery({
-    queryKey: qk.summary(districtId),
-    queryFn: () =>
-      get<DashboardSummary>(API.dashboard.summary, {
-        params: districtParams(districtId),
-      }),
+    queryKey: qk.summary(districtId, typeKey),
+    queryFn: () => get<DashboardSummary>(API.dashboard.summary, { params }),
   });
 
   const mapQuery = useQuery({
@@ -100,36 +116,31 @@ export function DashboardPage() {
       }),
   });
 
+  /*
+   * ⚠️ Tumanlar kesimi (chiziqlar va jadval) — BITTA so'rov: ikkalasi
+   * ham tuman va obyekt turi filtri bilan bir xil raqamni ko'rsatadi.
+   */
   const districtsQuery = useQuery({
-    queryKey: qk.districtRows(districtId),
-    queryFn: () =>
-      get<DistrictRow[]>(API.dashboard.districts, {
-        params: districtParams(districtId),
-      }),
+    queryKey: qk.districtRows(districtId, typeKey),
+    queryFn: () => get<DistrictRow[]>(API.dashboard.districts, { params }),
   });
 
   const trendQuery = useQuery({
-    queryKey: qk.trend(districtId, range),
+    queryKey: qk.trend(districtId, range, typeKey),
     queryFn: () =>
       get<TrendPoint[]>(API.dashboard.trend, {
-        params: { range, ...districtParams(districtId) },
+        params: { range, ...params },
       }),
   });
 
   const attentionQuery = useQuery({
-    queryKey: qk.attention(districtId),
-    queryFn: () =>
-      get<AttentionRow[]>(API.dashboard.attention, {
-        params: districtParams(districtId),
-      }),
+    queryKey: qk.attention(districtId, typeKey),
+    queryFn: () => get<AttentionRow[]>(API.dashboard.attention, { params }),
   });
 
   const brandsQuery = useQuery({
-    queryKey: qk.brands(districtId),
-    queryFn: () =>
-      get<BrandRow[]>(API.dashboard.brands, {
-        params: districtParams(districtId),
-      }),
+    queryKey: qk.brands(districtId, typeKey),
+    queryFn: () => get<BrandRow[]>(API.dashboard.brands, { params }),
   });
 
   const summary = summaryQuery.data;
@@ -146,25 +157,31 @@ export function DashboardPage() {
             {districtId
               ? 'Tanlangan tuman bo‘yicha'
               : 'Andijon viloyati — barcha tumanlar'}
+            {typeKey.length > 0 ? ` · ${typeKey.length} ta obyekt turi` : ''}
             {summary ? ` · yangilandi ${formatTimeUz(summary.updatedAt)}` : ''}
           </p>
         </div>
 
-        <Button
-          size="sm"
-          variant="secondary"
-          icon={<RefreshCw className="size-3.5" />}
-          onClick={() => {
-            void summaryQuery.refetch();
-            void districtsQuery.refetch();
-            void trendQuery.refetch();
-            void attentionQuery.refetch();
-            void mapQuery.refetch();
-          }}
-          loading={summaryQuery.isFetching}
-        >
-          Yangilash
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <ObjectTypeFilter value={objectTypeIds} onChange={setObjectTypeIds} />
+
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<RefreshCw className="size-3.5" />}
+            onClick={() => {
+              void summaryQuery.refetch();
+              void districtsQuery.refetch();
+              void trendQuery.refetch();
+              void attentionQuery.refetch();
+              void brandsQuery.refetch();
+              void mapQuery.refetch();
+            }}
+            loading={summaryQuery.isFetching}
+          >
+            Yangilash
+          </Button>
+        </div>
       </div>
 
       {/* ───── Ko'rsatkichlar ───── */}
@@ -344,6 +361,32 @@ export function DashboardPage() {
           </CardBody>
         </Card>
       </div>
+
+      {/* ───── Tumanlar jadvali ───── */}
+      <Card className="overflow-hidden">
+        <CardHeader
+          icon={<Table2 className="size-4" />}
+          eyebrow="Tumanlar kesimi"
+          title="Qurilmalar, me‘yor va ogohlantirishlar"
+          subtitle="Qatorni bosing — tuman tanlanadi"
+        />
+        {districtsQuery.isLoading ? (
+          <CardBody>
+            <Skeleton className="h-72" />
+          </CardBody>
+        ) : districtsQuery.isError ? (
+          <ErrorState
+            message={errorMessage(districtsQuery.error)}
+            onRetry={() => void districtsQuery.refetch()}
+          />
+        ) : (
+          <DistrictTable
+            rows={districtsQuery.data ?? []}
+            selectedId={districtId}
+            onSelect={setDistrict}
+          />
+        )}
+      </Card>
 
       {/* ───── Markalar ───── */}
       <Card>

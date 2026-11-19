@@ -24,7 +24,6 @@ import {
 import { errorMessage, get } from '@/shared/api/client';
 import { API, qk } from '@/shared/api/endpoints';
 import type { Boiler, SeriesPoint } from '@/shared/api/types';
-import { moduleTypeOf } from '@/shared/constants/module-type';
 import { BOILER_STATUS, FUEL_LABELS } from '@/shared/constants/status';
 import {
   Card,
@@ -120,11 +119,9 @@ export function BoilerDetailPage() {
    * «Xonalar» bo'limida ko'rinadi); `devices[0]` olinsa, kotyol kartasida
    * xona moduli «ESP32 moduli» bo'lib turib qolardi.
    */
-  const device = boiler.devices?.find(
-    (item) => moduleTypeOf(item) === 'boiler',
-  );
+  const device = boiler.devices?.find((item) => item.deviceType === 'kotyol');
   const roomModules =
-    boiler.devices?.filter((item) => moduleTypeOf(item) === 'room').length ?? 0;
+    boiler.devices?.filter((item) => item.deviceType === 'xona').length ?? 0;
 
   const chartData = (seriesQuery.data ?? []).map((point) => ({
     ...point,

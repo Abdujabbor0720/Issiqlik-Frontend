@@ -1,10 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  CircleHelp,
-  Copy,
+  CheckCircle2,
   Cpu,
   KeyRound,
-  Lock,
+  LineChart,
   Pencil,
   Plus,
   Search,
@@ -13,26 +12,23 @@ import {
   Wifi,
   WifiOff,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import {
-  del,
-  errorMessage,
-  get,
-  getPaged,
-  patch,
-  post,
-} from '@/shared/api/client';
+import { del, errorMessage, get, getPaged, post } from '@/shared/api/client';
 import { API, qk } from '@/shared/api/endpoints';
 import type {
-  Boiler,
-  Device,
+  DeviceRow,
+  DeviceType,
+  DeviceVersionCount,
   DeviceWithKey,
-  ModuleType,
   Paged,
-  PendingDevice,
 } from '@/shared/api/types';
-import { MODULE_TYPE_META, moduleTypeOf } from '@/shared/constants/module-type';
+import {
+  DEVICE_TYPE_META,
+  TOKEN_KIND_LABEL,
+} from '@/shared/constants/device-type';
+import { otaStatusMeta } from '@/shared/constants/ota';
+import { useDistricts } from '@/shared/hooks/useCatalogOptions';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import {
   Badge,
@@ -42,38 +38,42 @@ import {
   ConfirmModal,
   EmptyState,
   ErrorState,
-  Field,
   Input,
-  Modal,
   Pagination,
   Select,
   Skeleton,
   Table,
   Td,
-  Textarea,
   Th,
   Tr,
 } from '@/shared/ui';
+import { boilerName } from '@/shared/utils/boiler';
 import { cn } from '@/shared/utils/cn';
-import { formatRelativeUz } from '@/shared/utils/date';
+import { formatDateTimeUz, formatRelativeUz } from '@/shared/utils/date';
 import {
   formatNumber,
   formatPercent,
   formatTemperature,
-  orDash,
 } from '@/shared/utils/format';
 import { useAuthStore } from '@/store/auth.store';
-import { boilerName, lotLabel } from '@/shared/utils/boiler';
+import { ApiKeyModal, type IssuedKey } from './components/ApiKeyModal';
+import { DeviceChartModal } from './components/DeviceChartModal';
+import { DeviceFormModal } from './components/DeviceFormModal';
+import { PendingDevicesCard } from './components/PendingDevicesCard';
+
+type StatusFilter = 'all' | 'online' | 'offline';
 
 /**
  * ESP32 MODULLARI.
  *
  * ⚠️⚠️ API kalit FAQAT yaratilgan yoki almashtirilgan paytda, BIR
- * MARTA ko'rsatiladi — bazada uning hash'i saqlanadi. Shuning uchun
- * kalit alohida oynada, nusxalash tugmasi bilan chiqadi va oyna
- * yopilgandan keyin uni tizimdan qayta olib bo'lmaydi. Ro'yxatda
- * faqat oxirgi 6 belgi ko'rinadi — qaysi kalit ekanini ajratish
- * uchun yetarli, ishlatish uchun emas.
+ * MARTA ko'rsatiladi — bazada uning hash'i saqlanadi. Ro'yxatda faqat
+ * token TURI (shaxsiy / umumiy) ko'rinadi — qaysi usulda ishlayotganini
+ * ajratish uchun yetarli, ishlatish uchun emas.
+ *
+ * ⚠️ Joylashuv ustunlari (tuman, obyekt turi, muassasa) — AMALDAGI
+ * qiymat (`location`). Panelda bo'sh bo'lib, plata aytgan qiymat bo'lsa,
+ * u «taklif» sifatida ko'rinadi va «Tasdiqlash» bilan qabul qilinadi.
  */
 export function DevicesPage() {
   const queryClient = useQueryClient();
@@ -81,13 +81,18 @@ export function DevicesPage() {
 
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'unassigned' | 'offline'>('all');
-  const [typeFilter, setTypeFilter] = useState<'all' | ModuleType>('all');
+  const [districtId, setDistrictId] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | DeviceType>('all');
+  const [status, setStatus] = useState<StatusFilter>('all');
+  const [version, setVersion] = useState('');
+  const [onlySuggestions, setOnlySuggestions] = useState(false);
+  const [onlyUnassigned, setOnlyUnassigned] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<Device | null>(null);
-  const [removing, setRemoving] = useState<Device | null>(null);
-  const [rotating, setRotating] = useState<Device | null>(null);
-  const [issuedKey, setIssuedKey] = useState<DeviceWithKey | null>(null);
+  const [editing, setEditing] = useState<DeviceRow | null>(null);
+  const [removing, setRemoving] = useState<DeviceRow | null>(null);
+  const [rotating, setRotating] = useState<DeviceRow | null>(null);
+  const [charting, setCharting] = useState<DeviceRow | null>(null);
+  const [issuedKey, setIssuedKey] = useState<IssuedKey | null>(null);
 
   const debouncedSearch = useDebounce(search);
 
@@ -96,19 +101,43 @@ export function DevicesPage() {
       page,
       limit: 25,
       ...(debouncedSearch ? { search: debouncedSearch } : {}),
-      ...(filter === 'unassigned' ? { unassigned: true } : {}),
-      ...(filter === 'offline' ? { offline: true } : {}),
-      ...(typeFilter !== 'all' ? { moduleType: typeFilter } : {}),
+      ...(districtId ? { districtId } : {}),
+      ...(typeFilter !== 'all' ? { deviceType: typeFilter } : {}),
+      ...(status !== 'all' ? { status } : {}),
+      ...(version ? { version } : {}),
+      ...(onlySuggestions ? { hasSuggestion: true } : {}),
+      ...(onlyUnassigned ? { unassigned: true } : {}),
     }),
-    [page, debouncedSearch, filter, typeFilter],
+    [
+      page,
+      debouncedSearch,
+      districtId,
+      typeFilter,
+      status,
+      version,
+      onlySuggestions,
+      onlyUnassigned,
+    ],
   );
 
   const query = useQuery({
     queryKey: qk.devices(params),
-    queryFn: (): Promise<Paged<Device>> =>
-      getPaged<Device>(API.devices.list, { params }),
+    queryFn: (): Promise<Paged<DeviceRow>> =>
+      getPaged<DeviceRow>(API.devices.list, { params }),
     placeholderData: (previous) => previous,
+    /* ⚠️ «Onlayn» 5 daqiqalik chegara — ro'yxat ham yangilanib turadi. */
+    refetchInterval: 60_000,
   });
+
+  const districts = useDistricts();
+  const versions = useQuery({
+    queryKey: qk.deviceVersions,
+    queryFn: () => get<DeviceVersionCount[]>(API.devices.versions),
+    staleTime: 60_000,
+  });
+  const hasNoneVersion = (versions.data ?? []).some(
+    (item) => item.version === null,
+  );
 
   const removeMutation = useMutation({
     mutationFn: (id: string) => del(API.devices.one(id)),
@@ -125,12 +154,29 @@ export function DevicesPage() {
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: ['devices'] });
       setRotating(null);
-      setIssuedKey(result);
+      if (result.apiKey) {
+        setIssuedKey({
+          deviceId: result.device.deviceId,
+          apiKey: result.apiKey,
+        });
+      }
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
 
+  const confirmMutation = useMutation({
+    mutationFn: (id: string) =>
+      post<DeviceRow>(API.devices.confirmLocation(id), {}),
+    onSuccess: (row) => {
+      toast.success(`«${row.deviceId}» joylashuvi tasdiqlandi`);
+      void queryClient.invalidateQueries({ queryKey: ['devices'] });
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+
+  const resetPage = (): void => setPage(1);
   const items = query.data?.items ?? [];
+  const canUpdate = can('devices.update');
 
   return (
     <div className="flex flex-col gap-3">
@@ -161,48 +207,114 @@ export function DevicesPage() {
         ) : null}
       </div>
 
-      <PendingDevicesCard />
+      <PendingDevicesCard onIssued={setIssuedKey} />
 
       <Card>
-        <CardBody className="flex flex-wrap items-center gap-2 py-3">
-          <div className="min-w-[220px] flex-1">
-            <Input
-              value={search}
+        <CardBody className="flex flex-col gap-2 py-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="min-w-[220px] flex-1">
+              <Input
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  resetPage();
+                }}
+                placeholder="Identifikator, nom, lot, muassasa yoki MFY…"
+                leading={<Search className="size-4" />}
+              />
+            </div>
+
+            {/* ⚠️ Tuman mas'uliga server faqat o'z tumanini qaytaradi —
+                bitta variantli filtr ma'nosiz, shuning uchun yashiriladi. */}
+            {(districts.data?.length ?? 0) > 1 ? (
+              <Select
+                aria-label="Tuman bo‘yicha"
+                value={districtId}
+                onChange={(event) => {
+                  setDistrictId(event.target.value);
+                  resetPage();
+                }}
+                className="w-auto min-w-[170px]"
+              >
+                <option value="">Barcha tumanlar</option>
+                {(districts.data ?? []).map((district) => (
+                  <option key={district.id} value={district.id}>
+                    {district.name}
+                  </option>
+                ))}
+              </Select>
+            ) : null}
+
+            <Select
+              aria-label="Proshivka versiyasi bo‘yicha"
+              value={version}
               onChange={(event) => {
-                setSearch(event.target.value);
-                setPage(1);
+                setVersion(event.target.value);
+                resetPage();
               }}
-              placeholder="Identifikator, nom, lot, muassasa yoki MFY…"
-              leading={<Search className="size-4" />}
-            />
+              className="w-auto min-w-[150px]"
+            >
+              <option value="">Barcha versiyalar</option>
+              {(versions.data ?? []).map((item) => (
+                <option
+                  key={item.version ?? 'none'}
+                  value={item.version ?? 'none'}
+                >
+                  {item.version ? `v${item.version}` : 'Versiyasiz'} (
+                  {formatNumber(item.count)})
+                </option>
+              ))}
+              {/* ⚠️ «Versiyasiz» ro'yxatda bo'lmasa ham tanlanadi. */}
+              {hasNoneVersion ? null : <option value="none">Versiyasiz</option>}
+            </Select>
           </div>
 
-          <SegmentedFilter
-            label="Holat bo‘yicha"
-            value={filter}
-            options={[
-              { key: 'all', label: 'Hammasi' },
-              { key: 'unassigned', label: 'Biriktirilmagan' },
-              { key: 'offline', label: 'Aloqasi yo‘q' },
-            ]}
-            onChange={(key) => {
-              setFilter(key);
-              setPage(1);
-            }}
-          />
-          <SegmentedFilter
-            label="Modul turi bo‘yicha"
-            value={typeFilter}
-            options={[
-              { key: 'all', label: 'Barcha turlar' },
-              { key: 'boiler', label: MODULE_TYPE_META.boiler.short },
-              { key: 'room', label: MODULE_TYPE_META.room.short },
-            ]}
-            onChange={(key) => {
-              setTypeFilter(key);
-              setPage(1);
-            }}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <SegmentedFilter
+              label="Tur bo‘yicha"
+              value={typeFilter}
+              options={[
+                { key: 'all', label: 'Barcha turlar' },
+                { key: 'kotyol', label: DEVICE_TYPE_META.kotyol.short },
+                { key: 'xona', label: DEVICE_TYPE_META.xona.short },
+              ]}
+              onChange={(key) => {
+                setTypeFilter(key);
+                resetPage();
+              }}
+            />
+            <SegmentedFilter
+              label="Holat bo‘yicha"
+              value={status}
+              options={[
+                { key: 'all', label: 'Hammasi' },
+                { key: 'online', label: 'Onlayn' },
+                { key: 'offline', label: 'Oflayn' },
+              ]}
+              onChange={(key) => {
+                setStatus(key);
+                resetPage();
+              }}
+            />
+            <ToggleChip
+              active={onlyUnassigned}
+              onClick={() => {
+                setOnlyUnassigned((value) => !value);
+                resetPage();
+              }}
+            >
+              Kotyolga biriktirilmagan
+            </ToggleChip>
+            <ToggleChip
+              active={onlySuggestions}
+              onClick={() => {
+                setOnlySuggestions((value) => !value);
+                resetPage();
+              }}
+            >
+              Tasdiqlanmagan taklif
+            </ToggleChip>
+          </div>
         </CardBody>
       </Card>
 
@@ -228,240 +340,45 @@ export function DevicesPage() {
               <thead>
                 <tr>
                   <Th>Qurilma</Th>
-                  <Th>Biriktirilgan kotyol</Th>
+                  <Th>Turi</Th>
                   <Th>Tuman</Th>
-                  {/*
-                    ⚠️ XONA HARORATI — QURILMA darajasida: kotyolga ulanmagan
-                    modul ham nimani o'lchayotgani ko'rinadi (montajchi uni
-                    qaysi binoga ulashni shu bo'yicha tekshiradi).
-                  */}
-                  <Th>Xona</Th>
-                  <Th>Kalit</Th>
-                  {/*
-                    ⚠️ PROSHIVKA VERSIYASI va OTA TEKSHIRUVI — ikkisi
-                    ALOHIDA ustun. «Oxirgi aloqa» telemetriya kelgan
-                    vaqt; datchigi uzilgan plata esa telemetriya
-                    yubormaydi, lekin OTA tekshiruvini davom ettiradi.
-                    Bitta ustun bo'lsa, bunday qurilma «o'lgan» bo'lib
-                    ko'rinardi — holbuki u tirik va yangilanishga tayyor.
-                  */}
+                  <Th>Obyekt turi</Th>
+                  <Th>Muassasa</Th>
                   <Th>Proshivka</Th>
-                  <Th align="right">Signallar</Th>
-                  <Th align="right">Oxirgi aloqa</Th>
-                  <Th align="right">OTA tekshiruvi</Th>
-                  <Th>Holati</Th>
+                  {/*
+                    ⚠️ «Oxirgi telemetriya» va «Oxirgi OTA» — ALOHIDA
+                    ustun: datchigi uzilgan plata telemetriya yubormaydi,
+                    lekin OTA tekshiruvini davom ettiradi. Bitta ustun
+                    bo'lsa, bunday qurilma «o'lgan» bo'lib ko'rinardi.
+                  */}
+                  <Th>Oxirgi telemetriya</Th>
+                  <Th>Oxirgi OTA</Th>
+                  <Th>Token</Th>
                   <Th />
                 </tr>
               </thead>
               <tbody>
-                {items.map((device) => {
-                  const online = isOnline(device.lastSeenAt);
-                  const isRoom = moduleTypeOf(device) === 'room';
-                  const location = reportedLocation(device);
-                  return (
-                    <Tr key={device.id}>
-                      <Td>
-                        <div className="flex items-center gap-2.5">
-                          <span
-                            className={cn(
-                              'grid size-7 shrink-0 place-items-center rounded-tile',
-                              online
-                                ? 'bg-ok-50 text-ok-600 dark:bg-ok-500/12 dark:text-ok-300'
-                                : 'bg-idle-100 text-idle-500 dark:bg-white/6',
-                            )}
-                          >
-                            {online ? (
-                              <Wifi className="size-3.5" />
-                            ) : (
-                              <WifiOff className="size-3.5" />
-                            )}
-                          </span>
-                          <div className="min-w-0">
-                            {/*
-                              ⚠️ Identifikator BITTA qatorda: u montajchi
-                              platadan o'qib solishtiradigan qiymat, ikkiga
-                              bo'linsa adashtirish oson.
-                            */}
-                            <p className="font-medium whitespace-nowrap text-strong">
-                              {device.deviceId}
-                            </p>
-                            {isRoom ? (
-                              <p className="flex max-w-[18rem] items-center gap-1 text-micro text-muted">
-                                <span className="inline-flex shrink-0 items-center gap-1 font-medium text-brand-700 dark:text-brand-300">
-                                  <Thermometer className="size-3" aria-hidden />
-                                  {MODULE_TYPE_META.room.label}
-                                </span>
-                                {device.name ? (
-                                  <span className="truncate">
-                                    · {device.name}
-                                  </span>
-                                ) : null}
-                              </p>
-                            ) : device.name || !location ? (
-                              <p className="truncate text-micro text-muted">
-                                {orDash(device.name)}
-                              </p>
-                            ) : null}
-                            {/*
-                              ⚠️ PLATA AYTGAN joylashuv — faqat ma'lumot,
-                              hech narsani yo'naltirmaydi. Tuman mas'uli
-                              yuzlab modul orasidan o'zinikini shu bo'yicha
-                              topadi.
-                            */}
-                            {location ? (
-                              <p
-                                className="max-w-[18rem] truncate text-micro text-faint"
-                                title={`Platada tanlangan: ${location}`}
-                              >
-                                {location}
-                              </p>
-                            ) : null}
-                          </div>
-                        </div>
-                      </Td>
-                      <Td className="whitespace-nowrap">
-                        {device.boiler ? (
-                          boilerName(
-                            device.boiler.organization?.name,
-                            device.boiler.lotNumber,
-                          )
-                        ) : (
-                          <span className="text-faint">biriktirilmagan</span>
-                        )}
-                      </Td>
-                      {/*
-                        ⚠️ Tuman: avval PLATA yuborgani (o'zgarmas), bo'lmasa
-                        kotyolniki (eski proshivka). Server taniy olmagan
-                        kod ham ko'rinadi — montajchi xatosini topish uchun.
-                      */}
-                      <Td className="whitespace-nowrap text-muted">
-                        {device.district ? (
-                          <span
-                            className="inline-flex items-center gap-1"
-                            title="Platada tanlangan — kabinetda o‘zgartirilmaydi"
-                          >
-                            <Lock className="size-3 text-faint" aria-hidden />
-                            {device.district.shortName}
-                          </span>
-                        ) : device.reportedDistrict ? (
-                          <span
-                            className="text-warn-700 dark:text-warn-300"
-                            title="Plata yuborgan tuman kodi tizimda yo‘q — plata menyusini tekshiring"
-                          >
-                            noma‘lum: {device.reportedDistrict}
-                          </span>
-                        ) : (
-                          orDash(device.boiler?.district?.shortName)
-                        )}
-                      </Td>
-                      <Td className="whitespace-nowrap">
-                        <RoomReading device={device} />
-                      </Td>
-                      <Td className="whitespace-nowrap">
-                        <code className="rounded bg-[var(--surface-sunken)] px-1.5 py-0.5 font-mono text-micro text-muted">
-                          …{device.apiKeyPreview}
-                        </code>
-                      </Td>
-                      <Td className="whitespace-nowrap">
-                        {device.firmwareVersion ? (
-                          <span className="text-muted" data-numeric>
-                            v{device.firmwareVersion}
-                          </span>
-                        ) : (
-                          <span className="text-faint">—</span>
-                        )}
-                        {/*
-                          ⚠️ UMUMIY TOKEN ALOHIDA BELGILANADI. Sukut
-                          bo'yicha hamma qurilma shaxsiy tokenda
-                          ishlaydi; umumiy tokenga ruxsat berilgani —
-                          ONGLI, vaqtincha qaror va u ro'yxatda
-                          KO'RINIB turishi kerak, aks holda «hammasi
-                          shaxsiy tokenga o'tdi» deb o'ylab, o'nlab
-                          qurilma eng zaif usulda qolib ketardi.
-                        */}
-                        {device.allowSharedToken ? (
-                          <Badge className="ml-1.5 bg-warn-50 text-warn-700 ring-1 ring-warn-200 dark:bg-warn-400/14 dark:text-warn-300">
-                            umumiy token
-                          </Badge>
-                        ) : null}
-                      </Td>
-                      <Td align="right" className="text-muted">
-                        {formatNumber(Number(device.readingsCount))}
-                      </Td>
-                      <Td
-                        align="right"
-                        className="whitespace-nowrap text-muted"
-                      >
-                        {device.lastSeenAt
-                          ? formatRelativeUz(device.lastSeenAt)
-                          : 'hech qachon'}
-                      </Td>
-                      <Td
-                        align="right"
-                        className="whitespace-nowrap text-muted"
-                      >
-                        {device.lastCheckAt
-                          ? formatRelativeUz(device.lastCheckAt)
-                          : '—'}
-                      </Td>
-                      <Td>
-                        {!device.isActive ? (
-                          <Badge className="bg-[var(--surface-sunken)] text-faint">
-                            O‘chirilgan
-                          </Badge>
-                        ) : online ? (
-                          <Badge
-                            className="bg-ok-50 text-ok-700 ring-1 ring-ok-200 dark:bg-ok-500/12 dark:text-ok-300"
-                            dot="bg-ok-500"
-                          >
-                            Onlayn
-                          </Badge>
-                        ) : (
-                          <Badge
-                            className="bg-idle-100 text-idle-700 ring-1 ring-idle-200 dark:bg-white/6 dark:text-idle-300"
-                            dot="bg-idle-400"
-                          >
-                            Aloqa yo‘q
-                          </Badge>
-                        )}
-                      </Td>
-                      <Td align="right">
-                        <span className="flex items-center justify-end gap-1">
-                          {can('devices.update') ? (
-                            <IconButton
-                              label="Tahrirlash"
-                              onClick={() => {
-                                setEditing(device);
-                                setFormOpen(true);
-                              }}
-                            >
-                              <Pencil className="size-3.5" />
-                            </IconButton>
-                          ) : null}
-
-                          {can('devices.rotate_key') ? (
-                            <IconButton
-                              label="Kalitni almashtirish"
-                              onClick={() => setRotating(device)}
-                            >
-                              <KeyRound className="size-3.5" />
-                            </IconButton>
-                          ) : null}
-
-                          {can('devices.delete') ? (
-                            <IconButton
-                              label="O‘chirish"
-                              danger
-                              onClick={() => setRemoving(device)}
-                            >
-                              <Trash2 className="size-3.5" />
-                            </IconButton>
-                          ) : null}
-                        </span>
-                      </Td>
-                    </Tr>
-                  );
-                })}
+                {items.map((device) => (
+                  <DeviceTableRow
+                    key={device.id}
+                    device={device}
+                    canUpdate={canUpdate}
+                    canRotate={can('devices.rotate_key')}
+                    canDelete={can('devices.delete')}
+                    confirming={
+                      confirmMutation.isPending &&
+                      confirmMutation.variables === device.id
+                    }
+                    onConfirm={() => confirmMutation.mutate(device.id)}
+                    onChart={() => setCharting(device)}
+                    onEdit={() => {
+                      setEditing(device);
+                      setFormOpen(true);
+                    }}
+                    onRotate={() => setRotating(device)}
+                    onRemove={() => setRemoving(device)}
+                  />
+                ))}
               </tbody>
             </Table>
 
@@ -478,6 +395,8 @@ export function DevicesPage() {
         device={editing}
         onIssued={setIssuedKey}
       />
+
+      <DeviceChartModal device={charting} onClose={() => setCharting(null)} />
 
       <ApiKeyModal value={issuedKey} onClose={() => setIssuedKey(null)} />
 
@@ -523,6 +442,292 @@ export function DevicesPage() {
   );
 }
 
+// ───────────────── Jadval qatori ─────────────────
+
+function DeviceTableRow({
+  device,
+  canUpdate,
+  canRotate,
+  canDelete,
+  confirming,
+  onConfirm,
+  onChart,
+  onEdit,
+  onRotate,
+  onRemove,
+}: {
+  device: DeviceRow;
+  canUpdate: boolean;
+  canRotate: boolean;
+  canDelete: boolean;
+  confirming: boolean;
+  onConfirm: () => void;
+  onChart: () => void;
+  onEdit: () => void;
+  onRotate: () => void;
+  onRemove: () => void;
+}) {
+  const { location, suggestion } = device;
+  const typeMeta = DEVICE_TYPE_META[device.deviceType];
+  /*
+   * ⚠️ Kotyolga ulangan qurilmada joylashuv kotyoldan olinadi — server
+   * tasdiqlashni rad etadi, shuning uchun tugma ko'rsatilmaydi.
+   */
+  const canConfirm = canUpdate && suggestion !== null && !device.boilerId;
+  const ota = device.lastOta ? otaStatusMeta(device.lastOta.status) : null;
+
+  return (
+    <Tr className={cn(!device.isActive && 'opacity-60')}>
+      <Td>
+        <div className="flex items-center gap-2.5">
+          <span
+            className={cn(
+              'grid size-7 shrink-0 place-items-center rounded-tile',
+              device.online
+                ? 'bg-ok-50 text-ok-600 dark:bg-ok-500/12 dark:text-ok-300'
+                : 'bg-idle-100 text-idle-500 dark:bg-white/6',
+            )}
+            title={device.online ? 'Onlayn' : 'Oflayn'}
+          >
+            {device.online ? (
+              <Wifi className="size-3.5" />
+            ) : (
+              <WifiOff className="size-3.5" />
+            )}
+          </span>
+          <div className="min-w-0">
+            {/*
+              ⚠️ Identifikator BITTA qatorda: u montajchi platadan o'qib
+              solishtiradigan qiymat, ikkiga bo'linsa adashtirish oson.
+            */}
+            <p className="font-mono font-medium whitespace-nowrap text-strong">
+              {device.deviceId}
+            </p>
+            {device.name ? (
+              <p className="max-w-[16rem] truncate text-micro text-muted">
+                {device.name}
+              </p>
+            ) : null}
+            {device.deviceType === 'xona' ? (
+              <RoomReading device={device} />
+            ) : null}
+            {!device.isActive ? (
+              <Badge className="mt-0.5 bg-[var(--surface-sunken)] text-faint">
+                O‘chirilgan
+              </Badge>
+            ) : null}
+          </div>
+        </div>
+      </Td>
+
+      <Td>
+        <Badge className={typeMeta.chip}>{typeMeta.short}</Badge>
+      </Td>
+
+      <Td className="whitespace-nowrap">
+        <LocationValue
+          value={location.district?.shortName}
+          suggested={suggestion?.district?.name}
+        />
+      </Td>
+
+      <Td className="whitespace-nowrap">
+        <LocationValue
+          value={location.objectType?.name}
+          suggested={suggestion?.objectType?.name}
+        />
+      </Td>
+
+      <Td>
+        <div className="flex max-w-[16rem] flex-col gap-1">
+          <LocationValue
+            value={location.institution?.name}
+            suggested={suggestion?.institution}
+          />
+          {device.boiler ? (
+            <span className="truncate text-micro text-faint">
+              Kotyol:{' '}
+              {boilerName(
+                device.boiler.organization?.name,
+                device.boiler.lotNumber,
+              )}
+            </span>
+          ) : null}
+          {canConfirm ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="w-fit"
+              icon={<CheckCircle2 className="size-3.5" />}
+              loading={confirming}
+              onClick={onConfirm}
+              title="Plata aytgan qiymatlar paneldagi BO‘SH maydonlarga yoziladi"
+            >
+              Tasdiqlash
+            </Button>
+          ) : null}
+        </div>
+      </Td>
+
+      <Td className="whitespace-nowrap">
+        {device.firmwareVersion ? (
+          <span className="text-muted" data-numeric>
+            v{device.firmwareVersion}
+          </span>
+        ) : (
+          <span className="text-faint">—</span>
+        )}
+      </Td>
+
+      <Td className="whitespace-nowrap">
+        <span
+          className="block text-muted"
+          title={
+            device.lastSeenAt ? formatDateTimeUz(device.lastSeenAt) : undefined
+          }
+        >
+          {device.lastSeenAt
+            ? formatRelativeUz(device.lastSeenAt)
+            : 'hech qachon'}
+        </span>
+        {device.online ? (
+          <span className="text-micro font-medium text-ok-700 dark:text-ok-300">
+            onlayn
+          </span>
+        ) : (
+          <span className="text-micro font-semibold text-danger-600 dark:text-danger-300">
+            oflayn
+          </span>
+        )}
+      </Td>
+
+      <Td className="whitespace-nowrap">
+        {device.lastOta && ota ? (
+          <span
+            className="flex flex-col items-start gap-0.5"
+            title={[formatDateTimeUz(device.lastOta.at), device.lastOta.message]
+              .filter(Boolean)
+              .join(' · ')}
+          >
+            <span
+              className={cn(
+                'rounded-full px-2 py-0.5 text-micro font-medium',
+                ota.chip,
+              )}
+            >
+              {ota.label}
+            </span>
+            {device.lastOta.targetVersion ? (
+              <span className="text-micro text-muted" data-numeric>
+                → v{device.lastOta.targetVersion}
+              </span>
+            ) : null}
+          </span>
+        ) : (
+          <span className="text-faint">—</span>
+        )}
+      </Td>
+
+      <Td className="whitespace-nowrap">
+        {device.tokenKind ? (
+          <Badge
+            className={
+              device.tokenKind === 'shared'
+                ? 'bg-warn-50 text-warn-700 ring-1 ring-warn-200 dark:bg-warn-400/14 dark:text-warn-300'
+                : 'bg-[var(--surface-sunken)] text-muted'
+            }
+          >
+            {TOKEN_KIND_LABEL[device.tokenKind]}
+          </Badge>
+        ) : (
+          <span className="text-faint">—</span>
+        )}
+      </Td>
+
+      <Td align="right">
+        <span className="flex items-center justify-end gap-1">
+          <IconButton label="Grafik" onClick={onChart}>
+            <LineChart className="size-3.5" />
+          </IconButton>
+          {canUpdate ? (
+            <IconButton label="Tahrirlash" onClick={onEdit}>
+              <Pencil className="size-3.5" />
+            </IconButton>
+          ) : null}
+          {canRotate ? (
+            <IconButton label="Kalitni almashtirish" onClick={onRotate}>
+              <KeyRound className="size-3.5" />
+            </IconButton>
+          ) : null}
+          {canDelete ? (
+            <IconButton label="O‘chirish" danger onClick={onRemove}>
+              <Trash2 className="size-3.5" />
+            </IconButton>
+          ) : null}
+        </span>
+      </Td>
+    </Tr>
+  );
+}
+
+/**
+ * Joylashuv qiymati: panelda bor bo'lsa — o'zi; bo'lmasa plata aytgani
+ * «taklif» belgisi bilan (hali tasdiqlanmagan).
+ */
+function LocationValue({
+  value,
+  suggested,
+}: {
+  value: string | null | undefined;
+  suggested: string | null | undefined;
+}) {
+  if (value) return <span className="text-ink">{value}</span>;
+  if (suggested) {
+    return (
+      <span
+        className="inline-flex flex-wrap items-center gap-1 text-warn-700 dark:text-warn-300"
+        title="Plata aytgan — hali tasdiqlanmagan"
+      >
+        <span className="italic">{suggested}</span>
+        <Badge className="bg-warn-50 text-warn-700 ring-1 ring-warn-200 dark:bg-warn-400/14 dark:text-warn-300">
+          taklif
+        </Badge>
+      </span>
+    );
+  }
+  return <span className="text-faint">—</span>;
+}
+
+/** Oxirgi xona harorati va namligi; eskirgan o'lchov xira ko'rinadi. */
+function RoomReading({ device }: { device: DeviceRow }) {
+  const temperature = device.lastRoomTemperature;
+  if (temperature === null) return null;
+  const fresh =
+    device.lastRoomReadingAt !== null &&
+    Date.now() - new Date(device.lastRoomReadingAt).getTime() < 15 * 60 * 1000;
+  return (
+    <p
+      className={cn(
+        'flex items-center gap-1 text-micro tabular-nums',
+        fresh ? 'text-strong' : 'text-faint',
+      )}
+      title={
+        device.lastRoomReadingAt
+          ? `O‘lchandi: ${formatDateTimeUz(device.lastRoomReadingAt)}`
+          : undefined
+      }
+    >
+      <Thermometer className="size-3" aria-hidden />
+      <span className="font-medium">{formatTemperature(temperature)}</span>
+      {device.lastHumidity !== null ? (
+        <span className="text-muted">
+          · {formatPercent(device.lastHumidity)}
+        </span>
+      ) : null}
+    </p>
+  );
+}
+
 function IconButton({
   label,
   onClick,
@@ -552,49 +757,29 @@ function IconButton({
   );
 }
 
-/**
- * PLATA AYTGAN JOYLASHUV — «Maktab · 12-maktab · Baraka MFY».
- * ⚠️ Obyekt turi katalogda bo'lsa uning NOMI, bo'lmasa xom kod (montajchi
- * xatosini topish uchun).
- */
-function reportedLocation(device: Device): string | null {
-  const objectType =
-    device.reportedObjectTypeRef?.name ?? device.reportedObjectType ?? null;
-  const mfy = device.reportedMfy
-    ? /\bmfy\b/i.test(device.reportedMfy)
-      ? device.reportedMfy
-      : `${device.reportedMfy} MFY`
-    : null;
-  const parts = [objectType, device.reportedInstitution ?? null, mfy].filter(
-    (part): part is string => Boolean(part),
-  );
-  return parts.length > 0 ? parts.join(' · ') : null;
-}
-
-/** Oxirgi xona harorati va namligi; eskirgan o'lchov xira ko'rinadi. */
-function RoomReading({ device }: { device: Device }) {
-  const temperature = device.lastRoomTemperature;
-  if (temperature === null || temperature === undefined) {
-    return <span className="text-faint">—</span>;
-  }
-  const fresh = isOnline(device.lastRoomReadingAt ?? null);
+function ToggleChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
-    <span
-      className={cn('tabular-nums', fresh ? 'text-strong' : 'text-faint')}
-      title={
-        device.lastRoomReadingAt
-          ? `O‘lchandi: ${formatRelativeUz(device.lastRoomReadingAt)}`
-          : undefined
-      }
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        'inline-flex h-8 items-center rounded-full px-3 text-micro font-medium transition-colors',
+        active
+          ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-200 dark:bg-brand-500/12 dark:text-brand-300'
+          : 'text-muted ring-1 ring-[var(--border-strong)] hover:text-strong',
+      )}
     >
-      <span className="font-medium">{formatTemperature(temperature)}</span>
-      {device.lastHumidity !== null && device.lastHumidity !== undefined ? (
-        <span className="text-muted">
-          {' · '}
-          {formatPercent(device.lastHumidity)}
-        </span>
-      ) : null}
-    </span>
+      {children}
+    </button>
   );
 }
 
@@ -632,500 +817,5 @@ function SegmentedFilter<T extends string>({
         </button>
       ))}
     </div>
-  );
-}
-
-/** Oxirgi signal 15 daqiqadan yangi bo'lsa — onlayn. */
-function isOnline(lastSeenAt: string | null): boolean {
-  if (!lastSeenAt) return false;
-  return Date.now() - new Date(lastSeenAt).getTime() < 15 * 60 * 1000;
-}
-
-// ───────────────── Forma ─────────────────
-
-function DeviceFormModal({
-  open,
-  onClose,
-  device,
-  onIssued,
-}: {
-  open: boolean;
-  onClose: () => void;
-  device: Device | null;
-  onIssued: (value: DeviceWithKey) => void;
-}) {
-  const queryClient = useQueryClient();
-  const [form, setForm] = useState({
-    deviceId: '',
-    name: '',
-    boilerId: '',
-    apiKey: '',
-    note: '',
-  });
-  const [error, setError] = useState<string | null>(null);
-
-  const isEdit = Boolean(device);
-
-  /* ⚠️ Holat oyna OCHILGANDA tiklanadi: modal DOM'da qolib, `open`
-     bilan boshqariladi. Aks holda ikkinchi marta ochilganda oldingi
-     qurilmaning ma'lumotlari ko'rinib turardi. */
-  useEffect(() => {
-    if (!open) return;
-    setForm({
-      deviceId: device?.deviceId ?? '',
-      name: device?.name ?? '',
-      boilerId: device?.boilerId ?? '',
-      apiKey: '',
-      note: device?.note ?? '',
-    });
-    setError(null);
-  }, [open, device]);
-
-  /*
-   * ⚠️ QOZONXONA moduli uchun FAQAT qozonxona modulisiz kotyollar: bitta
-   * kotyolga ikkita qozonxona moduli biriktirib bo'lmaydi (bazada ham taqiqlangan)
-   * va band kotyolni ro'yxatda ko'rsatish foydalanuvchini xatoga
-   * yetaklardi. Tahrirlashda esa JORIY kotyol ham qo'shiladi — aks
-   * holda u ro'yxatdan yo'qolib, maydon bo'sh ko'rinardi.
-   */
-  /*
-   * ⚠️⚠️ Plata tumani bor bo'lsa — FAQAT shu tumandagi kotyollar: server
-   * boshqasini baribir rad etadi (modul faqat o'z tumanidagi kotyolga).
-   */
-  const deviceDistrictId = device?.districtId ?? null;
-  /*
-   * ⚠️⚠️ XONA MODULI uchun «modulsiz» filtri QO'LLANMAYDI: u qozonxona moduli
-   * bor maktab kotyoliga ham ulanadi (bitta binoda bir nechta xona moduli,
-   * har biri alohida xona). Filtr qolsa, xona modulini aynan kerakli binoga
-   * ulab bo'lmasdi — server esa buni qabul qiladi.
-   */
-  const isRoomModule = device ? moduleTypeOf(device) === 'room' : false;
-  const boilers = useQuery({
-    queryKey: [
-      'boilers',
-      isRoomModule ? 'any' : 'without-device',
-      device?.boilerId ?? null,
-      deviceDistrictId,
-    ],
-    queryFn: async (): Promise<Boiler[]> => {
-      const list = await getPaged<Boiler>(API.boilers.list, {
-        params: {
-          ...(isRoomModule ? {} : { withoutDevice: true }),
-          limit: 200,
-          ...(deviceDistrictId ? { districtIds: deviceDistrictId } : {}),
-        },
-      });
-      if (
-        !device?.boilerId ||
-        list.items.some((item) => item.id === device.boilerId)
-      ) {
-        return list.items;
-      }
-      const current = await get<Boiler>(API.boilers.one(device.boilerId));
-      return [current, ...list.items];
-    },
-    enabled: open,
-  });
-
-  const mutation = useMutation({
-    mutationFn: async (): Promise<Device | DeviceWithKey> => {
-      const payload = {
-        deviceId: form.deviceId.trim(),
-        name: form.name.trim() || undefined,
-        boilerId: form.boilerId || undefined,
-        note: form.note.trim() || undefined,
-        ...(device ? {} : { apiKey: form.apiKey.trim() || undefined }),
-      };
-      return device
-        ? patch<Device>(API.devices.one(device.id), payload)
-        : post<DeviceWithKey>(API.devices.list, payload);
-    },
-    onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: ['devices'] });
-      onClose();
-      if (!device && result && 'apiKey' in result) {
-        onIssued(result);
-      } else {
-        toast.success('Qurilma yangilandi');
-      }
-    },
-    onError: (err) => setError(errorMessage(err)),
-  });
-
-  const handleSubmit = (): void => {
-    if (!form.deviceId.trim()) {
-      setError('Qurilma identifikatori kiritilmagan');
-      return;
-    }
-    setError(null);
-    mutation.mutate();
-  };
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={isEdit ? 'Modulni tahrirlash' : 'Yangi ESP32 moduli'}
-      description={
-        isEdit
-          ? device?.deviceId
-          : 'Proshivkadagi DEVICE_ID va (mavjud bo‘lsa) API kalitni kiriting'
-      }
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            Bekor qilish
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleSubmit}
-            loading={mutation.isPending}
-          >
-            {isEdit ? 'Saqlash' : 'Qo‘shish'}
-          </Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <Field
-          label="Qurilma identifikatori (DEVICE_ID)"
-          required
-          hint="Proshivkadagi qiymat bilan AYNAN bir xil bo‘lishi kerak"
-        >
-          {(id) => (
-            <Input
-              id={id}
-              value={form.deviceId}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, deviceId: event.target.value }))
-              }
-              placeholder="modul1"
-              className="font-mono"
-            />
-          )}
-        </Field>
-
-        <Field label="Nomi" hint="Ro‘yxatda ajratish uchun">
-          {(id) => (
-            <Input
-              id={id}
-              value={form.name}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, name: event.target.value }))
-              }
-              placeholder="1-maktab qozonxonasi moduli"
-            />
-          )}
-        </Field>
-
-        {isEdit && device ? (
-          <dl className="grid grid-cols-1 gap-2 rounded-tile bg-[var(--surface-sunken)] px-3 py-2.5 text-meta sm:grid-cols-2">
-            <div>
-              <dt className="flex items-center gap-1 text-micro text-muted">
-                <Lock className="size-3" aria-hidden />
-                Tuman (platadan)
-              </dt>
-              <dd className="font-medium text-strong">
-                {device.district?.name ??
-                  (device.reportedDistrict
-                    ? `noma‘lum kod: ${device.reportedDistrict}`
-                    : 'plata yubormagan (eski proshivka)')}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-micro text-muted">Modul turi</dt>
-              <dd className="font-medium text-strong">
-                {MODULE_TYPE_META[moduleTypeOf(device)].label}
-              </dd>
-            </div>
-            {/*
-              ⚠️ «QURILMA XABAR QILDI» — plata menyusida tanlangan joylashuv.
-              Biriktirishda aynan shu yordam beradi (montajchi qaysi binoga
-              o'rnatganini aytadi), lekin hech narsani yo'naltirmaydi.
-            */}
-            <div>
-              <dt className="text-micro text-muted">
-                Muassasa (qurilma xabar qildi)
-              </dt>
-              <dd className="font-medium text-strong">
-                {orDash(device.reportedInstitution ?? device.institutionHint)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-micro text-muted">MFY · obyekt turi</dt>
-              <dd className="font-medium text-strong">
-                {orDash(
-                  [
-                    device.reportedMfy,
-                    device.reportedObjectTypeRef?.name ??
-                      device.reportedObjectType,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ') || null,
-                )}
-              </dd>
-            </div>
-            {/*
-              ⚠️ Nima uchun o'zgartirib bo'lmasligi YOZILADI: aks holda
-              admin «tahrirlash tugmasi yo'q — xato» deb o'ylardi.
-            */}
-            <p className="text-micro text-faint sm:col-span-2">
-              Tuman va modul turi platadan keladi va bu yerda o‘zgartirilmaydi —
-              modul faqat shu tumandagi kotyolga ulanadi. Haqiqiy muassasa —
-              quyida tanlangan kotyolniki; qurilma xabar qilgani faqat eslatma.
-            </p>
-          </dl>
-        ) : null}
-
-        <Field
-          label="Biriktirilgan kotyol"
-          hint={
-            isRoomModule
-              ? 'Xona moduli qozonxona moduli bor kotyolga ham ulanadi — har modul alohida xona bo‘ladi'
-              : deviceDistrictId
-                ? 'Faqat modul tumanidagi kotyollar ko‘rsatiladi'
-                : 'Biriktirilmagan qurilmadan kelgan signal ham saqlanadi'
-          }
-        >
-          {(id) => (
-            <Select
-              id={id}
-              value={form.boilerId}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, boilerId: event.target.value }))
-              }
-            >
-              <option value="">Biriktirilmagan</option>
-              {(boilers.data ?? []).map((boiler) => (
-                <option key={boiler.id} value={boiler.id}>
-                  {lotLabel(boiler.lotNumber)}
-                  {boiler.organization?.name
-                    ? ` — ${boiler.organization.name}`
-                    : ''}
-                </option>
-              ))}
-            </Select>
-          )}
-        </Field>
-
-        {!isEdit ? (
-          <Field
-            label="Mavjud API kalit"
-            hint="Bo‘sh qoldirilsa — tizim yangi kalit generatsiya qiladi"
-          >
-            {(id) => (
-              <Input
-                id={id}
-                value={form.apiKey}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, apiKey: event.target.value }))
-                }
-                placeholder="91abcc3d6732ab04d017d3a30ded31b1"
-                className="font-mono"
-              />
-            )}
-          </Field>
-        ) : null}
-
-        <Field label="Izoh">
-          {(id) => (
-            <Textarea
-              id={id}
-              rows={2}
-              value={form.note}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, note: event.target.value }))
-              }
-            />
-          )}
-        </Field>
-
-        {error ? (
-          <p className="rounded-lg bg-danger-50 px-3 py-2 text-meta font-medium text-danger-700 dark:bg-danger-500/10 dark:text-danger-300">
-            {error}
-          </p>
-        ) : null}
-      </div>
-    </Modal>
-  );
-}
-
-/**
- * API KALIT OYNASI.
- *
- * ⚠️ Kalit BIR MARTA ko'rsatiladi va oyna yopilgandan keyin uni
- * tizimdan qayta olib bo'lmaydi (bazada faqat hash bor). Shuning
- * uchun oyna aniq ogohlantiradi va nusxalash tugmasi beradi — aks
- * holda foydalanuvchi uni oddiy xabar deb yopib yuborardi.
- */
-function ApiKeyModal({
-  value,
-  onClose,
-}: {
-  value: DeviceWithKey | null;
-  onClose: () => void;
-}) {
-  const copy = async (): Promise<void> => {
-    if (!value) return;
-    try {
-      await navigator.clipboard.writeText(value.apiKey);
-      toast.success('Kalit nusxalandi');
-    } catch {
-      toast.error('Nusxalab bo‘lmadi — kalitni qo‘lda belgilang');
-    }
-  };
-
-  return (
-    <Modal
-      open={Boolean(value)}
-      onClose={onClose}
-      title="API kalit yaratildi"
-      description="Bu kalit BOSHQA ko‘rsatilmaydi — proshivkaga darhol ko‘chiring"
-      size="md"
-      footer={
-        <Button variant="primary" onClick={onClose}>
-          Nusxaladim, yopish
-        </Button>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <div className="rounded-lg bg-warn-50 px-3 py-2.5 text-meta text-warn-700 ring-1 ring-warn-200 dark:bg-warn-400/10 dark:text-warn-300 dark:ring-warn-400/25">
-          Tizim kalitning faqat hash‘ini saqlaydi. Oyna yopilgandan so‘ng uni
-          qayta ko‘rish imkoni bo‘lmaydi — faqat yangisini generatsiya qilish
-          mumkin.
-        </div>
-
-        <div className="flex items-center gap-2 rounded-lg bg-[var(--surface-sunken)] p-2.5">
-          <code className="flex-1 overflow-x-auto font-mono text-ui text-strong">
-            {value?.apiKey}
-          </code>
-          <Button
-            size="sm"
-            variant="secondary"
-            icon={<Copy className="size-3.5" />}
-            onClick={() => void copy()}
-          >
-            Nusxalash
-          </Button>
-        </div>
-
-        <div>
-          <p className="label-eyebrow mb-1.5">Proshivkaga qo‘yiladigan kod</p>
-          <pre className="overflow-x-auto rounded-lg bg-neutral-900 p-3 font-mono text-micro leading-relaxed text-neutral-100">
-            {`const char* DEVICE_ID = "${value?.device.deviceId}";
-const char* API_URL   = "http://<server>:3000/api/data";
-const char* API_KEY   = "${value?.apiKey}";`}
-          </pre>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-/**
- * «YANGI QURILMA SO'RAYAPTI» PANELI.
- *
- * ⚠️⚠️ NIMA UCHUN RO'YXAT TEPASIDA. Montajchi platani qozonxonaga
- * o'rnatib, Wi-Fi'ni sozlab ketadi; kabinetda esa uni ro'yxatga
- * kiritish esdan chiqishi mumkin. Qurilma har daqiqada serverga
- * uriladi va 403 oladi — ya'ni harorat YOZILMAYDI. Bu panel
- * bo'lmasa, «nega bu bino xaritada yo'q?» degan savolga javob
- * topish uchun server loglarini qidirishga to'g'ri kelardi.
- *
- * ⚠️ Panel faqat so'rov BOR bo'lganda ko'rinadi: bo'sh karta har
- * kuni joy egallab, foydalanuvchi uni ko'rishdan to'xtardi va
- * haqiqiy so'rov kelganda ham e'tibor bermasdi.
- */
-function PendingDevicesCard() {
-  const queryClient = useQueryClient();
-  const can = useAuthStore((state) => state.can);
-
-  const query = useQuery({
-    queryKey: qk.pendingDevices,
-    queryFn: () => get<PendingDevice[]>(API.devices.pending),
-    enabled: can('devices.view'),
-    /* ⚠️ Daqiqada bir: dala ishida montajchi plata ulagach,
-       administrator uni darhol ko'rishi kerak. */
-    refetchInterval: 60_000,
-  });
-
-  const dismiss = useMutation({
-    mutationFn: (id: string) => post(API.devices.dismissPending(id)),
-    onSuccess: () => {
-      toast.success('So‘rov rad etildi');
-      void queryClient.invalidateQueries({ queryKey: qk.pendingDevices });
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  });
-
-  const rows = query.data ?? [];
-  if (rows.length === 0) return null;
-
-  return (
-    <Card className="border-warn-200 bg-warn-50/40 dark:border-warn-400/20 dark:bg-warn-400/5">
-      <CardBody className="flex flex-col gap-2.5">
-        <div className="flex items-center gap-2.5">
-          <span className="grid size-8 shrink-0 place-items-center rounded-tile bg-warn-100 text-warn-700 dark:bg-warn-400/15 dark:text-warn-300">
-            <CircleHelp className="size-4" strokeWidth={2} />
-          </span>
-          <div>
-            <p className="text-ui font-semibold text-strong">
-              {rows.length} ta notanish qurilma ulanishga urinmoqda
-            </p>
-            <p className="text-meta text-muted">
-              Ular ro‘yxatda yo‘q, shuning uchun MA‘LUMOT YOZILMAYDI. Qurilmani
-              «Yangi modul» bilan qo‘shsangiz, so‘rov o‘z-o‘zidan yopiladi.
-            </p>
-          </div>
-        </div>
-
-        <ul className="flex flex-col gap-1.5">
-          {rows.map((row) => (
-            <li
-              key={row.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-[var(--surface)] px-3 py-2"
-            >
-              <div className="min-w-0">
-                <p className="font-mono text-meta font-medium text-strong">
-                  {row.deviceId}
-                </p>
-                <p className="text-micro text-muted">
-                  {row.attempts} marta urindi
-                  {row.institutionHint ? ` · ${row.institutionHint}` : ''}
-                  {row.firmwareVersion ? ` · v${row.firmwareVersion}` : ''}
-                  {row.lastIpAddress ? ` · ${row.lastIpAddress}` : ''}
-                  {' · '}
-                  {formatRelativeUz(row.lastSeenAt)}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    void navigator.clipboard.writeText(row.deviceId);
-                    toast.success('Identifikator nusxalandi');
-                  }}
-                >
-                  <Copy className="size-3.5" />
-                  Nusxa
-                </Button>
-                {can('devices.update') ? (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    loading={dismiss.isPending}
-                    onClick={() => dismiss.mutate(row.id)}
-                  >
-                    Rad etish
-                  </Button>
-                ) : null}
-              </div>
-            </li>
-          ))}
-        </ul>
-      </CardBody>
-    </Card>
   );
 }

@@ -98,6 +98,11 @@ export interface LoginResponse {
 
 export interface DistrictOption {
   id: string;
+  /**
+   * PROSHIVKA KALITI (`asaka`, `andijon-sh`) — plata shu kalitni yuboradi;
+   * muassasa va MFY katalogi ham tumanga SHU kalit bilan bog'lanadi.
+   */
+  key: string;
   code: string;
   name: string;
   shortName: string;
@@ -226,7 +231,8 @@ export interface RoomsSummary {
 export interface CatalogItem {
   id: string;
   name: string;
-  note: string | null;
+  /** ⚠️ MFYda izoh ustuni yo'q — maydon kelmaydi. */
+  note?: string | null;
   isArchived: boolean;
   // ── marka ──
   country?: string | null;
@@ -234,9 +240,17 @@ export interface CatalogItem {
   tin?: string | null;
   phone?: string | null;
   directorName?: string | null;
-  // ── tashkilot ──
+  // ── muassasa ──
   objectTypeId?: string | null;
   objectType?: { id: string; name: string; code: string } | null;
+  /**
+   * ── muassasa va MFY ── tuman KALITI (`DistrictOption.key`), id EMAS.
+   * MFYda majburiy, muassasada `null` bo'lishi mumkin (eski yozuv).
+   */
+  districtKey?: string | null;
+  /** Faqat muassasa: MFY (shu tumandagi). */
+  mahallaId?: string | null;
+  mahalla?: { id: string; name: string } | null;
   /**
    * ⚠️ Faqat OBYEKT TURIDA: mashina kaliti (`school`, `hospital`).
    * Seed va import aynan shu kalit bo'yicha moslanadi — nom
@@ -282,74 +296,131 @@ export interface Boiler {
 }
 
 /**
- * ESP32 MODULI TURI — plata o'zi aytadi (yoki yukidan aniqlanadi), kabinetda
- * o'zgartirilmaydi. ⚠️ OTA shu bo'yicha ajratiladi: qozonxona proshivkasi
- * xona moduliga hech qachon berilmaydi.
+ * QURILMA TURI — plata o'zi aytadi (yoki yukidan aniqlanadi).
+ *
+ * ⚠️ OTA shu bo'yicha ajratiladi: kotyol proshivkasi xona moduliga hech
+ * qachon berilmaydi. Qiymatlar backend bilan AYNI (`kotyol` / `xona`).
  */
-export type ModuleType = 'boiler' | 'room';
+export type DeviceType = 'kotyol' | 'xona';
 
+/** Oxirgi so'rovdagi token turi; hali so'rov bo'lmasa `null`. */
+export type TokenKind = 'personal' | 'shared';
+
+/** Kotyol kartasidagi qisqa qurilma yozuvi (`Boiler.devices[]`). */
 export interface DeviceBrief {
   id: string;
   deviceId: string;
   name: string | null;
   isActive: boolean;
   lastSeenAt: string | null;
-  /** Eski javoblarda bo'lmasligi mumkin — `boiler` deb olinadi. */
-  moduleType?: ModuleType;
+  deviceType: DeviceType;
   lastRoomTemperature?: number | null;
   lastRoomReadingAt?: string | null;
 }
 
-export interface Device extends DeviceBrief {
-  createdAt: string;
+/** Tuman havolasi — qurilma qatorida. */
+export interface DeviceDistrictRef {
+  id: string;
+  key: string;
+  name: string;
+  shortName: string;
+}
+
+/**
+ * «QURILMALAR» SAHIFASINING BITTA QATORI (`GET /devices`).
+ *
+ * ⚠️ `location` — AMALDAGI joylashuv (kotyolga ulangan bo'lsa kotyolniki,
+ * aks holda qurilmaning o'ziniki). `suggestion` — plata aytgan, lekin
+ * panelda BO'SH maydonlar: admin «Tasdiqlash» bilan qabul qiladi.
+ * `reported` — plata yuborgan xom qiymatlar, faqat ko'rsatish uchun.
+ */
+export interface DeviceRow {
+  id: string;
+  deviceId: string;
+  name: string | null;
+  deviceType: DeviceType;
+  isActive: boolean;
+  firmwareVersion: string | null;
+  lastSeenAt: string | null;
+  /** OTA tekshiruvi oxirgi marta qachon bo'lgan. */
+  lastCheckAt: string | null;
+  lastIpAddress: string | null;
+  /** Oxirgi telemetriya 5 daqiqadan yangi (server hisoblaydi). */
+  online: boolean;
+  readingsCount: string;
+  note: string | null;
   apiKeyPreview: string;
+  allowSharedToken: boolean;
+  tokenKind: TokenKind | null;
+  tokenIssuedAt: string | null;
   boilerId: string | null;
-  boiler?: {
+  /** Paneldagi tuman (qurilmaning o'zi). */
+  districtId: string | null;
+  /** Paneldagi muassasa (qurilmaning o'zi). */
+  organizationId: string | null;
+  boiler: {
     id: string;
     lotNumber: string | null;
     districtId: string;
-    district?: { id: string; name: string; shortName: string };
-    organization?: { id: string; name: string } | null;
+    organization: { id: string; name: string } | null;
   } | null;
-  lastIpAddress: string | null;
-  firmwareVersion: string | null;
-  readingsCount: string;
-  note: string | null;
-
-  // ───────── ESP32 v2.0.0 ─────────
-  /** Proshivka aytgan muassasa — FAQAT ma'lumot uchun, ishonilmaydi. */
-  institutionHint: string | null;
-  /** Umumiy tokenga ruxsat berilganmi (sukut: `false`). */
-  allowSharedToken: boolean;
-  /** OTA tekshiruvi oxirgi marta qachon bo'lgan. */
-  lastCheckAt: string | null;
-  /** Shaxsiy token qachon berilgan. */
-  tokenIssuedAt: string | null;
-
-  /**
-   * TUMAN — plata menyusida tanlangan, kabinetda O'ZGARTIRILMAYDI.
-   * `null` — eski proshivka (tuman yubormaydi) yoki noma'lum kod.
-   */
-  districtId?: string | null;
-  district?: { id: string; name: string; shortName: string } | null;
-  /** Plata yuborgan xom qiymat (server taniy olmasa ham ko'rinadi). */
-  reportedDistrict?: string | null;
-
-  // ───────── Plata aytgan joylashuv — FAQAT ko'rsatish uchun ─────────
-  reportedMfy?: string | null;
-  reportedInstitution?: string | null;
-  /** Katalog kodi (`school`) — xom. */
-  reportedObjectType?: string | null;
-  /** Kod katalogda bo'lsa — uning nomi. */
-  reportedObjectTypeRef?: { id: string; name: string; code: string } | null;
-  /** Havo namligi, % (DHT22). */
-  lastHumidity?: number | null;
+  /** Qurilmaning o'z (paneldagi) tumani. */
+  district: DeviceDistrictRef | null;
+  location: {
+    source: 'boiler' | 'device' | null;
+    district: DeviceDistrictRef | null;
+    objectType: { id: string; code: string; name: string } | null;
+    institution: { id: string; name: string } | null;
+  };
+  suggestion: {
+    district: { key: string; name: string } | null;
+    objectType: { code: string; name: string } | null;
+    institution: string | null;
+  } | null;
+  reported: {
+    district: string | null;
+    objectType: string | null;
+    institution: string | null;
+    mfy: string | null;
+    institutionHint: string | null;
+  };
+  lastOta: {
+    status: OtaEventStatus;
+    targetVersion: string | null;
+    runningVersion: string | null;
+    message: string | null;
+    at: string;
+  } | null;
+  lastRoomTemperature: number | null;
+  lastHumidity: number | null;
+  lastRoomReadingAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
-/** «Yangi qurilma so'rayapti» — ro'yxatdan o'tmagan plata. */
+/** Filtr uchun: proshivka versiyalari (`null` — versiyasiz). */
+export interface DeviceVersionCount {
+  version: string | null;
+  count: number;
+}
+
+/** «Yangi qurilmalar» — ro'yxatdan o'tmagan, lekin so'rov yuborayotgan plata. */
 export interface PendingDevice {
   id: string;
   deviceId: string;
+  /** `null` — plata turini aytmagan: ro'yxatga olishda qo'lda tanlanadi. */
+  deviceType: DeviceType | null;
+  district: { id: string; key: string; name: string } | null;
+  objectType: { id: string; code: string; name: string } | null;
+  institutionName: string | null;
+  /**
+   * ⚠️ Shu `device_id` bilan TURLI tokenlar kelgan — bir bosishda ro'yxatga
+   * olib bo'lmaydi (server 409), kalit qo'lda kiritiladi.
+   */
+  tokenConflict: boolean;
+  tokenKind: TokenKind | null;
+  tokenPreview: string | null;
+  isDismissed: boolean;
   institutionHint: string | null;
   firmwareVersion: string | null;
   lastIpAddress: string | null;
@@ -358,10 +429,43 @@ export interface PendingDevice {
   lastSeenAt: string;
 }
 
-/** ⚠️ API kalit FAQAT yaratish/almashtirish javobida keladi. */
+/**
+ * ⚠️ API kalit FAQAT yaratish/almashtirish javobida keladi.
+ * `null` — kalit tizimga noma'lum (qurilmaning o'z tokeni qabul qilindi
+ * yoki u umumiy token bilan ishlaydi): ko'rsatadigan narsa yo'q.
+ */
 export interface DeviceWithKey {
-  device: Device;
-  apiKey: string;
+  device: DeviceRow;
+  apiKey: string | null;
+}
+
+/** `POST /devices/pending/:id/register` javobi. */
+export interface RegisterPendingResult extends DeviceWithKey {
+  tokenSource: 'adopted' | 'shared' | 'provided';
+}
+
+/**
+ * QURILMA GRAFIGI NUQTASI.
+ *
+ * ⚠️ `null` — o'lchov YO'Q (masalan yakka datchik o'lchovida ikkinchi
+ * quvur), nol EMAS: grafikda uzilish bo'lib ko'rinadi.
+ */
+export interface DeviceSeriesPoint {
+  t: string;
+  /** Kirish (obratka), °C — kotyol moduli. */
+  inlet: number | null;
+  /** Chiqish (podacha), °C — kotyol moduli. */
+  outlet: number | null;
+  /** Xona havosi, °C — xona moduli. */
+  room: number | null;
+  /** Namlik, % — xona moduli. */
+  humidity: number | null;
+  count: number;
+}
+
+export interface DeviceSeries {
+  deviceType: DeviceType;
+  points: DeviceSeriesPoint[];
 }
 
 // ───────────────── Dashboard ─────────────────
@@ -421,8 +525,19 @@ export interface GaugeBoard {
 
 export interface DistrictRow {
   districtId: string;
+  /** Proshivka kaliti (`asaka`). */
+  districtKey: string;
   name: string;
   shortName: string;
+  /** Faol qurilmalar (amaldagi tumani shu tuman). */
+  devicesTotal: number;
+  /** Oxirgi telemetriya 5 daqiqadan yangi. */
+  devicesOnline: number;
+  devicesOffline: number;
+  /** O'lchovi bor va chiqish harorati me'yordan past kotyollar. */
+  belowNorm: number;
+  /** Ochiq ogohlantirishlar (kotyol va xona). */
+  openAlerts: number;
   total: number;
   boilerUnits: number;
   active: number;
@@ -532,8 +647,12 @@ export interface TelemetryReading {
 export interface FirmwareRelease {
   id: string;
   version: string;
-  /** `.bin` ichidagi belgidan — qaysi modul uchun. */
-  moduleType: ModuleType;
+  /** Qaysi qurilma turi uchun. */
+  deviceType: DeviceType;
+  /** `marker` — tur `.bin` ichidagi belgidan; `manual` — yuklovchi tanlagan. */
+  typeSource: 'marker' | 'manual';
+  /** Versiya qaysi prefiksdan o'qilgani (`ANDIJON`, `XONOBOD`, …). */
+  markerPrefix: string | null;
   size: number;
   sha256: string;
   note: string | null;
@@ -542,13 +661,36 @@ export interface FirmwareRelease {
   uploadedBy: string | null;
 }
 
+/**
+ * `POST /firmware/releases/inspect` — yuklashdan OLDIN ko'rish.
+ * ⚠️ Fayl saqlanmaydi; panel tur tanlovini shu bilan to'ldiradi.
+ */
+export interface FirmwareInspection {
+  version: string | null;
+  prefix: string | null;
+  /** `.bin` ichidagi modul belgisi bo'yicha tur. */
+  markedType: DeviceType | null;
+  /** Belgisiz eski fayl uchun TAKLIF. */
+  suggestedType: DeviceType | null;
+  /** Belgi yo'q — tur qo'lda tanlanishi SHART. */
+  needsManualType: boolean;
+  /** Fayl qabul qilinmasa — sababi (o'zbekcha). */
+  error: string | null;
+  size: number;
+  sha256: string;
+  isEsp32Image: boolean;
+  fitsPartition: boolean;
+  maxSize: number;
+}
+
 export interface FirmwareRollout {
   id: string;
   version: string;
-  moduleType: ModuleType;
+  deviceType: DeviceType;
   status: RolloutStatus;
   targetType: RolloutTargetType;
   targetIds: string[];
+  /** Bosqich — bir vaqtda nechta qurilma; `null` — hammasi. */
   maxDevices: number | null;
   note: string | null;
   createdAt: string;

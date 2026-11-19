@@ -66,7 +66,7 @@ type TipProps = (
 };
 
 /**
- * CHAP YON PANEL — nazorat markazining navigatsiyasi.
+ * CHAP YON PANEL — monitoring tizimining navigatsiyasi.
  *
  * ⚠️⚠️ To'q ko'k («rail»), oq EMAS. Kontent maydoni och kulrang va
  * oq kartalardan iborat; yon panel ham oq bo'lsa, u kontentga singib
@@ -563,7 +563,7 @@ const LINK_META: Record<
 /**
  * TIZIM HOLATI — jonli ulanish, modullar onlayn, yangilangan vaqt.
  *
- * ⚠️ Bezak emas: nazorat markazida «ekrandagi raqamlar jonlimi» degan
+ * ⚠️ Bezak emas: monitoring tizimida «ekrandagi raqamlar jonlimi» degan
  * savol hamma bo'limda bir xil muhim, shuning uchun u har sahifada
  * ko'rinadigan yagona joyda — yon panelda turadi.
  *

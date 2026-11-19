@@ -6,7 +6,7 @@ import { API, qk } from '@/shared/api/endpoints';
 import type {
   Boiler,
   CatalogItem,
-  Device,
+  DeviceRow,
   DistrictOption,
   FuelType,
 } from '@/shared/api/types';
@@ -26,7 +26,8 @@ type DeviceMode = 'none' | 'existing' | 'new';
 /** `/boiler-setup` javobi. */
 interface BoilerSetupResult {
   boiler: Boiler;
-  device: Device | null;
+  /** ⚠️ Xom yozuv (`DeviceRow` emas) — faqat identifikator o'qiladi. */
+  device: Pick<DeviceRow, 'id' | 'deviceId'> | null;
   apiKey: string | null;
   organizationCreated: boolean;
 }
@@ -242,7 +243,7 @@ export function BoilerFormModal({
       districtId: form.districtId,
     }),
     queryFn: () =>
-      getPaged<Device>(API.devices.list, {
+      getPaged<DeviceRow>(API.devices.list, {
         params: {
           unassigned: true,
           limit: DEVICE_PICK_LIMIT,
@@ -253,11 +254,11 @@ export function BoilerFormModal({
            */
           districtId: form.districtId,
           /*
-           * ⚠️ Faqat QOZONXONA modullari: bu kotyolning o'z moduli (suv
+           * ⚠️ Faqat KOTYOL modullari: bu kotyolning o'z moduli (suv
            * harorati). Xona moduli kotyol haroratini bermaydi — u «ESP32
            * modullari» sahifasidan binoga biriktiriladi.
            */
-          moduleType: 'boiler',
+          deviceType: 'kotyol',
           ...(debouncedDeviceSearch ? { search: debouncedDeviceSearch } : {}),
         },
       }),
@@ -838,8 +839,9 @@ export function BoilerFormModal({
                       {(unassignedDevices.data?.items ?? []).map((device) => (
                         <option key={device.id} value={device.id}>
                           {device.deviceId}
-                          {device.institutionHint
-                            ? ` — «${device.institutionHint}»`
+                          {(device.reported.institution ??
+                          device.reported.institutionHint)
+                            ? ` — «${device.reported.institution ?? device.reported.institutionHint}»`
                             : ''}
                           {/* Tumansiz eski plata — admin uchun belgi. */}
                           {!device.districtId ? ' · tuman yuborilmagan' : ''}

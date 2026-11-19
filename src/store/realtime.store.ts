@@ -8,7 +8,7 @@ import { create } from 'zustand';
  * - `live` — hodisalar kelmoqda, ekran o'z-o'zidan yangilanadi;
  * - `offline` — server javob bermayapti, ekrandagi raqamlar ESKIRISHI mumkin.
  *
- * ⚠️⚠️ Bu holat EKRANDA ko'rsatiladi (yon panel). Nazorat markazida
+ * ⚠️⚠️ Bu holat EKRANDA ko'rsatiladi (yon panel). Monitoring tizimida
  * «ekrandagi ma'lumot jonlimi» degan savol eng muhimi: ulanish jimgina
  * uzilsa, operator soatlab eski xaritaga qarab o'tirardi.
  *

@@ -1,18 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  AlertTriangle,
   Ban,
   CheckCircle2,
+  ChevronsRight,
   CircleOff,
   Cpu,
   FileUp,
+  Lock,
   PauseCircle,
   PlayCircle,
   Rocket,
   RotateCcw,
+  Search,
   ShieldAlert,
   XCircle,
 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
   del,
@@ -25,17 +29,20 @@ import {
 } from '@/shared/api/client';
 import { API, qk } from '@/shared/api/endpoints';
 import type {
-  CatalogItem,
-  DistrictOption,
+  DeviceRow,
+  DeviceType,
   FirmwareBlock,
+  FirmwareInspection,
   FirmwareRelease,
   FirmwareRollout,
-  ModuleType,
   RolloutProgress,
   RolloutStatus,
   RolloutTargetType,
 } from '@/shared/api/types';
-import { MODULE_TYPE_META } from '@/shared/constants/module-type';
+import { DEVICE_TYPES, DEVICE_TYPE_META } from '@/shared/constants/device-type';
+import { otaStatusMeta } from '@/shared/constants/ota';
+import { useDistricts, useObjectTypes } from '@/shared/hooks/useCatalogOptions';
+import { useDebounce } from '@/shared/hooks/useDebounce';
 import {
   Badge,
   Button,
@@ -92,57 +99,35 @@ const TARGET_LABELS: Record<RolloutTargetType, string> = {
   devices: 'Tanlangan qurilmalar',
 };
 
-/**
- * TARQATISH JARAYONIDAGI HOLATLAR.
- *
- * ⚠️ `pending` — «hali tegmagan» va u ENG MUHIM ustun: «nechta
- * qurilma hali yangilanmagan» degan savolga javob beradi. Uni
- * ro'yxatdan tushirib qoldirish tarqatishni tugaganday ko'rsatardi.
- */
-const STATE_LABELS: Record<string, { label: string; chip: string }> = {
-  pending: {
-    label: 'Kutilmoqda',
-    chip: 'bg-[var(--surface-sunken)] text-muted',
-  },
-  offered: {
-    label: 'Taklif qilindi',
-    chip: 'bg-brand-50 text-brand-700 dark:bg-brand-500/12 dark:text-brand-300',
-  },
-  installed: {
-    label: 'O‘rnatildi',
-    chip: 'bg-brand-50 text-brand-700 dark:bg-brand-500/12 dark:text-brand-300',
-  },
-  ok: {
-    label: 'Tasdiqlandi',
-    chip: 'bg-ok-50 text-ok-700 dark:bg-ok-500/12 dark:text-ok-300',
-  },
-  failed: {
-    label: 'Xato',
-    chip: 'bg-danger-50 text-danger-700 dark:bg-danger-500/12 dark:text-danger-300',
-  },
-  rolled_back: {
-    label: 'Qaytarildi',
-    chip: 'bg-danger-50 text-danger-700 dark:bg-danger-500/12 dark:text-danger-300',
-  },
+const TYPE_SOURCE_LABEL: Record<FirmwareRelease['typeSource'], string> = {
+  marker: 'belgidan',
+  manual: 'qo‘lda',
 };
 
 /**
- * Reliz/tarqatish qaysi modul uchun — `.bin` ichidagi belgidan.
- * ⚠️ Eski javobda maydon bo'lmasa qozonxona (avval faqat shu tur bor edi).
+ * BOSQICHLAR: 1 (sinov) → 10 → 50 → `null` (hammasi).
+ *
+ * ⚠️ Bosqich «bir vaqtda nechta qurilma» degani: 1 → 10 qilinsa sinovdagi
+ * qurilma qayta hisoblanmaydi, yana 9 tasiga taklif ochiladi.
  */
-function ModuleTypeBadge({ type }: { type: ModuleType | undefined }) {
-  const key = type ?? 'boiler';
-  return (
-    <Badge
-      className={
-        key === 'room'
-          ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-200 dark:bg-brand-500/12 dark:text-brand-300'
-          : 'bg-[var(--surface-sunken)] text-muted ring-1 ring-[var(--border-subtle)]'
-      }
-    >
-      {MODULE_TYPE_META[key].label}
-    </Badge>
-  );
+const STAGES: ReadonlyArray<number | null> = [1, 10, 50, null];
+
+/** Joriy bosqichdan keyingisi; `undefined` — oxirgi bosqich (hammasi). */
+function nextStage(current: number | null): number | null | undefined {
+  if (current === null) return undefined;
+  return STAGES.find((stage) => stage === null || stage > current);
+}
+
+function stageLabel(maxDevices: number | null): string {
+  if (maxDevices === null) return 'hammasi';
+  if (maxDevices === 1) return '1 qurilma (sinov)';
+  return `${formatNumber(maxDevices)} qurilma`;
+}
+
+/** Reliz/tarqatish qaysi qurilma turi uchun. */
+function DeviceTypeBadge({ type }: { type: DeviceType }) {
+  const meta = DEVICE_TYPE_META[type];
+  return <Badge className={meta.chip}>{meta.label}</Badge>;
 }
 
 function formatBytes(bytes: number): string {
@@ -159,8 +144,8 @@ function formatBytes(bytes: number): string {
  * yaroqsiz reliz yuzlab platani «o'rnatish → qaytish» halqasiga
  * soladi. Shuning uchun interfeys ataylab BIR NECHTA to'siq
  * qo'yadi:
- *   • sinov rejimi (1 qurilma) SUKUT BO'YICHA tanlangan;
- *   • tarqatish boshlangach nechta qurilmaga tegishi aytiladi;
+ *   • sinov bosqichi (1 qurilma) SUKUT BO'YICHA — keyin 10 → 50 → hammasi;
+ *   • reliz turi (kotyol / xona) oynada aniq aytiladi;
  *   • «To'xtatish» tugmasi doim ko'rinib turadi;
  *   • bloklangan qurilmalar alohida bo'limda sanaladi.
  */
@@ -194,7 +179,7 @@ export function FirmwarePage() {
   });
 
   /*
-   * ⚠️ HAR MODUL TURI uchun bittadan faol tarqatish (qozonxona va xona
+   * ⚠️ HAR QURILMA TURI uchun bittadan faol tarqatish (kotyol va xona
    * modullari mustaqil yangilanadi) — shuning uchun ro'yxat.
    */
   const activeRollouts = useMemo(
@@ -205,8 +190,29 @@ export function FirmwarePage() {
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: RolloutStatus }) =>
       patch(API.firmware.rolloutStatus(id), { status }),
-    onSuccess: () => {
-      toast.success('Tarqatish holati o‘zgardi');
+    onSuccess: (_result, variables) => {
+      toast.success(
+        variables.status === 'paused'
+          ? 'Tarqatish to‘xtatildi'
+          : variables.status === 'active'
+            ? 'Tarqatish davom ettirildi'
+            : 'Tarqatish bekor qilindi',
+      );
+      void queryClient.invalidateQueries({ queryKey: qk.rollouts });
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+
+  const limitMutation = useMutation({
+    mutationFn: ({
+      id,
+      maxDevices,
+    }: {
+      id: string;
+      maxDevices: number | null;
+    }) => patch(API.firmware.rolloutLimit(id), { maxDevices }),
+    onSuccess: (_result, variables) => {
+      toast.success(`Bosqich: ${stageLabel(variables.maxDevices)}`);
       void queryClient.invalidateQueries({ queryKey: qk.rollouts });
     },
     onError: (error) => toast.error(errorMessage(error)),
@@ -233,6 +239,101 @@ export function FirmwarePage() {
   const blockedCount =
     blocks.data?.filter((item) => item.isBlocked).length ?? 0;
 
+  const advanceStage = (rollout: FirmwareRollout): void => {
+    const next = nextStage(rollout.maxDevices);
+    if (next === undefined) return;
+    /*
+     * ⚠️ «Hammasi» — qaytarib bo'lmaydigan darajada keng qaror: tasdiq
+     * so'raladi. Oraliq bosqichlar (10, 50) — bir bosishda.
+     */
+    if (
+      next === null &&
+      !window.confirm(
+        `v${rollout.version} cheklovsiz tarqatiladi — maqsaddagi BARCHA qurilmalar yangilanadi. Davom etilsinmi?`,
+      )
+    ) {
+      return;
+    }
+    limitMutation.mutate({ id: rollout.id, maxDevices: next });
+  };
+
+  const cancelRollout = (rollout: FirmwareRollout): void => {
+    if (
+      window.confirm(
+        'Tarqatish BEKOR qilinadi va qayta davom ettirilmaydi. Davom etilsinmi?',
+      )
+    ) {
+      statusMutation.mutate({ id: rollout.id, status: 'cancelled' });
+    }
+  };
+
+  /** Bosqich / to'xtatish / bekor qilish — faol va to'xtatilganlar uchun. */
+  const rolloutControls = (rollout: FirmwareRollout) => {
+    if (!canRollout) return null;
+    if (rollout.status !== 'active' && rollout.status !== 'paused') return null;
+    const next = nextStage(rollout.maxDevices);
+    return (
+      <>
+        {next !== undefined ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={
+              limitMutation.isPending &&
+              limitMutation.variables?.id === rollout.id
+            }
+            onClick={() => advanceStage(rollout)}
+            title={`Keyingi bosqich: ${stageLabel(next)}`}
+          >
+            <ChevronsRight className="size-4" />
+            Keyingi bosqich ({next === null ? 'hammasi' : formatNumber(next)})
+          </Button>
+        ) : null}
+        {rollout.status === 'active' ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={
+              statusMutation.isPending &&
+              statusMutation.variables?.id === rollout.id &&
+              statusMutation.variables.status === 'paused'
+            }
+            onClick={() =>
+              statusMutation.mutate({ id: rollout.id, status: 'paused' })
+            }
+          >
+            <PauseCircle className="size-4" />
+            To‘xtatish
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={
+              statusMutation.isPending &&
+              statusMutation.variables?.id === rollout.id &&
+              statusMutation.variables.status === 'active'
+            }
+            onClick={() =>
+              statusMutation.mutate({ id: rollout.id, status: 'active' })
+            }
+          >
+            <PlayCircle className="size-4" />
+            Davom ettirish
+          </Button>
+        )}
+        <Button
+          size="sm"
+          variant="danger"
+          onClick={() => cancelRollout(rollout)}
+        >
+          <XCircle className="size-4" />
+          Bekor qilish
+        </Button>
+      </>
+    );
+  };
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end justify-between gap-3 px-1">
@@ -257,11 +358,9 @@ export function FirmwarePage() {
       </div>
 
       {/*
-        ⚠️⚠️ FAOL TARQATISH ENG TEPADA va ajralib turadi. Tarqatish
-        davom etayotganini administrator DARHOL ko'rishi kerak: aks
-        holda u yangi reliz yuklab, ikkinchi tarqatishni boshlashga
-        urinib, «nega ishlamayapti» degan savolga tushardi (bir vaqtda
-        faqat bitta faol tarqatish bo'lishi mumkin).
+        ⚠️⚠️ FAOL TARQATISH ENG TEPADA va ajralib turadi. Administrator
+        uni DARHOL ko'rishi kerak: har qurilma turi uchun bir vaqtda faqat
+        bitta faol tarqatish bo'lishi mumkin.
       */}
       {activeRollouts.map((activeRollout) => (
         <Card
@@ -276,13 +375,14 @@ export function FirmwarePage() {
               <div>
                 <p className="flex flex-wrap items-center gap-2 text-ui font-semibold text-strong">
                   v{activeRollout.version} tarqatilmoqda
-                  <ModuleTypeBadge type={activeRollout.moduleType} />
+                  <DeviceTypeBadge type={activeRollout.deviceType} />
                 </p>
                 <p className="text-meta text-muted">
                   {TARGET_LABELS[activeRollout.targetType]}
-                  {activeRollout.maxDevices
-                    ? ` · sinov rejimi: ${activeRollout.maxDevices} qurilma`
-                    : ''}
+                  {' · bosqich: '}
+                  <strong className="font-semibold text-strong">
+                    {stageLabel(activeRollout.maxDevices)}
+                  </strong>
                   {' · '}
                   {formatRelativeUz(activeRollout.createdAt)}
                 </p>
@@ -297,43 +397,7 @@ export function FirmwarePage() {
               >
                 Jarayonni ko‘rish
               </Button>
-              {canRollout ? (
-                <>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    loading={statusMutation.isPending}
-                    onClick={() =>
-                      statusMutation.mutate({
-                        id: activeRollout.id,
-                        status: 'paused',
-                      })
-                    }
-                  >
-                    <PauseCircle className="size-4" />
-                    To‘xtatish
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          'Tarqatish BEKOR qilinadi va qayta davom ettirilmaydi. Davom etilsinmi?',
-                        )
-                      ) {
-                        statusMutation.mutate({
-                          id: activeRollout.id,
-                          status: 'cancelled',
-                        });
-                      }
-                    }}
-                  >
-                    <XCircle className="size-4" />
-                    Bekor qilish
-                  </Button>
-                </>
-              ) : null}
+              {rolloutControls(activeRollout)}
             </div>
           </CardBody>
         </Card>
@@ -355,14 +419,15 @@ export function FirmwarePage() {
           <EmptyState
             icon={Cpu}
             title="Hali proshivka yuklanmagan"
-            description="«.bin» faylni yuklang — versiya va modul turi fayl ichidagi XONOBOD_FW_VERSION (qozonxona) yoki XONA_FW_VERSION (xona) belgisidan avtomatik o‘qiladi."
+            description="«.bin» faylni yuklang — versiya va qurilma turi fayl ichidagi ANDIJON_FW_VERSION va ANDIJON_FW_MODULE belgilaridan avtomatik o‘qiladi."
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left">
+            <table className="w-full min-w-[860px] text-left">
               <thead>
                 <tr className="border-b border-line text-micro font-medium text-muted">
                   <th className="px-5 py-2.5">Versiya</th>
+                  <th className="px-5 py-2.5">Tur manbai</th>
                   <th className="px-5 py-2.5">Hajm</th>
                   <th className="px-5 py-2.5">SHA-256</th>
                   <th className="px-5 py-2.5">Yuklandi</th>
@@ -371,101 +436,123 @@ export function FirmwarePage() {
                 </tr>
               </thead>
               <tbody>
-                {releases.data?.map((release) => (
-                  <tr
-                    key={release.id}
-                    className="border-b border-line last:border-0"
-                  >
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="text-ui font-semibold text-strong"
-                          data-numeric
-                        >
-                          v{release.version}
-                        </span>
-                        <ModuleTypeBadge type={release.moduleType} />
-                        {release.isArchived ? (
-                          <Badge className="bg-[var(--surface-sunken)] text-muted">
-                            Arxiv
-                          </Badge>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="px-5 py-3 text-meta text-muted" data-numeric>
-                      {formatBytes(release.size)}
-                    </td>
-                    {/*
-                      ⚠️ SHA-256 ning faqat BOSHI ko'rsatiladi: to'liq
-                      64 belgi jadvalni buzadi, lekin boshi ham
-                      «qaysi fayl» degan savolga javob berish uchun
-                      yetarli (`title` da to'lig'i bor).
-                    */}
-                    <td
-                      className="px-5 py-3 font-mono text-micro text-faint"
-                      title={release.sha256}
+                {releases.data?.map((release) => {
+                  const blockingRollout = activeRollouts.find(
+                    (item) => item.deviceType === release.deviceType,
+                  );
+                  return (
+                    <tr
+                      key={release.id}
+                      className="border-b border-line last:border-0"
                     >
-                      {release.sha256.slice(0, 16)}…
-                    </td>
-                    <td className="px-5 py-3 text-meta text-muted">
-                      {formatDateTimeUz(release.createdAt)}
-                      {release.uploadedBy ? (
-                        <span className="block text-micro text-faint">
-                          {release.uploadedBy}
+                      <td className="px-5 py-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className="text-ui font-semibold text-strong"
+                            data-numeric
+                          >
+                            v{release.version}
+                          </span>
+                          <DeviceTypeBadge type={release.deviceType} />
+                          {release.isArchived ? (
+                            <Badge className="bg-[var(--surface-sunken)] text-muted">
+                              Arxiv
+                            </Badge>
+                          ) : null}
+                        </div>
+                      </td>
+                      {/*
+                        ⚠️ TUR MANBAI: «belgidan» — `.bin` ichidagi modul
+                        belgisi; «qo'lda» — belgisiz eski fayl, turni
+                        yuklovchi tanlagan (adashish ehtimoli bor).
+                      */}
+                      <td className="px-5 py-3 text-meta">
+                        <span
+                          className={
+                            release.typeSource === 'manual'
+                              ? 'font-medium text-warn-700 dark:text-warn-300'
+                              : 'text-muted'
+                          }
+                        >
+                          {TYPE_SOURCE_LABEL[release.typeSource]}
                         </span>
-                      ) : null}
-                    </td>
-                    <td className="max-w-[220px] px-5 py-3 text-meta text-muted">
-                      {release.note ?? '—'}
-                    </td>
-                    <td className="px-5 py-3">
-                      <div className="flex justify-end gap-1.5">
-                        {canRollout && !release.isArchived ? (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            /*
-                             * ⚠️ Faqat SHU turdagi faol tarqatish to'sadi:
-                             * qozonxona tarqatishi xona relizini kuttirmaydi.
-                             */
-                            disabled={activeRollouts.some(
-                              (item) => item.moduleType === release.moduleType,
-                            )}
-                            title={
-                              activeRollouts.some(
-                                (item) =>
-                                  item.moduleType === release.moduleType,
-                              )
-                                ? `Avval ${MODULE_TYPE_META[release.moduleType].plural.toLowerCase()} uchun faol tarqatishni to‘xtatish kerak`
-                                : undefined
-                            }
-                            onClick={() => setRolloutFor(release)}
-                          >
-                            <Rocket className="size-4" />
-                            Tarqatish
-                          </Button>
+                        {release.markerPrefix ? (
+                          <code className="mt-0.5 block font-mono text-micro text-faint">
+                            {release.markerPrefix}_FW_VERSION
+                          </code>
                         ) : null}
-                        {canUpload && !release.isArchived ? (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  `v${release.version} arxivlanadi va boshqa tarqatilmaydi. Davom etilsinmi?`,
-                                )
-                              ) {
-                                archiveMutation.mutate(release.id);
+                      </td>
+                      <td
+                        className="px-5 py-3 text-meta text-muted"
+                        data-numeric
+                      >
+                        {formatBytes(release.size)}
+                      </td>
+                      {/*
+                        ⚠️ SHA-256 ning faqat BOSHI ko'rsatiladi: to'liq
+                        64 belgi jadvalni buzadi (`title` da to'lig'i bor).
+                      */}
+                      <td
+                        className="px-5 py-3 font-mono text-micro text-faint"
+                        title={release.sha256}
+                      >
+                        {release.sha256.slice(0, 16)}…
+                      </td>
+                      <td className="px-5 py-3 text-meta text-muted">
+                        {formatDateTimeUz(release.createdAt)}
+                        {release.uploadedBy ? (
+                          <span className="block text-micro text-faint">
+                            {release.uploadedBy}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="max-w-[220px] px-5 py-3 text-meta text-muted">
+                        {release.note ?? '—'}
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="flex justify-end gap-1.5">
+                          {canRollout && !release.isArchived ? (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              /*
+                               * ⚠️ Faqat SHU turdagi faol tarqatish to'sadi:
+                               * kotyol tarqatishi xona relizini kuttirmaydi.
+                               */
+                              disabled={Boolean(blockingRollout)}
+                              title={
+                                blockingRollout
+                                  ? `Avval ${DEVICE_TYPE_META[release.deviceType].plural.toLowerCase()} uchun faol tarqatishni to‘xtatish kerak`
+                                  : undefined
                               }
-                            }}
-                          >
-                            Arxivlash
-                          </Button>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                              onClick={() => setRolloutFor(release)}
+                            >
+                              <Rocket className="size-4" />
+                              Tarqatish
+                            </Button>
+                          ) : null}
+                          {canUpload && !release.isArchived ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    `v${release.version} arxivlanadi va boshqa tarqatilmaydi. Davom etilsinmi?`,
+                                  )
+                                ) {
+                                  archiveMutation.mutate(release.id);
+                                }
+                              }}
+                            >
+                              Arxivlash
+                            </Button>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -497,16 +584,20 @@ export function FirmwarePage() {
                         >
                           v{rollout.version}
                         </span>
-                        <ModuleTypeBadge type={rollout.moduleType} />
+                        <DeviceTypeBadge type={rollout.deviceType} />
                         <Badge className={meta.chip} dot={meta.dot}>
                           {meta.label}
                         </Badge>
                       </div>
                       <p className="mt-0.5 text-meta text-muted">
                         {TARGET_LABELS[rollout.targetType]}
-                        {rollout.maxDevices
-                          ? ` · sinov: ${rollout.maxDevices}`
+                        {rollout.targetType !== 'all'
+                          ? ` (${formatNumber(rollout.targetIds.length)})`
                           : ''}
+                        {' · bosqich: '}
+                        <span className="font-medium text-strong">
+                          {stageLabel(rollout.maxDevices)}
+                        </span>
                       </p>
                       <p className="text-micro text-faint">
                         Boshlandi: {formatDateTimeUz(rollout.createdAt)}
@@ -529,21 +620,7 @@ export function FirmwarePage() {
                       >
                         Jarayon
                       </Button>
-                      {canRollout && rollout.status === 'paused' ? (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() =>
-                            statusMutation.mutate({
-                              id: rollout.id,
-                              status: 'active',
-                            })
-                          }
-                        >
-                          <PlayCircle className="size-4" />
-                          Davom etish
-                        </Button>
-                      ) : null}
+                      {rolloutControls(rollout)}
                     </div>
                   </div>
                 </li>
@@ -599,7 +676,10 @@ export function FirmwarePage() {
                     <Button
                       size="sm"
                       variant="secondary"
-                      loading={unblockMutation.isPending}
+                      loading={
+                        unblockMutation.isPending &&
+                        unblockMutation.variables === block.id
+                      }
                       onClick={() => unblockMutation.mutate(block.id)}
                     >
                       <RotateCcw className="size-4" />
@@ -641,6 +721,16 @@ export function FirmwarePage() {
 
 /* ═══════════════════════ Yuklash ═══════════════════════ */
 
+/**
+ * PROSHIVKA YUKLASH.
+ *
+ * ⚠️⚠️ Fayl tanlanishi bilan server uni TEKSHIRADI (`inspect`, saqlamaydi):
+ * versiya, prefiks va belgidagi tur oldindan ko'rinadi. Belgisi bor
+ * faylda tur QULFLANADI (belgiga zid tur server tomonidan rad etiladi);
+ * belgisiz eski faylda tur qo'lda tanlanishi SHART (taklif oldindan
+ * tanlangan). Xato bo'lsa yuklash to'siladi — yaroqsiz fayl serverga
+ * yuborilmaydi.
+ */
 function UploadModal({
   open,
   onClose,
@@ -651,38 +741,83 @@ function UploadModal({
   onDone: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  /** Oxirgi tanlangan fayl — kech kelgan tekshiruv javobini tashlash uchun. */
+  const latestFile = useRef<File | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [inspection, setInspection] = useState<FirmwareInspection | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
   const [version, setVersion] = useState('');
   const [note, setNote] = useState('');
-  /*
-   * ⚠️ TUR ONGLI TANLANADI va server uni fayl ichidagi belgi bilan
-   * SOLISHTIRADI: mos kelmasa yuklash rad etiladi. Ikki tomonlama tekshiruv —
-   * qozonxona proshivkasi adashib xona moduliga (yoki aksincha) ketmasligi uchun.
-   */
-  const [moduleType, setModuleType] = useState<ModuleType | ''>('');
+  const [deviceType, setDeviceType] = useState<DeviceType | ''>('');
 
-  const mutation = useMutation({
+  const reset = (): void => {
+    latestFile.current = null;
+    setFile(null);
+    setInspection(null);
+    setLocalError(null);
+    setVersion('');
+    setNote('');
+    setDeviceType('');
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
+  useEffect(() => {
+    if (open) reset();
+  }, [open]);
+
+  const inspectMutation = useMutation({
+    mutationFn: (picked: File) => {
+      const form = new FormData();
+      form.append('file', picked);
+      return postForm<FirmwareInspection>(API.firmware.inspect, form);
+    },
+    onSuccess: (result, picked) => {
+      if (latestFile.current !== picked) return;
+      setInspection(result);
+      setDeviceType(
+        result.needsManualType
+          ? (result.suggestedType ?? '')
+          : (result.markedType ?? ''),
+      );
+    },
+    onError: (error, picked) => {
+      if (latestFile.current !== picked) return;
+      setLocalError(errorMessage(error, 'Faylni tekshirib bo‘lmadi'));
+    },
+  });
+
+  const onPick = (picked: File | null): void => {
+    latestFile.current = picked;
+    setFile(picked);
+    setInspection(null);
+    setLocalError(null);
+    setDeviceType('');
+    if (!picked) return;
+    /*
+     * ⚠️ Hajm BRAUZERDA ham tekshiriladi: katta faylni yuborib, serverdan
+     * 413 kutish foydalanuvchining internetini behuda sarflardi.
+     */
+    if (picked.size > MAX_BIN_BYTES) {
+      setLocalError(
+        `Fayl juda katta: ${formatBytes(picked.size)}. OTA bo‘limi ${formatBytes(MAX_BIN_BYTES)}`,
+      );
+      return;
+    }
+    inspectMutation.mutate(picked);
+  };
+
+  const uploadMutation = useMutation({
     mutationFn: async () => {
-      const file = fileRef.current?.files?.[0];
       if (!file) throw new Error('Fayl tanlanmagan');
-      if (!moduleType) throw new Error('Modul turini tanlang');
-
-      /*
-       * ⚠️ Hajm BROUZERDA ham tekshiriladi: 500 MB lik faylni
-       * yuborib, serverdan 413 kutish foydalanuvchining internetini
-       * behuda sarflardi (dala sharoitida bu muhim).
-       */
-      if (file.size > MAX_BIN_BYTES) {
-        throw new Error(
-          `Fayl juda katta: ${formatBytes(file.size)}. ` +
-            `OTA bo‘limi ${formatBytes(MAX_BIN_BYTES)}`,
-        );
-      }
+      if (!inspection) throw new Error('Fayl hali tekshirilmadi');
+      if (!deviceType) throw new Error('Qurilma turini tanlang');
 
       const form = new FormData();
       form.append('file', file);
       if (version.trim()) form.append('version', version.trim());
       if (note.trim()) form.append('note', note.trim());
-      form.append('moduleType', moduleType);
+      // ⚠️ Tur faqat belgisiz faylda yuboriladi — belgilisida u fayldan.
+      if (inspection.needsManualType) form.append('deviceType', deviceType);
 
       /*
        * ⚠️ `postForm()` — `FormData` ni JSON'ga aylantirmaydi va
@@ -692,23 +827,28 @@ function UploadModal({
     },
     onSuccess: (release) => {
       toast.success(
-        `v${release.version} — ${MODULE_TYPE_META[release.moduleType ?? 'boiler'].label.toLowerCase()} yuklandi (${formatBytes(release.size)})`,
+        `v${release.version} — ${DEVICE_TYPE_META[release.deviceType].label.toLowerCase()} yuklandi (${formatBytes(release.size)})`,
       );
-      setVersion('');
-      setNote('');
-      setModuleType('');
-      if (fileRef.current) fileRef.current.value = '';
+      reset();
       onDone();
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
+
+  const blockingError = localError ?? inspection?.error ?? null;
+  const canUpload =
+    Boolean(file) &&
+    Boolean(inspection) &&
+    !blockingError &&
+    Boolean(deviceType) &&
+    !inspectMutation.isPending;
 
   return (
     <Modal
       open={open}
       onClose={onClose}
       title="Proshivka yuklash"
-      description="Versiya va modul turi fayl ichidagi belgidan o‘qiladi: XONOBOD_FW_VERSION — qozonxona moduli, XONA_FW_VERSION — xona moduli."
+      description="Versiya va qurilma turi fayl ichidagi belgidan o‘qiladi (ANDIJON_FW_VERSION, ANDIJON_FW_MODULE)."
       size="md"
       footer={
         <>
@@ -717,9 +857,9 @@ function UploadModal({
           </Button>
           <Button
             variant="primary"
-            loading={mutation.isPending}
-            disabled={!moduleType}
-            onClick={() => mutation.mutate()}
+            loading={uploadMutation.isPending}
+            disabled={!canUpload}
+            onClick={() => uploadMutation.mutate()}
           >
             Yuklash
           </Button>
@@ -727,30 +867,6 @@ function UploadModal({
       }
     >
       <div className="flex flex-col gap-3">
-        <Field
-          label="Modul turi"
-          required
-          hint="Fayl ichidagi belgi bilan solishtiriladi — mos kelmasa rad etiladi"
-        >
-          {(id) => (
-            <Select
-              id={id}
-              value={moduleType}
-              onChange={(event) =>
-                setModuleType(event.target.value as ModuleType | '')
-              }
-            >
-              <option value="">Tanlang…</option>
-              <option value="boiler">
-                {MODULE_TYPE_META.boiler.label} (XONOBOD_FW_VERSION)
-              </option>
-              <option value="room">
-                {MODULE_TYPE_META.room.label} (XONA_FW_VERSION)
-              </option>
-            </Select>
-          )}
-        </Field>
-
         <Field
           label="Fayl (.bin)"
           hint="pio run natijasi: .pio/build/esp32dev/firmware.bin"
@@ -762,10 +878,95 @@ function UploadModal({
               name="file"
               type="file"
               accept=".bin,application/octet-stream"
+              onChange={(event) => onPick(event.target.files?.[0] ?? null)}
               className="block w-full cursor-pointer rounded-md border border-line bg-[var(--surface)] px-3 py-2 text-meta text-ink file:mr-3 file:rounded file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-micro file:font-medium file:text-brand-700 dark:file:bg-brand-500/12 dark:file:text-brand-300"
             />
           )}
         </Field>
+
+        {inspectMutation.isPending ? (
+          <Skeleton className="h-20" />
+        ) : inspection ? (
+          <dl className="grid grid-cols-2 gap-2 rounded-tile bg-[var(--surface-sunken)] px-3 py-2.5 text-meta">
+            <div>
+              <dt className="text-micro text-muted">Aniqlangan versiya</dt>
+              <dd className="font-medium text-strong" data-numeric>
+                {inspection.version ? `v${inspection.version}` : '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-micro text-muted">Prefiks</dt>
+              <dd className="font-mono text-micro font-medium text-strong">
+                {inspection.prefix ? `${inspection.prefix}_FW_VERSION` : '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-micro text-muted">Belgidagi tur</dt>
+              <dd className="font-medium text-strong">
+                {inspection.markedType
+                  ? DEVICE_TYPE_META[inspection.markedType].label
+                  : 'belgi yo‘q (eski fayl)'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-micro text-muted">Hajm · SHA-256</dt>
+              <dd
+                className="font-mono text-micro text-strong"
+                title={inspection.sha256}
+              >
+                {formatBytes(inspection.size)} ·{' '}
+                {inspection.sha256.slice(0, 12)}…
+              </dd>
+            </div>
+          </dl>
+        ) : null}
+
+        {blockingError ? (
+          <p className="flex items-start gap-1.5 rounded-lg bg-danger-50 px-3 py-2 text-meta font-medium text-danger-700 dark:bg-danger-500/10 dark:text-danger-300">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            {blockingError}
+          </p>
+        ) : null}
+
+        {inspection && !inspection.error ? (
+          <Field
+            label="Qurilma turi"
+            required
+            hint={
+              inspection.needsManualType
+                ? 'Faylda modul belgisi yo‘q — turni tanlang (taklif oldindan tanlangan). Xato tur boshqa modulni buzadi.'
+                : 'Fayl ichidagi belgidan — o‘zgartirib bo‘lmaydi'
+            }
+          >
+            {(id) =>
+              inspection.needsManualType ? (
+                <Select
+                  id={id}
+                  value={deviceType}
+                  onChange={(event) =>
+                    setDeviceType(event.target.value as DeviceType | '')
+                  }
+                >
+                  <option value="">Tanlang…</option>
+                  {DEVICE_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {DEVICE_TYPE_META[type].label}
+                      {inspection.suggestedType === type ? ' (taklif)' : ''}
+                    </option>
+                  ))}
+                </Select>
+              ) : (
+                <div
+                  id={id}
+                  className="flex h-9.5 items-center gap-2 rounded-lg bg-[var(--surface-sunken)] px-3 text-ui text-strong"
+                >
+                  <Lock className="size-3.5 text-faint" aria-hidden />
+                  {deviceType ? DEVICE_TYPE_META[deviceType].label : '—'}
+                </div>
+              )
+            }
+          </Field>
+        ) : null}
 
         <Field
           label="Versiya (ixtiyoriy)"
@@ -776,7 +977,7 @@ function UploadModal({
               id={id}
               value={version}
               onChange={(event) => setVersion(event.target.value)}
-              placeholder="2.0.1"
+              placeholder={inspection?.version ?? '2.1.0'}
             />
           )}
         </Field>
@@ -808,37 +1009,56 @@ function RolloutModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const open = release !== null;
   const [targetType, setTargetType] = useState<RolloutTargetType>('devices');
   const [targetIds, setTargetIds] = useState<string[]>([]);
   /*
-   * ⚠️⚠️ SINOV REJIMI SUKUT BO'YICHA YOQILGAN (1 qurilma).
-   * «Hammaga tarqat» ONGLI harakat bo'lishi kerak: yaroqsiz reliz
-   * butun viloyatni bir zumda qaytish halqasiga soladi va buni
-   * tuzatish uchun har bir qozonxonaga borish kerak bo'lardi.
+   * ⚠️⚠️ SINOV BOSQICHI SUKUT BO'YICHA (1 qurilma — `maxDevices` umuman
+   * yuborilmaydi, server 1 qo'yadi). «Hammaga» faqat bosqichma-bosqich:
+   * yaroqsiz reliz butun viloyatni bir zumda qaytish halqasiga solmasin.
    */
-  const [canary, setCanary] = useState(true);
+  const [stage, setStage] = useState<'1' | '10' | '50'>('1');
   const [note, setNote] = useState('');
+  const [deviceSearch, setDeviceSearch] = useState('');
+  const debouncedDeviceSearch = useDebounce(deviceSearch.trim(), 350);
 
-  const districts = useQuery({
-    queryKey: qk.districts,
-    queryFn: () => get<DistrictOption[]>(API.geo.districts),
-    enabled: release !== null && targetType === 'districts',
-  });
+  useEffect(() => {
+    if (!open) return;
+    setTargetType('devices');
+    setTargetIds([]);
+    setStage('1');
+    setNote('');
+    setDeviceSearch('');
+  }, [open, release?.id]);
+
+  const districts = useDistricts(open && targetType === 'districts');
+  /*
+   * ⚠️ Obyekt turlari KATALOGDAN olinadi, qo'lda yozilmaydi: UUID qo'lda
+   * kiritilganda bitta belgi xatosi tarqatishni jimgina HECH KIMGA
+   * tegmaydigan qilib qo'yardi.
+   */
+  const objectTypes = useObjectTypes(open && targetType === 'object_types');
 
   /*
-   * WARN: Obyekt turlari KATALOGDAN olinadi, qo'lda yozilmaydi.
-   * Ilgari bu yerda UUID ni qo'lda kiritish kerak edi -- administrator
-   * uni boshqa sahifadan nusxalab kelishi va adashmasligi kerak
-   * bo'lardi. Bitta belgi xato bo'lsa, tarqatish jimgina HECH KIMGA
-   * tegmasdan "ishlayotgan" bo'lib turardi.
+   * ⚠️ Qurilmalar FAQAT relizning turida: boshqa turdagi qurilma server
+   * tomonidan rad etiladi — ro'yxatda ko'rsatish xatoga yetaklardi.
    */
-  const objectTypes = useQuery({
-    queryKey: qk.catalog('object-types', { forRollout: true }),
+  const devices = useQuery({
+    queryKey: qk.devices({
+      purpose: 'rollout',
+      deviceType: release?.deviceType,
+      search: debouncedDeviceSearch,
+    }),
     queryFn: () =>
-      getPaged<CatalogItem>(API.catalogs.list('object-types'), {
-        params: { limit: 200 },
+      getPaged<DeviceRow>(API.devices.list, {
+        params: {
+          deviceType: release?.deviceType,
+          isActive: true,
+          limit: 100,
+          ...(debouncedDeviceSearch ? { search: debouncedDeviceSearch } : {}),
+        },
       }),
-    enabled: release !== null && targetType === 'object_types',
+    enabled: open && targetType === 'devices',
   });
 
   const mutation = useMutation({
@@ -847,56 +1067,59 @@ function RolloutModal({
         releaseId: release?.id,
         targetType,
         targetIds: targetType === 'all' ? [] : targetIds,
-        maxDevices: canary ? 1 : undefined,
+        // ⚠️ 1 — yuborilmaydi (server sukuti: sinov).
+        ...(stage === '1' ? {} : { maxDevices: Number(stage) }),
         note: note.trim() || undefined,
       }),
     onSuccess: (result) => {
       toast.success(
-        canary
+        stage === '1'
           ? `Sinov boshlandi — 1 qurilma (maqsadda ${result.targetCount} ta)`
-          : `Tarqatish boshlandi — ${result.targetCount} qurilma`,
+          : `Tarqatish boshlandi — bir vaqtda ${stage} qurilma (maqsadda ${result.targetCount} ta)`,
       );
-      setTargetIds([]);
-      setNote('');
       onDone();
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
 
-  const options =
+  const options: Array<{ id: string; label: string; sub?: string }> =
     targetType === 'districts'
       ? (districts.data ?? []).map((item) => ({
           id: item.id,
           label: item.name,
         }))
       : targetType === 'object_types'
-        ? (objectTypes.data?.items ?? []).map((item) => ({
+        ? (objectTypes.data ?? []).map((item) => ({
             id: item.id,
             label: item.name,
           }))
-        : [];
+        : targetType === 'devices'
+          ? (devices.data?.items ?? []).map((item) => ({
+              id: item.id,
+              label: item.deviceId,
+              sub: [
+                item.location.institution?.name,
+                item.location.district?.shortName,
+                item.firmwareVersion ? `v${item.firmwareVersion}` : null,
+              ]
+                .filter(Boolean)
+                .join(' · '),
+            }))
+          : [];
+  const loading =
+    (targetType === 'districts' && districts.isLoading) ||
+    (targetType === 'object_types' && objectTypes.isLoading) ||
+    (targetType === 'devices' && devices.isFetching);
 
-  const needsList = targetType === 'districts' || targetType === 'object_types';
-  // WARN: Faqat qurilmalar UUID bilan tanlanadi -- ularning ro'yxati
-  //       yuzlab qator bo'lishi mumkin va bu oynaga sig'masdi.
-  const needsIds = targetType === 'devices';
+  const needsList = targetType !== 'all';
+  const typeMeta = release ? DEVICE_TYPE_META[release.deviceType] : null;
 
   return (
     <Modal
-      open={release !== null}
+      open={open}
       onClose={onClose}
       title={release ? `v${release.version} ni tarqatish` : 'Tarqatish'}
-      /*
-       * ⚠️ Reliz faqat O'Z turidagi modullarga boradi — «Barcha qurilmalar»
-       * ham shu tur ichida. Buni oynada aniq aytish kerak, aks holda
-       * administrator «hammasi» deb tanlab, xona modullari ham yangilanadi
-       * deb o'ylardi.
-       */
-      description={
-        release
-          ? `Faqat ${MODULE_TYPE_META[release.moduleType ?? 'boiler'].plural.toLowerCase()}ga boradi. Qurilmalar 30 daqiqa ichida yangilanishni oladi.`
-          : 'Qurilmalar 30 daqiqa ichida yangilanishni oladi.'
-      }
+      description="Qurilmalar 30 daqiqa ichida yangilanishni oladi."
       size="md"
       footer={
         <>
@@ -906,7 +1129,7 @@ function RolloutModal({
           <Button
             variant="primary"
             loading={mutation.isPending}
-            disabled={(needsList || needsIds) && targetIds.length === 0}
+            disabled={needsList && targetIds.length === 0}
             onClick={() => mutation.mutate()}
           >
             Boshlash
@@ -915,6 +1138,21 @@ function RolloutModal({
       }
     >
       <div className="flex flex-col gap-3">
+        {/*
+          ⚠️ Reliz faqat O'Z turidagi qurilmalarga boradi — «Barcha
+          qurilmalar» ham shu tur ichida. Buni aniq aytish kerak, aks holda
+          administrator boshqa tur ham yangilanadi deb o'ylardi.
+        */}
+        {typeMeta && release ? (
+          <div className="flex items-center gap-2 rounded-md bg-[var(--surface-sunken)] px-3 py-2 text-meta text-ink">
+            <DeviceTypeBadge type={release.deviceType} />
+            <span>
+              Faqat <strong>{typeMeta.plural.toLowerCase()}</strong>ga boradi —
+              boshqa turdagi qurilmalarga tegmaydi.
+            </span>
+          </div>
+        ) : null}
+
         <Field label="Kimga">
           {(id) => (
             <Select
@@ -928,66 +1166,92 @@ function RolloutModal({
               <option value="devices">Tanlangan qurilmalar</option>
               <option value="districts">Tanlangan tumanlar</option>
               <option value="object_types">Obyekt turi bo‘yicha</option>
-              <option value="all">Barcha qurilmalar</option>
+              <option value="all">
+                {typeMeta
+                  ? `Barcha ${typeMeta.plural.toLowerCase()}`
+                  : 'Hammasi'}
+              </option>
             </Select>
           )}
         </Field>
 
-        {needsIds ? (
-          <Field
-            label="Qurilma identifikatorlari (UUID)"
-            hint="Vergul bilan ajratiladi. UUID «ESP32 modullari» sahifasidan olinadi; qurilmalar relizning turiga mos bo‘lishi kerak."
-          >
-            {(id) => (
-              <Textarea
-                id={id}
-                rows={3}
-                value={targetIds.join(', ')}
-                onChange={(event) =>
-                  setTargetIds(
-                    event.target.value
-                      .split(',')
-                      .map((item) => item.trim())
-                      .filter(Boolean),
-                  )
-                }
-                placeholder="a81663fb-8cf1-4956-8cb0-e421b0621c26"
-              />
-            )}
-          </Field>
-        ) : null}
-
         {needsList ? (
           <Field
-            label={targetType === 'districts' ? 'Tumanlar' : 'Obyekt turlari'}
+            label={
+              targetType === 'districts'
+                ? 'Tumanlar'
+                : targetType === 'object_types'
+                  ? 'Obyekt turlari'
+                  : 'Qurilmalar'
+            }
+            hint={
+              targetIds.length > 0
+                ? `${formatNumber(targetIds.length)} ta tanlandi`
+                : undefined
+            }
           >
             {() => (
-              <div className="flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-line p-2">
-                {options.map((option) => (
-                  <label
-                    key={option.id}
-                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-meta text-ink hover:bg-[var(--surface-sunken)]"
-                  >
-                    <input
-                      type="checkbox"
-                      /* a11y: har bir maydonda `name` bo'lishi kerak. */
-                      name="rolloutTarget"
-                      value={option.id}
-                      checked={targetIds.includes(option.id)}
-                      onChange={(event) =>
-                        setTargetIds((prev) =>
-                          event.target.checked
-                            ? [...prev, option.id]
-                            : prev.filter((item) => item !== option.id),
-                        )
-                      }
-                    />
-                    {option.label}
-                  </label>
-                ))}
-                {options.length === 0 ? (
-                  <p className="px-2 py-1 text-micro text-faint">
-                    Yuklanmoqda…
+              <div className="flex flex-col gap-1.5">
+                {targetType === 'devices' ? (
+                  <Input
+                    value={deviceSearch}
+                    onChange={(event) => setDeviceSearch(event.target.value)}
+                    placeholder="Identifikator, muassasa yoki lot…"
+                    leading={<Search className="size-4" />}
+                    aria-label="Qurilma qidirish"
+                  />
+                ) : null}
+                <div className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-md border border-line p-2">
+                  {options.map((option) => (
+                    <label
+                      key={option.id}
+                      className="flex cursor-pointer items-start gap-2 rounded px-2 py-1 text-meta text-ink hover:bg-[var(--surface-sunken)]"
+                    >
+                      <input
+                        type="checkbox"
+                        /* a11y: har bir maydonda `name` bo'lishi kerak. */
+                        name="rolloutTarget"
+                        value={option.id}
+                        className="mt-0.5"
+                        checked={targetIds.includes(option.id)}
+                        onChange={(event) =>
+                          setTargetIds((prev) =>
+                            event.target.checked
+                              ? [...prev, option.id]
+                              : prev.filter((item) => item !== option.id),
+                          )
+                        }
+                      />
+                      <span className="min-w-0">
+                        <span
+                          className={cn(
+                            'block',
+                            targetType === 'devices' && 'font-mono',
+                          )}
+                        >
+                          {option.label}
+                        </span>
+                        {option.sub ? (
+                          <span className="block truncate text-micro text-faint">
+                            {option.sub}
+                          </span>
+                        ) : null}
+                      </span>
+                    </label>
+                  ))}
+                  {options.length === 0 ? (
+                    <p className="px-2 py-1 text-micro text-faint">
+                      {loading ? 'Yuklanmoqda…' : 'Topilmadi'}
+                    </p>
+                  ) : null}
+                </div>
+                {targetType === 'devices' &&
+                (devices.data?.meta.total ?? 0) >
+                  (devices.data?.items.length ?? 0) ? (
+                  <p className="text-micro text-warn-700 dark:text-warn-300">
+                    Jami {formatNumber(devices.data?.meta.total)} ta — birinchi{' '}
+                    {devices.data?.items.length} tasi ko‘rsatilmoqda. Qidiruvni
+                    aniqlashtiring.
                   </p>
                 ) : null}
               </div>
@@ -996,29 +1260,28 @@ function RolloutModal({
         ) : null}
 
         {/*
-          ⚠️⚠️ SINOV REJIMI — eng muhim belgi. Matn nima bo'lishini
-          ANIQ aytadi: «faqat 1 ta qurilma». Mavhum «sinov rejimi»
-          yozuvi foydalanuvchiga nima bo'layotganini tushuntirmasdi.
+          ⚠️⚠️ BOSQICH — eng muhim tanlov. Matn nima bo'lishini ANIQ
+          aytadi: «bir vaqtda 1 ta qurilma». Keyingi bosqichlar
+          «Tarqatishlar» ro'yxatidagi «Keyingi bosqich» tugmasi bilan.
         */}
-        <label className="flex cursor-pointer items-start gap-2.5 rounded-md border border-line bg-[var(--surface-sunken)] p-3">
-          <input
-            type="checkbox"
-            id="rolloutCanary"
-            name="rolloutCanary"
-            checked={canary}
-            onChange={(event) => setCanary(event.target.checked)}
-            className="mt-0.5"
-          />
-          <span>
-            <span className="block text-meta font-medium text-strong">
-              Avval faqat 1 ta qurilmada sinab ko‘rish
-            </span>
-            <span className="block text-micro text-muted">
-              Yangilanish birinchi so‘ragan bitta qurilmaga beriladi. U
-              tasdiqlangandan keyin belgini olib, tarqatishni davom ettirasiz.
-            </span>
-          </span>
-        </label>
+        <Field
+          label="Boshlang‘ich bosqich"
+          hint="Keyin «Keyingi bosqich» bilan 1 → 10 → 50 → hammasi"
+        >
+          {(id) => (
+            <Select
+              id={id}
+              value={stage}
+              onChange={(event) =>
+                setStage(event.target.value as '1' | '10' | '50')
+              }
+            >
+              <option value="1">Sinov — 1 ta qurilma (tavsiya)</option>
+              <option value="10">Bir vaqtda 10 ta qurilma</option>
+              <option value="50">Bir vaqtda 50 ta qurilma</option>
+            </Select>
+          )}
+        </Field>
 
         <Field label="Izoh">
           {(id) => (
@@ -1061,7 +1324,11 @@ function ProgressModal({
       onClose={onClose}
       title={rollout ? `v${rollout.version} — jarayon` : 'Jarayon'}
       description={
-        data ? `${formatNumber(data.total)} ta qurilma maqsadda` : undefined
+        data
+          ? `${formatNumber(data.total)} ta qurilma maqsadda${
+              rollout ? ` · bosqich: ${stageLabel(rollout.maxDevices)}` : ''
+            }`
+          : undefined
       }
       size="lg"
       footer={
@@ -1080,10 +1347,7 @@ function ProgressModal({
             {Object.entries(data.counts)
               .filter(([, count]) => count > 0)
               .map(([state, count]) => {
-                const meta = STATE_LABELS[state] ?? {
-                  label: state,
-                  chip: 'bg-[var(--surface-sunken)] text-muted',
-                };
+                const meta = otaStatusMeta(state);
                 return (
                   <span
                     key={state}
@@ -1110,10 +1374,7 @@ function ProgressModal({
               </thead>
               <tbody>
                 {data.devices.map((device) => {
-                  const meta = STATE_LABELS[device.state] ?? {
-                    label: device.state,
-                    chip: 'bg-[var(--surface-sunken)] text-muted',
-                  };
+                  const meta = otaStatusMeta(device.state);
                   return (
                     <tr
                       key={device.deviceId}
@@ -1154,9 +1415,9 @@ function ProgressModal({
             <p className="flex items-start gap-2 rounded-md bg-[var(--surface-sunken)] px-3 py-2 text-micro text-muted">
               <CircleOff className="mt-0.5 size-3.5 shrink-0" />
               <span>
-                «Kutilmoqda» — qurilma hali so‘ramagan. Tekshiruv har 30
-                daqiqada bo‘ladi, shuning uchun to‘liq yangilanish 30 daqiqadan
-                ko‘proq vaqt olishi normal.
+                «Kutilmoqda» — qurilma hali so‘ramagan yoki bosqich chegarasi
+                to‘lgan. Tekshiruv har 30 daqiqada bo‘ladi, shuning uchun to‘liq
+                yangilanish 30 daqiqadan ko‘proq vaqt olishi normal.
               </span>
             </p>
           ) : null}

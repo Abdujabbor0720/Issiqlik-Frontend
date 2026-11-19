@@ -19,7 +19,7 @@ export const BRAND = {
    * TO'LIQ RASMIY NOM — brauzer sarlavhasi, kirish sahifasi,
    * hisobot va hujjat sarlavhalari.
    */
-  full: 'Andijon viloyati issiqlik nazorat markazi',
+  full: 'Andijon viloyati issiqlik monitoring tizimi',
 
   /**
    * QISQA NOM — logotipning birinchi qatori.
@@ -29,7 +29,7 @@ export const BRAND = {
    * Shuning uchun nom ikki qatorga bo'linadi va `scope` bilan birga
    * to'liq nomni o'qiydi.
    */
-  short: 'Issiqlik nazorati',
+  short: 'Issiqlik monitoringi',
 
   /** Logotipning ikkinchi qatori — qamrov. */
   scope: 'Andijon viloyati',

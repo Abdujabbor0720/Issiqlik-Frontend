@@ -5,6 +5,7 @@ import {
   Building2,
   Factory,
   Library,
+  MapPinned,
   Pencil,
   Plus,
   Search,
@@ -15,7 +16,11 @@ import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { del, errorMessage, getPaged, patch, post } from '@/shared/api/client';
 import { API, qk, type CatalogKind } from '@/shared/api/endpoints';
-import type { CatalogItem } from '@/shared/api/types';
+import type { CatalogItem, DistrictOption } from '@/shared/api/types';
+import {
+  useDistrictCatalog,
+  useDistricts,
+} from '@/shared/hooks/useCatalogOptions';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import {
   Badge,
@@ -48,6 +53,15 @@ interface TabConfig {
   /** Qo'shimcha ustunlar — har katalogda boshqacha. */
   extraColumns: Array<{ header: string; key: keyof CatalogItem }>;
   emptyHint: string;
+  /** ⚠️ MFYda izoh ustuni yo'q — ustun ham, maydon ham ko'rsatilmaydi. */
+  hasNote: boolean;
+  /** Tumanga (kalit bilan) bog'langan katalog — ro'yxatda tuman filtri. */
+  byDistrict: boolean;
+}
+
+/** Tumanga bog'langan kataloglar: muassasa va MFY. */
+function isDistrictKind(kind: CatalogKind): boolean {
+  return kind === 'organizations' || kind === 'mahallas';
 }
 
 /**
@@ -65,6 +79,8 @@ const TABS: TabConfig[] = [
     extraColumns: [{ header: 'Davlat', key: 'country' }],
     emptyHint:
       'Marka qo‘shilsa, hisobotlarda «qaysi marka ishonchliroq» kesimi paydo bo‘ladi.',
+    hasNote: true,
+    byDistrict: false,
   },
   {
     kind: 'firms',
@@ -77,17 +93,38 @@ const TABS: TabConfig[] = [
     ],
     emptyHint:
       'Xizmat ko‘rsatuvchi firmalar ro‘yxati — kotyol formasida tanlanadi.',
+    hasNote: true,
+    byDistrict: false,
   },
   {
     kind: 'organizations',
-    label: 'Tashkilotlar',
+    label: 'Muassasalar',
     icon: Building2,
     extraColumns: [
       { header: 'Obyekt turi', key: 'objectType' },
+      { header: 'Tuman', key: 'districtKey' },
+      { header: 'MFY', key: 'mahalla' },
       { header: 'Telefon', key: 'phone' },
     ],
+    emptyHint: 'Qozonxona o‘rnatilgan obyektlar: maktab, bog‘cha, shifoxona.',
+    hasNote: true,
+    byDistrict: true,
+  },
+  /*
+   * ⚠️ MFY — tumanning birligi: muassasaning MFYsi uning o'z tumanidan
+   * bo'lishi SHART (server tekshiradi). Shuning uchun MFY tuman bilan
+   * birga yaratiladi va muassasa formasida faqat shu tuman MFYlari
+   * ko'rinadi.
+   */
+  {
+    kind: 'mahallas',
+    label: 'MFYlar',
+    icon: MapPinned,
+    extraColumns: [{ header: 'Tuman', key: 'districtKey' }],
     emptyHint:
-      'Qozonxona o‘rnatilgan obyektlar: maktab, bog‘cha, shifoxona.',
+      'Mahalla fuqarolar yig‘inlari — muassasa formasida tuman bo‘yicha tanlanadi.',
+    hasNote: false,
+    byDistrict: true,
   },
   /*
    * ⚠️ OBYEKT TURI — alohida katalog. Ilgari u kodga qotirilgan
@@ -101,7 +138,9 @@ const TABS: TabConfig[] = [
     icon: Shapes,
     extraColumns: [{ header: 'Kalit', key: 'code' }],
     emptyHint:
-      'Maktab, bog‘cha, shifoxona… — tashkilot formasida shulardan tanlanadi.',
+      'Maktab, bog‘cha, shifoxona… — muassasa formasida shulardan tanlanadi.',
+    hasNote: true,
+    byDistrict: false,
   },
 ];
 
@@ -112,6 +151,8 @@ export function CatalogsPage() {
   const [kind, setKind] = useState<CatalogKind>('brands');
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  /** Tuman filtri — KALIT bo'yicha (muassasa va MFY tuman kalitiga bog'langan). */
+  const [districtKey, setDistrictKey] = useState('');
   const [includeArchived, setIncludeArchived] = useState(false);
   const [editing, setEditing] = useState<CatalogItem | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -120,14 +161,25 @@ export function CatalogsPage() {
   const debouncedSearch = useDebounce(search);
   const tab = TABS.find((item) => item.kind === kind) ?? TABS[0];
 
+  const districts = useDistricts();
+  const districtByKey = useMemo(
+    () =>
+      new Map<string, DistrictOption>(
+        (districts.data ?? []).map((item) => [item.key, item]),
+      ),
+    [districts.data],
+  );
+
   const params = useMemo(
     () => ({
       page,
       limit: 25,
       ...(debouncedSearch ? { search: debouncedSearch } : {}),
       ...(includeArchived ? { includeArchived: true } : {}),
+      // ⚠️ Faqat tumanga bog'langan kataloglarda (muassasa, MFY).
+      ...(isDistrictKind(kind) && districtKey ? { districtKey } : {}),
     }),
-    [page, debouncedSearch, includeArchived],
+    [page, debouncedSearch, includeArchived, kind, districtKey],
   );
 
   const query = useQuery({
@@ -166,8 +218,8 @@ export function CatalogsPage() {
             Kataloglar
           </h1>
           <p className="text-meta text-muted">
-            Marka, firma va tashkilot ro‘yxatlari — kotyol formasida shulardan
-            tanlanadi
+            Marka, firma, muassasa va MFY ro‘yxatlari — kotyol formasida
+            shulardan tanlanadi
           </p>
         </div>
 
@@ -223,6 +275,27 @@ export function CatalogsPage() {
               leading={<Search className="size-4" />}
             />
           </div>
+
+          {/* ⚠️ Tuman mas'uliga server o'z tumanini MAJBURLAYDI — bitta
+              variantli filtr ma'nosiz, shuning uchun yashiriladi. */}
+          {tab.byDistrict && (districts.data?.length ?? 0) > 1 ? (
+            <Select
+              aria-label="Tuman bo‘yicha"
+              value={districtKey}
+              onChange={(event) => {
+                setDistrictKey(event.target.value);
+                setPage(1);
+              }}
+              className="w-auto min-w-[180px]"
+            >
+              <option value="">Barcha tumanlar</option>
+              {(districts.data ?? []).map((district) => (
+                <option key={district.id} value={district.key}>
+                  {district.name}
+                </option>
+              ))}
+            </Select>
+          ) : null}
 
           <button
             type="button"
@@ -283,7 +356,7 @@ export function CatalogsPage() {
                   {tab.extraColumns.map((column) => (
                     <Th key={column.header}>{column.header}</Th>
                   ))}
-                  <Th>Izoh</Th>
+                  {tab.hasNote ? <Th>Izoh</Th> : null}
                   <Th />
                 </tr>
               </thead>
@@ -306,6 +379,17 @@ export function CatalogsPage() {
                       <Td key={column.header} className="text-muted">
                         {column.key === 'objectType' ? (
                           orDash(item.objectType?.name)
+                        ) : column.key === 'mahalla' ? (
+                          orDash(item.mahalla?.name)
+                        ) : column.key === 'districtKey' ? (
+                          /* ⚠️ Kalit EMAS, tuman NOMI: kalit mashina qiymati.
+                             Noma'lum kalit esa o'zicha ko'rinadi. */
+                          orDash(
+                            item.districtKey
+                              ? (districtByKey.get(item.districtKey)?.name ??
+                                  item.districtKey)
+                              : null,
+                          )
                         ) : column.key === 'code' ? (
                           /* Kalit — mashina qiymati, shuning uchun
                              monoshrift va «kod» ko'rinishida. */
@@ -318,9 +402,11 @@ export function CatalogsPage() {
                       </Td>
                     ))}
 
-                    <Td className="max-w-[280px] truncate text-muted">
-                      {orDash(item.note)}
-                    </Td>
+                    {tab.hasNote ? (
+                      <Td className="max-w-[280px] truncate text-muted">
+                        {orDash(item.note)}
+                      </Td>
+                    ) : null}
 
                     <Td align="right">
                       <span className="flex items-center justify-end gap-1">
@@ -337,7 +423,9 @@ export function CatalogsPage() {
                             </IconButton>
 
                             <IconButton
-                              label={item.isArchived ? 'Qaytarish' : 'Arxivlash'}
+                              label={
+                                item.isArchived ? 'Qaytarish' : 'Arxivlash'
+                              }
                               onClick={() =>
                                 archiveMutation.mutate({
                                   id: item.id,
@@ -380,6 +468,8 @@ export function CatalogsPage() {
         onClose={() => setFormOpen(false)}
         kind={kind}
         item={editing}
+        districts={districts.data ?? []}
+        defaultDistrictKey={districtKey}
       />
 
       <ConfirmModal
@@ -394,8 +484,8 @@ export function CatalogsPage() {
             <strong>{removing?.name}</strong> butunlay o‘chiriladi.
             <br />
             <span className="text-muted">
-              Agar bu yozuv birorta kotyolda ishlatilgan bo‘lsa, server
-              o‘chirishni rad etadi — bunday holatda arxivlang.
+              Agar bu yozuv birorta kotyol yoki muassasada ishlatilgan bo‘lsa,
+              server o‘chirishni rad etadi — bunday holatda arxivlang.
             </span>
           </>
         }
@@ -438,11 +528,16 @@ function CatalogFormModal({
   onClose,
   kind,
   item,
+  districts,
+  defaultDistrictKey,
 }: {
   open: boolean;
   onClose: () => void;
   kind: CatalogKind;
   item: CatalogItem | null;
+  districts: DistrictOption[];
+  /** Yangi yozuvda — ro'yxat filtridagi tuman (qulaylik uchun). */
+  defaultDistrictKey: string;
 }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
@@ -454,8 +549,21 @@ function CatalogFormModal({
     directorName: '',
     objectTypeId: '',
     code: '',
+    districtKey: '',
+    mahallaId: '',
   });
   const [error, setError] = useState<string | null>(null);
+  const tab = TABS.find((entry) => entry.kind === kind);
+
+  /*
+   * ⚠️ MFY ro'yxati — faqat TANLANGAN TUMAN bo'yicha: boshqa tuman MFYsi
+   * server tomonidan rad etiladi («MFY muassasa tumaniga tegishli emas»).
+   */
+  const mahallas = useDistrictCatalog(
+    'mahallas',
+    form.districtKey,
+    open && kind === 'organizations',
+  );
 
   /*
    * ⚠️ Turlar FAQAT tashkilot formasida so'raladi (`enabled`): marka
@@ -482,8 +590,17 @@ function CatalogFormModal({
       directorName: item?.directorName ?? '',
       objectTypeId: item?.objectTypeId ?? '',
       code: item?.code ?? '',
+      districtKey:
+        item?.districtKey ??
+        (item
+          ? ''
+          : defaultDistrictKey ||
+            (districts.length === 1 ? districts[0].key : '')),
+      mahallaId: item?.mahallaId ?? '',
     });
     setError(null);
+    // ⚠️ Faqat oyna OCHILGANDA tiklanadi: tumanlar ro'yxati keyinroq kelsa
+    // foydalanuvchi kiritayotgan forma qayta yozilmasin.
   }, [open, item]);
 
   const mutation = useMutation({
@@ -496,7 +613,9 @@ function CatalogFormModal({
        */
       const base: Record<string, unknown> = {
         name: form.name.trim(),
-        note: form.note.trim() || undefined,
+        ...(tab?.hasNote === false
+          ? {}
+          : { note: form.note.trim() || undefined }),
       };
       if (kind === 'brands') base.country = form.country.trim() || undefined;
       if (kind === 'firms') {
@@ -509,6 +628,16 @@ function CatalogFormModal({
         // emas — aks holda biriktirilgan turni olib tashlab bo'lmasdi.
         base.objectTypeId = form.objectTypeId || null;
         base.phone = form.phone.trim() || undefined;
+        /*
+         * ⚠️ Tuman MFY bilan BIRGA yuboriladi: server MFY tumanini aynan
+         * shu maydon bilan solishtiradi. Tumanni `null` ga tushirib
+         * bo'lmaydi (server kalit kutadi) — bo'sh bo'lsa yuborilmaydi.
+         */
+        if (form.districtKey) base.districtKey = form.districtKey;
+        base.mahallaId = form.mahallaId || null;
+      }
+      if (kind === 'mahallas') {
+        base.districtKey = form.districtKey || undefined;
       }
       if (kind === 'object-types') {
         base.code = form.code.trim() || undefined;
@@ -547,6 +676,10 @@ function CatalogFormModal({
             onClick={() => {
               if (!form.name.trim()) {
                 setError('Nomi kiritilmagan');
+                return;
+              }
+              if (kind === 'mahallas' && !form.districtKey) {
+                setError('MFY uchun tuman tanlanishi shart');
                 return;
               }
               setError(null);
@@ -604,6 +737,81 @@ function CatalogFormModal({
               )}
             </Field>
           </>
+        ) : null}
+
+        {kind === 'organizations' || kind === 'mahallas' ? (
+          <Field
+            label="Tuman"
+            required={kind === 'mahallas'}
+            hint={
+              kind === 'organizations'
+                ? 'MFY ro‘yxati shu tuman bo‘yicha'
+                : undefined
+            }
+          >
+            {(id) => (
+              <Select
+                id={id}
+                value={form.districtKey}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    districtKey: event.target.value,
+                    // ⚠️ MFY tumanga tegishli — tuman o'zgarsa tozalanadi.
+                    mahallaId: '',
+                  }))
+                }
+              >
+                {/* ⚠️ Tumani bor yozuvda bo'sh variant yo'q: server tumanni
+                    tozalashni qabul qilmaydi, tanlov esa jim e'tiborsiz qolardi. */}
+                <option value="" disabled={Boolean(item?.districtKey)}>
+                  Tanlanmagan
+                </option>
+                {districts.map((district) => (
+                  <option key={district.id} value={district.key}>
+                    {district.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+        ) : null}
+
+        {kind === 'organizations' ? (
+          <Field
+            label="MFY"
+            hint={
+              !form.districtKey
+                ? 'Avval tumanni tanlang'
+                : 'Ro‘yxat «MFYlar» katalogidan'
+            }
+          >
+            {(id) => (
+              <Select
+                id={id}
+                value={form.mahallaId}
+                disabled={!form.districtKey}
+                onChange={(event) => set('mahallaId', event.target.value)}
+              >
+                <option value="">
+                  {mahallas.isFetching ? 'Yuklanmoqda…' : 'Tanlanmagan'}
+                </option>
+                {/* ⚠️ Joriy MFY ro'yxatda bo'lmasa ham (arxivlangan) qoladi. */}
+                {item?.mahalla &&
+                form.mahallaId === item.mahalla.id &&
+                !(mahallas.data ?? []).some(
+                  (entry) => entry.id === item.mahalla?.id,
+                ) ? (
+                  <option value={item.mahalla.id}>{item.mahalla.name}</option>
+                ) : null}
+                {(mahallas.data ?? []).map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
         ) : null}
 
         {kind === 'organizations' ? (
@@ -664,16 +872,18 @@ function CatalogFormModal({
           </Field>
         ) : null}
 
-        <Field label="Izoh">
-          {(id) => (
-            <Textarea
-              id={id}
-              rows={2}
-              value={form.note}
-              onChange={(event) => set('note', event.target.value)}
-            />
-          )}
-        </Field>
+        {tab?.hasNote === false ? null : (
+          <Field label="Izoh">
+            {(id) => (
+              <Textarea
+                id={id}
+                rows={2}
+                value={form.note}
+                onChange={(event) => set('note', event.target.value)}
+              />
+            )}
+          </Field>
+        )}
 
         {error ? (
           <p className="rounded-lg bg-danger-50 px-3 py-2 text-meta font-medium text-danger-700 dark:bg-danger-500/10 dark:text-danger-300">
