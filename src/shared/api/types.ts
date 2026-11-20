@@ -8,7 +8,15 @@
  */
 
 export type BoilerStatus = 'active' | 'medium' | 'inactive' | 'offline';
-export type UserRole = 'super_admin' | 'admin' | 'operator' | 'viewer';
+export type UserRole =
+  | 'super_admin'
+  | 'admin'
+  | 'operator'
+  | 'viewer'
+  /** Tashkilot (boshqarma) mas'uli — faqat o'z idorasining XAVF lari. */
+  | 'agency_officer'
+  /** Obyekt javobgari — faqat o'zi biriktirilgan obyektlar. */
+  | 'responsible';
 export type FuelType = 'gas' | 'electric' | 'coal' | 'diesel' | 'other';
 export type AlertType =
   | 'offline'
@@ -84,6 +92,8 @@ export interface AuthUser {
   role: UserRole;
   permissions: string[];
   districtId: string | null;
+  /** Tashkilot mas'uli uchun — biriktirilgan tashkilot. */
+  agencyId: string | null;
   fullName: string;
 }
 
@@ -251,6 +261,9 @@ export interface CatalogItem {
   /** Faqat muassasa: MFY (shu tumandagi). */
   mahallaId?: string | null;
   mahalla?: { id: string; name: string } | null;
+  /** Faqat muassasa: qaysi tashkilot/boshqarmaga qarashli (XAVF shu idoraga ham boradi). */
+  agencyId?: string | null;
+  agency?: { id: string; name: string } | null;
   /**
    * ⚠️ Faqat OBYEKT TURIDA: mashina kaliti (`school`, `hospital`).
    * Seed va import aynan shu kalit bo'yicha moslanadi — nom
@@ -735,6 +748,8 @@ export interface User {
   role: UserRole;
   districtId: string | null;
   district?: { id: string; name: string; shortName: string } | null;
+  agencyId?: string | null;
+  agency?: { id: string; name: string } | null;
   isActive: boolean;
   lastLoginAt: string | null;
 }
@@ -825,3 +840,341 @@ export interface BoilerImportPlan {
   /** Arxivga (DO Spaces, private) saqlangan asl fayllar — arxiv sozlangan bo'lsa. */
   archived?: Array<{ bucket: string; key: string; size: number }>;
 }
+
+// ═════════════════════════ XAVF (incident) ═════════════════════════
+
+export type IncidentKind =
+  | 'room_low_temperature'
+  | 'boiler_low_temperature'
+  | 'device_offline'
+  | 'sensor_fault'
+  | 'overheat'
+  | 'no_circulation';
+
+/**
+ * XAVF HOLATI.
+ * ⚠️ `resolved` — «bartaraf etildi» (javobgar yoki tizim da'vosi),
+ * `closed` — yuqori mas'ul TEKSHIRIB yopdi. Ikkisi bir xil emas.
+ */
+export type IncidentStatus =
+  | 'new'
+  | 'acknowledged'
+  | 'in_progress'
+  | 'resolved'
+  | 'closed';
+
+export type ResponsibilityType =
+  | 'director'
+  | 'facilities'
+  | 'heating_technician'
+  | 'other';
+
+export type NotifyAudience = 'responsible' | 'district' | 'agency' | 'region';
+
+/** Hodisa paytidagi javobgar (muhrlangan) — telefon ruxsatsiz niqoblangan. */
+export interface IncidentResponsible {
+  responsibleId: string;
+  fullName: string;
+  position: string;
+  employer: string | null;
+  phone: string;
+  email: string | null;
+  responsibilityType: ResponsibilityType;
+  responsibilityLabel: string;
+  isPrimary: boolean;
+  via: 'organization' | 'boiler';
+  contactsMasked: boolean;
+}
+
+export interface IncidentScheduleSnapshot {
+  source: string;
+  mode: 'always' | 'schedule';
+  activeDays: number[];
+  heating: string;
+  monitor: string;
+  minRoomTemperature: number;
+  observeHolidays: boolean;
+}
+
+export interface IncidentListItem {
+  id: string;
+  number: number;
+  kind: IncidentKind;
+  kindLabel: string;
+  severity: AlertSeverity;
+  status: IncidentStatus;
+  statusLabel: string;
+  title: string;
+  district: { id: string; name: string };
+  organization: { id: string; name: string | null } | null;
+  agency: { id: string; name: string | null } | null;
+  boiler: { id: string; lotNumber: string | null; address: string | null };
+  room: { id: string | null; name: string } | null;
+  device: { id: string | null; label: string } | null;
+  temperature: number | null;
+  currentTemperature: number | null;
+  extremeTemperature: number | null;
+  threshold: number | null;
+  schedule: IncidentScheduleSnapshot | null;
+  detectedAt: string;
+  lastSeenAt: string;
+  durationMinutes: number;
+  acknowledgedAt: string | null;
+  inProgressAt: string | null;
+  resolvedAt: string | null;
+  resolution: 'auto' | 'manual' | null;
+  closedAt: string | null;
+  escalationLevel: number;
+  lastEscalatedAt: string | null;
+  reopenCount: number;
+  primaryResponsible: IncidentResponsible | null;
+  responsibleCount: number;
+}
+
+export type IncidentEventType =
+  | 'created'
+  | 'notified'
+  | 'status_changed'
+  | 'comment'
+  | 'action'
+  | 'severity_raised'
+  | 'auto_resolved'
+  | 'reopened'
+  | 'escalated';
+
+export interface IncidentTimelineItem {
+  id: string;
+  at: string;
+  type: IncidentEventType;
+  fromStatus: IncidentStatus | null;
+  toStatus: IncidentStatus | null;
+  actor: string;
+  note: string | null;
+  payload: Record<string, unknown> | null;
+}
+
+export interface IncidentDetail extends IncidentListItem {
+  resolutionNote: string | null;
+  closeNote: string | null;
+  responsibles: IncidentResponsible[];
+  currentResponsibles: IncidentResponsible[];
+  timeline: IncidentTimelineItem[];
+  notifications: Array<{
+    id: string;
+    /** `null` — kontakt ruxsati yo'q (ism/login yashirilgan). */
+    recipient: string | null;
+    audience: NotifyAudience;
+    level: number;
+    sentAt: string;
+    readAt: string | null;
+  }>;
+  escalations: Array<{
+    at: string;
+    note: string | null;
+    level?: number;
+    target?: NotifyAudience;
+    condition?: string;
+    afterMinutes?: number;
+  }>;
+}
+
+export interface IncidentSummary {
+  scope: 'all' | 'district' | 'agency' | 'responsible';
+  active: number;
+  unacknowledged: number;
+  inProgress: number;
+  critical: number;
+  escalated: number;
+  awaitingClose: number;
+  oldestActiveAt: string | null;
+  byKind: Array<{ kind: IncidentKind; label: string; count: number }>;
+  byDistrict: Array<{
+    districtId: string;
+    name: string;
+    active: number;
+    critical: number;
+    escalated: number;
+  }> | null;
+  byAgency: Array<{
+    agencyId: string | null;
+    agencyName: string;
+    active: number;
+    escalated: number;
+  }> | null;
+  last30Days: { avgAckMinutes: number | null; avgResolveMinutes: number | null };
+  last24Hours: { created: number; resolved: number };
+}
+
+export interface RecurringIncidentRow {
+  boilerId: string;
+  lotNumber: string | null;
+  roomId: string | null;
+  roomName: string | null;
+  deviceLabel: string | null;
+  kind: IncidentKind;
+  kindLabel: string;
+  organizationName: string | null;
+  district: string;
+  agencyName: string | null;
+  incidents: number;
+  reopens: number;
+  occurrences: number;
+  lowestTemperature: number | null;
+  lastDetectedAt: string;
+}
+
+export type IncidentReportGroup = 'district' | 'agency' | 'organization' | 'kind';
+
+export interface IncidentReport {
+  from: string;
+  to: string;
+  groupBy: IncidentReportGroup;
+  rows: Array<{
+    key: string | null;
+    label: string;
+    total: number;
+    active: number;
+    autoResolved: number;
+    manuallyResolved: number;
+    closed: number;
+    escalated: number;
+    reopens: number;
+    avgAckMinutes: number | null;
+    avgResolveMinutes: number | null;
+  }>;
+}
+
+export interface IncidentNotificationItem {
+  id: string;
+  createdAt: string;
+  readAt: string | null;
+  level: number;
+  audience: NotifyAudience;
+  incidentId: string;
+  number: number;
+  title: string;
+  kind: IncidentKind;
+  severity: AlertSeverity;
+  status: IncidentStatus;
+}
+
+/** Bildirishnomalar ro'yxati: `meta.unread` — o'qilmaganlar soni. */
+export interface NotificationsPage {
+  items: IncidentNotificationItem[];
+  meta: PaginationMeta & { unread: number };
+}
+
+export interface EscalationRule {
+  id?: string;
+  severity: AlertSeverity | null;
+  level: number;
+  condition: 'not_acknowledged' | 'not_resolved';
+  afterMinutes: number;
+  target: Exclude<NotifyAudience, 'responsible'>;
+  isActive: boolean;
+}
+
+// ───────────── Javobgar shaxslar ─────────────
+
+export interface ResponsibleAssignment {
+  id: string;
+  organization: { id: string; name: string; districtKey: string | null } | null;
+  boiler: { id: string; label: string } | null;
+  responsibilityType: ResponsibilityType;
+  responsibilityLabel: string;
+  isPrimary: boolean;
+  note: string | null;
+}
+
+export interface ResponsiblePerson {
+  id: string;
+  fullName: string;
+  position: string;
+  employer: string | null;
+  phone: string;
+  email: string | null;
+  contactsMasked: boolean;
+  district: { id: string; name: string } | null;
+  user: { id: string; login: string } | null;
+  isActive: boolean;
+  note: string | null;
+  assignments: ResponsibleAssignment[];
+  updatedAt: string;
+}
+
+export interface ResponsibleCoverage {
+  total: number;
+  withPrimary: number;
+  withoutPrimary: number;
+  missing: Array<{
+    id: string;
+    name: string;
+    districtKey: string | null;
+    agencyId: string | null;
+    boilerCount: number;
+    responsibleCount: number;
+  }>;
+}
+
+// ───────────── Monitoring jadvali ─────────────
+
+export type ScheduleScope = 'global' | 'object_type' | 'organization' | 'boiler';
+
+export interface MonitoringScheduleRow {
+  id: string;
+  scopeType: ScheduleScope;
+  scopeId: string | null;
+  scopeLabel: string;
+  mode: 'always' | 'schedule';
+  activeDays: number[];
+  heatingStart: string;
+  heatingEnd: string;
+  monitorStart: string;
+  monitorEnd: string;
+  minRoomTemperature: number | null;
+  observeHolidays: boolean;
+  note: string | null;
+  updatedAt: string;
+}
+
+export interface EffectiveSchedule extends IncidentScheduleSnapshot {
+  scheduleId: string | null;
+  minRoomTemperatureSource: 'schedule' | 'settings';
+  inMonitorWindow: boolean;
+  inHeatingWindow: boolean;
+}
+
+export interface MonitoringHoliday {
+  id: string;
+  day: string;
+  name: string;
+}
+
+// ───────────── Realtime ─────────────
+
+export interface IncidentRealtimeEvent {
+  incidentId: string;
+  number: number;
+  change: string;
+  kind: IncidentKind;
+  severity: AlertSeverity;
+  status: IncidentStatus;
+  title: string;
+  boilerId: string;
+  districtId: string;
+  agencyId: string | null;
+  escalationLevel: number;
+  at: string;
+}
+
+export interface NotificationRealtimeEvent {
+  notificationId: string;
+  incidentId: string;
+  number: number;
+  title: string;
+  severity: AlertSeverity;
+  level: number;
+  audience: NotifyAudience;
+  at: string;
+}
+

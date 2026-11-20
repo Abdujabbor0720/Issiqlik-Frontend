@@ -2,7 +2,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import toast from 'react-hot-toast';
-import type { AlertEvent, BoilerStatusEvent } from '@/shared/api/types';
+import { get, tokenStore } from '@/shared/api/client';
+import { API } from '@/shared/api/endpoints';
+import type {
+  AlertEvent,
+  BoilerStatusEvent,
+  IncidentRealtimeEvent,
+  NotificationRealtimeEvent,
+} from '@/shared/api/types';
 import { useAuthStore } from '@/store/auth.store';
 import { useRealtimeStore } from '@/store/realtime.store';
 
@@ -65,6 +72,15 @@ export function useRealtime(): void {
       const instance = io(`${SOCKET_URL}/realtime`, {
         transports: ['websocket'],
         query: user!.districtId ? { districtId: user!.districtId } : {},
+        /*
+         * ⚠️⚠️ TOKEN — FUNKSIYA, qiymat emas: socket.io uni HAR (qayta)
+         * ulanishda chaqiradi. Qiymat bo'lsa, 30 daqiqadan keyin muddati
+         * o'tgan token bilan qayta ulanib, XAVF xabarlari jimgina kelmay
+         * qo'yardi. Server vakolatni tokendagi emas, BAZADAGI rol/tuman
+         * bo'yicha beradi (`realtime.gateway.ts`).
+         */
+        auth: (cb: (data: Record<string, unknown>) => void) =>
+          cb({ token: tokenStore.access() ?? '' }),
         // ⚠️ Avtomatik qayta ulanish — cheksiz, lekin ORTIB BORUVCHI
         // kechikish bilan: server qayta ishga tushayotganda o'nlab
         // mijoz bir vaqtda urinsa, u yana yiqilardi.
@@ -119,6 +135,59 @@ export function useRealtime(): void {
 
       instance.on('boiler:status', (_event: BoilerStatusEvent) => {
         scheduleRefresh();
+      });
+
+      /*
+       * ⚠️ XAVF o'zgarishi — ro'yxat, karta, dashboard, yon panel soni
+       * (`incidents` prefiksi) birga yangilanadi. Hodisa faqat VAKOLATLI
+       * xonalarga keladi (server tanlaydi).
+       */
+      instance.on('incident:changed', (_event: IncidentRealtimeEvent) => {
+        void queryClient.invalidateQueries({ queryKey: ['incidents'] });
+      });
+
+      /*
+       * ⚠️ SHAXSIY ogohlantirish — shu foydalanuvchiga yuborilgan XAVF
+       * (javobgar, tuman/tashkilot mas'uli yoki eskalatsiya). Bu xabar
+       * har doim ekranga chiqadi: u aynan «sizga» yo'naltirilgan.
+       */
+      instance.on(
+        'incident:notification',
+        (event: NotificationRealtimeEvent) => {
+          void queryClient.invalidateQueries({
+            queryKey: ['incidentNotifications'],
+          });
+          void queryClient.invalidateQueries({ queryKey: ['incidents'] });
+          const text =
+            event.level > 0
+              ? `Eskalatsiya (${event.level}-daraja): ${event.title}`
+              : event.title;
+          if (event.severity === 'critical') {
+            toast.error(text, { duration: 8000, id: event.notificationId });
+          } else {
+            toast(text, {
+              duration: 6000,
+              id: event.notificationId,
+              icon: '⚠️',
+            });
+          }
+        },
+      );
+
+      /*
+       * ⚠️ Token muddati tugadi yoki vakolat o'zgardi — server XAVF
+       * xonalaridan chiqardi. Yengil so'rov (`/auth/me`) HTTP interceptor
+       * orqali tokenni yangilaydi, keyin YANGI token bilan qayta ulanamiz.
+       */
+      instance.on('auth:expired', () => {
+        void get(API.auth.me)
+          .catch(() => undefined)
+          .finally(() => {
+            if (!disposed) {
+              instance.disconnect();
+              instance.connect();
+            }
+          });
       });
 
       instance.on('alert:new', (event: AlertEvent) => {

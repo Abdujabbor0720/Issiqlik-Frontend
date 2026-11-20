@@ -1,6 +1,10 @@
 import {
   Bell,
+  CalendarClock,
+  ChartColumn,
+  Contact,
   Cpu,
+  ShieldAlert,
   HardDriveDownload,
   Flame,
   Gauge,
@@ -44,6 +48,25 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Umumiy ko‘rinish',
     icon: LayoutDashboard,
     permission: 'reports.view',
+    group: 'main',
+  },
+  /*
+   * ⚠️ XAVF — kundalik ishning MARKAZI (mas'ul nima qilishi kerak), shuning
+   * uchun «Umumiy ko'rinish» dan keyin darhol. Tashkilot mas'uli va obyekt
+   * javobgari uchun bu — yagona asosiy bo'lim (ularda `reports.view` yo'q).
+   */
+  {
+    to: '/incidents',
+    label: 'XAVF',
+    icon: ShieldAlert,
+    permission: 'incidents.view',
+    group: 'main',
+  },
+  {
+    to: '/incident-analytics',
+    label: 'XAVF tahlili',
+    icon: ChartColumn,
+    permission: 'incidents.view',
     group: 'main',
   },
   {
@@ -107,6 +130,20 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Proshivka (OTA)',
     icon: HardDriveDownload,
     permission: 'firmware.view',
+    group: 'manage',
+  },
+  {
+    to: '/responsible-persons',
+    label: 'Javobgar shaxslar',
+    icon: Contact,
+    permission: 'responsibles.view',
+    group: 'manage',
+  },
+  {
+    to: '/monitoring',
+    label: 'Monitoring jadvali',
+    icon: CalendarClock,
+    permission: 'schedules.view',
     group: 'manage',
   },
   {

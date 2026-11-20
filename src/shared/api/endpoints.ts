@@ -104,6 +104,45 @@ export const API = {
     one: (id: string) => `/users/${id}`,
     resetPassword: (id: string) => `/users/${id}/reset-password`,
   },
+  /**
+   * XAVF — nazorat hodisalari.
+   * ⚠️ O'chirish manzili YO'Q va bo'lmaydi: hodisa faqat holatlar orqali yakunlanadi.
+   */
+  incidents: {
+    list: '/incidents',
+    summary: '/incidents/summary',
+    recurring: '/incidents/recurring',
+    report: '/incidents/report',
+    one: (id: string) => `/incidents/${id}`,
+    action: (
+      id: string,
+      action: 'acknowledge' | 'start' | 'resolve' | 'close' | 'reopen',
+    ) => `/incidents/${id}/${action}`,
+    comments: (id: string) => `/incidents/${id}/comments`,
+    myNotifications: '/incidents/notifications/my',
+    readNotification: (id: string) => `/incidents/notifications/${id}/read`,
+    readAllNotifications: '/incidents/notifications/read-all',
+    escalationRules: '/incidents/escalation-rules',
+  },
+  /**
+   * JAVOBGAR SHAXSLAR REYESTRI (direktor, xo'jalik mudiri, texnik).
+   * ⚠️ `users.districtResponsibles` («Tuman mas'ullari») bilan chalkashtirmang:
+   * u tizim hisoblari, bu esa obyektga javob beradigan shaxslar.
+   */
+  responsiblePersons: {
+    list: '/responsibles',
+    coverage: '/responsibles/coverage',
+    one: (id: string) => `/responsibles/${id}`,
+    assignments: (id: string) => `/responsibles/${id}/assignments`,
+    assignment: (id: string) => `/responsibles/assignments/${id}`,
+  },
+  monitoring: {
+    schedules: '/monitoring/schedules',
+    schedule: (id: string) => `/monitoring/schedules/${id}`,
+    effective: '/monitoring/schedules/effective',
+    holidays: '/monitoring/holidays',
+    holiday: (id: string) => `/monitoring/holidays/${id}`,
+  },
   settings: '/settings',
   audit: '/audit',
   health: '/health',
@@ -115,7 +154,9 @@ export type CatalogKind =
   | 'organizations'
   | 'object-types'
   /** MFYlar — tumanga (kalit bilan) tegishli. */
-  | 'mahallas';
+  | 'mahallas'
+  /** Tashkilot / boshqarma — muassasa unga qarashli bo'ladi. */
+  | 'agencies';
 
 /**
  * QUERY KALITLARI — TanStack Query uchun.
@@ -187,4 +228,25 @@ export const qk = {
     ['roomHistory', boilerId, hours] as const,
   roomsSummary: (districtId: string | null) =>
     ['roomsSummary', districtId] as const,
+  /*
+   * ⚠️ XAVF kalitlari `incidents` prefiksi bilan: realtime hodisasi bitta
+   * `invalidateQueries({ queryKey: ['incidents'] })` bilan ro'yxat, karta,
+   * dashboard va hisobotni birga yangilaydi.
+   */
+  incidents: (params: unknown) => ['incidents', 'list', params] as const,
+  incident: (id: string) => ['incidents', 'one', id] as const,
+  incidentSummary: (districtId: string | null) =>
+    ['incidents', 'summary', districtId] as const,
+  incidentRecurring: (params: unknown) =>
+    ['incidents', 'recurring', params] as const,
+  incidentReport: (params: unknown) => ['incidents', 'report', params] as const,
+  incidentBadge: ['incidents', 'badge'] as const,
+  notifications: (params: unknown) =>
+    ['incidentNotifications', params] as const,
+  escalationRules: ['escalationRules'] as const,
+  responsiblePersons: (params: unknown) =>
+    ['responsiblePersons', params] as const,
+  responsibleCoverage: ['responsiblePersons', 'coverage'] as const,
+  schedules: ['monitoring', 'schedules'] as const,
+  holidays: (year: number) => ['monitoring', 'holidays', year] as const,
 } as const;

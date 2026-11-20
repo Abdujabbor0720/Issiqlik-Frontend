@@ -42,6 +42,31 @@ const DevicesPage = lazy(() =>
 const AlertsPage = lazy(() =>
   import('@/features/alerts/AlertsPage').then((m) => ({ default: m.AlertsPage })),
 );
+const IncidentsPage = lazy(() =>
+  import('@/features/incidents/IncidentsPage').then((m) => ({
+    default: m.IncidentsPage,
+  })),
+);
+const IncidentDetailPage = lazy(() =>
+  import('@/features/incidents/IncidentDetailPage').then((m) => ({
+    default: m.IncidentDetailPage,
+  })),
+);
+const IncidentAnalyticsPage = lazy(() =>
+  import('@/features/incidents/IncidentAnalyticsPage').then((m) => ({
+    default: m.IncidentAnalyticsPage,
+  })),
+);
+const ResponsiblePersonsPage = lazy(() =>
+  import('@/features/responsible-persons/ResponsiblePersonsPage').then((m) => ({
+    default: m.ResponsiblePersonsPage,
+  })),
+);
+const MonitoringPage = lazy(() =>
+  import('@/features/monitoring/MonitoringPage').then((m) => ({
+    default: m.MonitoringPage,
+  })),
+);
 const FirmwarePage = lazy(() =>
   import('@/features/firmware/FirmwarePage').then((m) => ({
     default: m.FirmwarePage,
@@ -77,7 +102,12 @@ export function AppRouter() {
       <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
 
       <Route element={<Private><AppLayout /></Private>}>
-        <Route index element={<Lazy><DashboardPage /></Lazy>} />
+        <Route index element={<Home />} />
+        <Route path="incidents" element={<Lazy><IncidentsPage /></Lazy>} />
+        <Route path="incidents/:id" element={<Lazy><IncidentDetailPage /></Lazy>} />
+        <Route path="incident-analytics" element={<Lazy><IncidentAnalyticsPage /></Lazy>} />
+        <Route path="responsible-persons" element={<Lazy><ResponsiblePersonsPage /></Lazy>} />
+        <Route path="monitoring" element={<Lazy><MonitoringPage /></Lazy>} />
         <Route path="map" element={<Lazy><MapPage /></Lazy>} />
         <Route path="institutions" element={<Lazy><InstitutionsPage /></Lazy>} />
         <Route path="boilers" element={<Lazy><BoilersPage /></Lazy>} />
@@ -98,6 +128,25 @@ export function AppRouter() {
           ekran kerak. */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+  );
+}
+
+/**
+ * BOSH SAHIFA — rolga qarab.
+ *
+ * ⚠️ Tashkilot mas'uli va obyekt javobgarida `reports.view` yo'q: ular
+ * uchun dashboard faqat 403 xatolar bilan to'lardi. Ularning ish joyi —
+ * XAVF ro'yxati.
+ */
+function Home() {
+  const can = useAuthStore((state) => state.can);
+  if (!can('reports.view') && can('incidents.view')) {
+    return <Navigate to="/incidents" replace />;
+  }
+  return (
+    <Lazy>
+      <DashboardPage />
+    </Lazy>
   );
 }
 

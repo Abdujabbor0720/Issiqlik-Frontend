@@ -131,6 +131,8 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   admin: 'Administrator',
   operator: 'Tuman mas‘uli',
   viewer: 'Kuzatuvchi',
+  agency_officer: 'Tashkilot mas‘uli',
+  responsible: 'Obyekt javobgari',
 };
 
 export const FUEL_LABELS: Record<string, string> = {

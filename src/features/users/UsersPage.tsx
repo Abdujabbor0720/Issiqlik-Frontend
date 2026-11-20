@@ -20,7 +20,12 @@ import {
   post,
 } from '@/shared/api/client';
 import { API, qk } from '@/shared/api/endpoints';
-import type { DistrictOption, User, UserRole } from '@/shared/api/types';
+import type {
+  CatalogItem,
+  DistrictOption,
+  User,
+  UserRole,
+} from '@/shared/api/types';
 import { ROLE_LABELS } from '@/shared/constants/status';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import {
@@ -57,6 +62,10 @@ const ROLE_TONE: Record<UserRole, string> = {
     'bg-ok-50 text-ok-700 ring-1 ring-ok-200 dark:bg-ok-500/12 dark:text-ok-300',
   viewer:
     'bg-idle-100 text-idle-700 ring-1 ring-idle-200 dark:bg-white/6 dark:text-idle-300',
+  agency_officer:
+    'bg-warn-50 text-warn-700 ring-1 ring-warn-200 dark:bg-warn-400/14 dark:text-warn-300',
+  responsible:
+    'bg-[var(--surface-sunken)] text-ink ring-1 ring-[var(--border-subtle)]',
 };
 
 /**
@@ -195,7 +204,7 @@ export function UsersPage() {
                 <tr>
                   <Th>Foydalanuvchi</Th>
                   <Th>Rol</Th>
-                  <Th>Tuman</Th>
+                  <Th>Tuman / tashkilot</Th>
                   <Th>Lavozim</Th>
                   <Th align="right">Oxirgi kirish</Th>
                   <Th>Holati</Th>
@@ -236,7 +245,8 @@ export function UsersPage() {
                     </Td>
 
                     <Td className="text-muted">
-                      {orDash(user.district?.shortName)}
+                      {/* ⚠️ Tashkilot mas'ulining kesimi — tuman emas, idora. */}
+                      {orDash(user.district?.shortName ?? user.agency?.name)}
                     </Td>
                     <Td className="max-w-[200px] truncate text-muted">
                       {orDash(user.position)}
@@ -386,6 +396,7 @@ function UserFormModal({
     fullName: '',
     role: 'viewer' as UserRole,
     districtId: '',
+    agencyId: '',
     email: '',
     phone: '',
     position: '',
@@ -403,6 +414,7 @@ function UserFormModal({
       fullName: user?.fullName ?? '',
       role: user?.role ?? 'viewer',
       districtId: user?.districtId ?? '',
+      agencyId: user?.agencyId ?? '',
       email: user?.email ?? '',
       phone: user?.phone ?? '',
       position: user?.position ?? '',
@@ -418,6 +430,16 @@ function UserFormModal({
     enabled: open,
   });
 
+  const agencies = useQuery({
+    queryKey: qk.catalog('agencies', 'user-form'),
+    queryFn: () =>
+      getPaged<CatalogItem>(API.catalogs.list('agencies'), {
+        params: { limit: 200 },
+      }),
+    enabled: open && form.role === 'agency_officer',
+    staleTime: 10 * 60 * 1000,
+  });
+
   const mutation = useMutation({
     mutationFn: () => {
       const base: Record<string, unknown> = {
@@ -428,6 +450,9 @@ function UserFormModal({
            yuborilsa, server «tuman faqat operatorga biriktiriladi»
            xatosini qaytaradi. */
         districtId: form.role === 'operator' ? form.districtId : undefined,
+        /* ⚠️ Tashkilot FAQAT tashkilot mas'uliga (server boshqa rolga rad etadi). */
+        agencyId:
+          form.role === 'agency_officer' ? form.agencyId : undefined,
         email: form.email.trim() || undefined,
         phone: form.phone.trim() || undefined,
         position: form.position.trim() || undefined,
@@ -464,6 +489,9 @@ function UserFormModal({
     }
     if (form.role === 'operator' && !form.districtId) {
       return setError('Tuman operatori uchun tuman tanlanishi shart');
+    }
+    if (form.role === 'agency_officer' && !form.agencyId) {
+      return setError('Tashkilot mas‘uli uchun tashkilot tanlanishi shart');
     }
     setError(null);
     mutation.mutate();
@@ -582,6 +610,29 @@ function UserFormModal({
             </Select>
           )}
         </Field>
+
+        {form.role === 'agency_officer' ? (
+          <Field
+            label="Tashkilot (boshqarma)"
+            required
+            hint="Mas‘ul shu idoraga qarashli muassasalarning XAVF larini ko‘radi"
+          >
+            {(id) => (
+              <Select
+                id={id}
+                value={form.agencyId}
+                onChange={(event) => set('agencyId', event.target.value)}
+              >
+                <option value="">Tanlanmagan</option>
+                {(agencies.data?.items ?? []).map((agency) => (
+                  <option key={agency.id} value={agency.id}>
+                    {agency.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+        ) : null}
 
         <Field label="Lavozim">
           {(id) => (

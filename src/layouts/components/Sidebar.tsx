@@ -12,7 +12,11 @@ import {
 import { NavLink, useLocation } from 'react-router-dom';
 import { get, getPaged } from '@/shared/api/client';
 import { API, qk } from '@/shared/api/endpoints';
-import type { Alert, DashboardSummary } from '@/shared/api/types';
+import type {
+  Alert,
+  DashboardSummary,
+  IncidentListItem,
+} from '@/shared/api/types';
 import { BRAND } from '@/shared/constants/brand';
 import {
   NAV_GROUP_LABELS,
@@ -130,6 +134,24 @@ export function Sidebar({
   });
   const openAlerts = alerts?.meta.total ?? 0;
   const alertsText = openAlerts > 99 ? '99+' : formatNumber(openAlerts);
+
+  /*
+   * ⚠️ Faol XAVF soni ham menyuda: mas'ul «XAVF» bo'limiga kirmasdan
+   * ham muammo borligini ko'rishi kerak. Realtime hodisasi bu kalitni
+   * (`incidents` prefiksi) darhol yangilaydi.
+   */
+  const { data: incidents } = useQuery({
+    queryKey: qk.incidentBadge,
+    queryFn: () =>
+      getPaged<IncidentListItem>(API.incidents.list, {
+        params: { limit: 1, statuses: 'new,acknowledged,in_progress' },
+      }),
+    enabled: can('incidents.view'),
+    refetchInterval: 60_000,
+  });
+  const activeIncidents = incidents?.meta.total ?? 0;
+  const incidentsText =
+    activeIncidents > 99 ? '99+' : formatNumber(activeIncidents);
 
   /* ───────── Tooltip (faqat yig'ilgan holatda) ───────── */
   const [tip, setTip] = useState<TipState | null>(null);
@@ -395,7 +417,11 @@ export function Sidebar({
                 <ul className="flex flex-col gap-0.5">
                   {items.map((item) => {
                     const isAlerts = item.to === '/alerts';
-                    const badge = isAlerts && openAlerts > 0;
+                    const isIncidents = item.to === '/incidents';
+                    const badge =
+                      (isAlerts && openAlerts > 0) ||
+                      (isIncidents && activeIncidents > 0);
+                    const badgeText = isIncidents ? incidentsText : alertsText;
                     return (
                       <li key={item.to}>
                         <NavLink
@@ -405,13 +431,13 @@ export function Sidebar({
                           aria-label={
                             collapsed
                               ? badge
-                                ? `${item.label}, ${alertsText} ta ochiq`
+                                ? `${item.label}, ${badgeText} ta ochiq`
                                 : item.label
                               : undefined
                           }
                           {...tipProps(
                             item.label,
-                            badge ? `${alertsText} ta ochiq` : undefined,
+                            badge ? `${badgeText} ta ochiq` : undefined,
                           )}
                           className={({ isActive }) =>
                             cn(
@@ -451,7 +477,7 @@ export function Sidebar({
                                   />
                                 ) : (
                                   <span className="rounded-md bg-danger-500/20 px-1.5 text-[11px] leading-[18px] font-semibold text-danger-300 tabular-nums ring-1 ring-danger-400/30 ring-inset">
-                                    {alertsText}
+                                    {badgeText}
                                   </span>
                                 )
                               ) : null}

@@ -15,6 +15,7 @@ import { initials } from '@/shared/utils/format';
 import { useAuthStore } from '@/store/auth.store';
 import { useUiStore } from '@/store/ui.store';
 import { DistrictFilter } from './DistrictFilter';
+import { NotificationBell } from './NotificationBell';
 
 /**
  * YUQORI PANEL.
@@ -67,6 +68,8 @@ export function TopBar({ onOpenMobileMenu }: { onOpenMobileMenu: () => void }) {
             ko'rsatkichlarning MA'NOSINI belgilaydi va yashirilsa,
             raqamlar qaysi kesimniki ekani bilinmay qolardi. */}
         <DistrictFilter className="min-w-0 flex-1 sm:w-56 sm:flex-none" />
+
+        <NotificationBell />
 
         <button
           type="button"
