@@ -151,7 +151,6 @@ export function LoginPage() {
                   onChange={(event) =>
                     setForm((prev) => ({ ...prev, login: event.target.value }))
                   }
-                  placeholder="Issqilik2026"
                   autoComplete="username"
                   autoFocus
                   leading={<User className="size-4" />}
