@@ -298,7 +298,9 @@ export const TempGauge = memo(function TempGauge({
           x={lx}
           y={ly + 9}
           textAnchor="middle"
-          fontSize={8.5}
+          fontSize={8}
+          fontFamily="var(--font-mono)"
+          fontWeight={600}
           fill="var(--ink-faint)"
         >
           {MIN_C}
@@ -307,16 +309,22 @@ export const TempGauge = memo(function TempGauge({
           x={hx}
           y={hy + 9}
           textAnchor="middle"
-          fontSize={8.5}
+          fontSize={8}
+          fontFamily="var(--font-mono)"
+          fontWeight={600}
           fill="var(--ink-faint)"
         >
           {MAX_C}
         </text>
       </svg>
 
-      {/* Markaz — HTML (shriftlar va o'lcham aniq). */}
+      {/* Markaz — HTML (shriftlar va o'lcham aniq).
+          ⚠️ Raqam — displey shriftida (`figure-display`), yorliq va ΔT —
+          mono: «o'lchov» va «yorliq» bir qarashda ajraladi. Eskirgan
+          qiymatda rang `--ink-muted` (utilita qatlami — displey sinfining
+          o'z rangini bosadi). */}
       <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center pt-1">
-        <span className="flex items-center gap-1 text-[11px] font-medium text-muted">
+        <span className="flex items-center gap-1 font-mono text-[9.5px] font-semibold tracking-[0.12em] text-muted uppercase">
           <meta.Icon
             className="size-3.5"
             style={{ color: hue }}
@@ -325,15 +333,16 @@ export const TempGauge = memo(function TempGauge({
           />
           {meta.label}
         </span>
-        <span
-          className={cn(
-            'mt-0.5 flex items-baseline font-semibold tracking-tight tabular-nums',
-            live ? 'text-strong' : 'text-muted',
-          )}
-        >
-          <span ref={valueRef} className="text-[26px] leading-none" />
+        <span className="mt-1 flex items-start">
+          <span
+            ref={valueRef}
+            className={cn(
+              'figure-display text-[29px] leading-none',
+              !live && 'text-[color:var(--ink-muted)]',
+            )}
+          />
           {hasValue ? (
-            <span className="ml-0.5 text-[12px] font-medium text-muted">
+            <span className="mt-0.5 ml-0.5 font-mono text-[10px] font-semibold text-muted">
               °C
             </span>
           ) : null}
@@ -364,7 +373,7 @@ function NormNotch({ value }: { value: number }) {
 /** «▲ +0,1 °C» — oldingi o'lchovga nisbatan. Joy har doim band (sakrash yo'q). */
 function DeltaLine({ delta }: { delta: number | null }) {
   if (delta === null) {
-    return <span className="mt-1 h-3.5" aria-hidden />;
+    return <span className="mt-1.5 h-3.5" aria-hidden />;
   }
   const sign = delta > 0 ? '▲' : delta < 0 ? '▼' : '•';
   const text =
@@ -373,7 +382,7 @@ function DeltaLine({ delta }: { delta: number | null }) {
       : `${delta > 0 ? '+' : '−'}${Math.abs(delta).toFixed(1).replace('.', ',')}`;
   return (
     <span
-      className="mt-1 h-3.5 text-[10.5px] leading-3.5 font-medium text-muted tabular-nums"
+      className="mt-1.5 h-3.5 font-mono text-[10px] leading-3.5 font-semibold text-muted tabular-nums"
       title="Oldingi o‘lchovga nisbatan"
     >
       {sign} {text} °C

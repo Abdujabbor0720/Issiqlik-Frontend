@@ -63,13 +63,16 @@ export function DistrictTable({
             <Tr
               key={row.districtId}
               onClick={() => onSelect(selected ? null : row.districtId)}
-              className={cn(selected && 'bg-brand-50 dark:bg-brand-500/10')}
+              className={cn(
+                selected &&
+                  'bg-brand-50 shadow-[inset_3px_0_0_var(--color-brand-500)] dark:bg-brand-400/10',
+              )}
             >
               <Td
                 className={cn(
-                  'font-medium whitespace-nowrap',
+                  'font-semibold whitespace-nowrap',
                   selected
-                    ? 'text-brand-700 dark:text-brand-300'
+                    ? 'text-brand-700 dark:text-brand-200'
                     : 'text-strong',
                 )}
               >
@@ -86,14 +89,14 @@ export function DistrictTable({
               <Td align="right">
                 <span
                   className={cn(
-                    'rounded-full px-1.5 py-0.5 text-micro font-semibold',
+                    'inline-block min-w-11 rounded-md px-1.5 py-0.5 text-center font-mono text-[11px] font-semibold ring-1 ring-inset',
                     row.total === 0
-                      ? 'bg-[var(--surface-sunken)] text-faint'
+                      ? 'bg-[var(--surface-sunken)] text-faint ring-[var(--border-subtle)]'
                       : row.workingPercent >= 80
-                        ? 'bg-ok-50 text-ok-700 dark:bg-ok-500/12 dark:text-ok-300'
+                        ? 'bg-ok-50 text-ok-700 ring-ok-200 dark:bg-ok-500/12 dark:text-ok-300 dark:ring-ok-400/25'
                         : row.workingPercent >= 55
-                          ? 'bg-warn-50 text-warn-700 dark:bg-warn-400/14 dark:text-warn-300'
-                          : 'bg-danger-50 text-danger-700 dark:bg-danger-500/12 dark:text-danger-300',
+                          ? 'bg-warn-50 text-warn-700 ring-warn-200 dark:bg-warn-400/12 dark:text-warn-300 dark:ring-warn-400/25'
+                          : 'bg-danger-50 text-danger-700 ring-danger-200 dark:bg-danger-500/14 dark:text-danger-300 dark:ring-danger-400/30',
                   )}
                   data-numeric
                 >
@@ -109,7 +112,7 @@ export function DistrictTable({
                 <span className="text-ok-700 dark:text-ok-300" data-numeric>
                   {formatNumber(row.devicesOnline)}
                 </span>
-                <span className="text-faint"> / </span>
+                <span className="px-1 text-faint">/</span>
                 <span
                   className={
                     row.devicesOffline > 0
@@ -131,26 +134,28 @@ export function DistrictTable({
           );
         })}
         {sorted.length > 1 ? (
+          /* ⚠️ Jami qatori — DISPLEY raqamlari va qalin ustki chiziq:
+             ko'z jadval oxirida «natija» ni darhol topishi kerak. */
           <tr className="border-t-2 border-[var(--border-strong)] bg-[var(--surface-muted)]">
-            <Td className="font-semibold text-strong">Jami</Td>
-            <Td align="right" className="font-semibold text-strong">
+            <Td>
+              <span className="label-eyebrow text-muted">Jami</span>
+            </Td>
+            <Td align="right" className={TOTAL}>
               <span data-numeric>{formatNumber(totals.total)}</span>
             </Td>
             <Td />
             <Td />
-            <Td
-              align="right"
-              className="font-semibold whitespace-nowrap text-strong"
-            >
+            <Td align="right" className={cn(TOTAL, 'whitespace-nowrap')}>
               <span data-numeric>
-                {formatNumber(totals.devicesOnline)} /{' '}
+                {formatNumber(totals.devicesOnline)}
+                <span className="px-1 font-sans font-normal text-faint">/</span>
                 {formatNumber(totals.devicesOffline)}
               </span>
             </Td>
-            <Td align="right" className="font-semibold text-strong">
+            <Td align="right" className={TOTAL}>
               <span data-numeric>{formatNumber(totals.belowNorm)}</span>
             </Td>
-            <Td align="right" className="font-semibold text-strong">
+            <Td align="right" className={TOTAL}>
               <span data-numeric>{formatNumber(totals.openAlerts)}</span>
             </Td>
           </tr>
@@ -159,6 +164,9 @@ export function DistrictTable({
     </Table>
   );
 }
+
+const TOTAL =
+  'font-display text-[15px] font-[740] tracking-[-0.015em] text-strong [font-stretch:106%]';
 
 function Count({ value, tone }: { value: number; tone: 'warn' | 'danger' }) {
   if (value === 0) {
@@ -171,10 +179,10 @@ function Count({ value, tone }: { value: number; tone: 'warn' | 'danger' }) {
   return (
     <span
       className={cn(
-        'rounded-full px-2 py-0.5 text-micro font-semibold',
+        'inline-block min-w-7 rounded-md px-1.5 py-0.5 text-center font-mono text-[11px] font-semibold ring-1 ring-inset',
         tone === 'warn'
-          ? 'bg-warn-50 text-warn-700 dark:bg-warn-400/14 dark:text-warn-300'
-          : 'bg-danger-50 text-danger-700 dark:bg-danger-500/12 dark:text-danger-300',
+          ? 'bg-warn-50 text-warn-700 ring-warn-200 dark:bg-warn-400/12 dark:text-warn-300 dark:ring-warn-400/25'
+          : 'bg-danger-50 text-danger-700 ring-danger-200 dark:bg-danger-500/14 dark:text-danger-300 dark:ring-danger-400/30',
       )}
       data-numeric
     >

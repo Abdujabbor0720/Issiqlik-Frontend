@@ -27,6 +27,7 @@ import {
   useMediaQuery,
   usePrefersReducedMotion,
 } from '@/shared/hooks/useMediaQuery';
+import { StateEmblem } from '@/shared/ui/StateEmblem';
 import { cn } from '@/shared/utils/cn';
 import { formatTimeUz } from '@/shared/utils/date';
 import { formatNumber } from '@/shared/utils/format';
@@ -306,7 +307,7 @@ export function Sidebar({
            tashqarida bo'lsa ham Tab unga kirib, fokus «g'oyib» bo'lardi. */
         inert={!isDesktop && !mobileOpen}
         className={cn(
-          'fixed inset-y-0 left-0 z-40 flex flex-col text-white',
+          'grain fixed inset-y-0 left-0 z-40 flex flex-col text-white',
           'w-[min(86vw,288px)] transition-[width,transform] duration-300',
           EASE,
           collapsed ? 'lg:w-rail-tight' : 'lg:w-rail',
@@ -320,7 +321,7 @@ export function Sidebar({
           /* Chuqurlik — juda nozik: yuqori chap burchakda brend
              ko'kining tushishi, pastga qarab to'qlashuv. */
           background:
-            'radial-gradient(140% 48% at 0% 0%, rgb(29 114 187 / 0.16) 0%, transparent 60%), linear-gradient(180deg, var(--color-rail-900) 0%, var(--color-rail-950) 100%)',
+            'radial-gradient(120% 38% at 0% 0%, rgb(22 115 214 / 0.22) 0%, transparent 62%), radial-gradient(90% 30% at 100% 100%, rgb(255 127 31 / 0.08) 0%, transparent 70%), linear-gradient(180deg, var(--color-rail-900) 0%, var(--color-rail-950) 100%)',
         }}
       >
         {/* O'ng chetdagi soch tolasidek chegara. */}
@@ -332,7 +333,7 @@ export function Sidebar({
         {/* ───── Logotip ───── */}
         <div
           className={cn(
-            'flex h-topbar shrink-0 items-center border-b border-white/[0.06]',
+            'relative flex h-topbar shrink-0 items-center',
             collapsed ? 'justify-center px-2' : 'gap-3 px-4',
           )}
         >
@@ -343,13 +344,13 @@ export function Sidebar({
             className="flex min-w-0 items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-brand-300/70"
             {...tipProps(BRAND.short, BRAND.scope)}
           >
-            <Emblem />
+            <StateEmblem size={36} glow />
             {!collapsed ? (
               <span className="flex min-w-0 flex-col">
-                <span className="truncate text-[14px] leading-[18px] font-semibold tracking-[-0.012em] text-white">
+                <span className="truncate font-display text-[15px] leading-[19px] font-[780] tracking-[-0.018em] text-white [font-stretch:110%]">
                   {BRAND.short}
                 </span>
-                <span className="truncate text-[10.5px] leading-[14px] font-medium tracking-[0.09em] text-white/45 uppercase">
+                <span className="mt-0.5 truncate font-mono text-[9.5px] leading-[13px] font-semibold tracking-[0.18em] text-white/45 uppercase">
                   {BRAND.scope}
                 </span>
               </span>
@@ -365,6 +366,12 @@ export function Sidebar({
           >
             <X className="size-4" />
           </button>
+
+          {/* Bayroq lentasi — davlat tizimi belgisi, logotip ostida. */}
+          <span
+            aria-hidden
+            className="flag-ribbon absolute inset-x-0 bottom-0 h-[2px] opacity-75"
+          />
         </div>
 
         {/* ───── Menyu ───── */}
@@ -388,8 +395,8 @@ export function Sidebar({
                   height: indicator.height,
                 }}
               >
-                <span className="absolute inset-0 rounded-lg bg-white/[0.075] shadow-[inset_0_1px_0_rgb(255_255_255/0.05),0_8px_20px_-12px_rgb(0_0_0/0.8)] ring-1 ring-white/[0.07] ring-inset" />
-                <span className="absolute top-1/2 left-0 h-4 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-300 shadow-[0_0_12px_rgb(125_183_230/0.6)]" />
+                <span className="absolute inset-0 rounded-lg bg-linear-to-r from-white/[0.11] via-white/[0.05] to-white/[0.02] shadow-[inset_0_1px_0_rgb(255_255_255/0.07),0_10px_24px_-14px_rgb(0_0_0/0.9)] ring-1 ring-white/[0.08] ring-inset" />
+                <span className="absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-[image:var(--thermal-v)] shadow-[0_0_16px_rgb(255_165_61/0.55)]" />
               </div>
             ) : null}
 
@@ -407,7 +414,7 @@ export function Sidebar({
                   ) : null
                 ) : (
                   <div className="mb-1.5 flex items-center gap-2.5 px-3">
-                    <span className="text-[10.5px] font-semibold tracking-[0.11em] text-white/35 uppercase">
+                    <span className="font-mono text-[10px] font-semibold tracking-[0.18em] text-white/35 uppercase">
                       {NAV_GROUP_LABELS[group]}
                     </span>
                     <span className="h-px flex-1 bg-white/[0.06]" />
@@ -456,15 +463,15 @@ export function Sidebar({
                             <>
                               <item.icon
                                 className={cn(
-                                  'size-[17px] shrink-0 transition-colors duration-150',
+                                  'size-[17px] shrink-0 transition-[color,transform] duration-300 ease-out-expo',
                                   isActive
-                                    ? 'text-brand-200'
-                                    : 'text-white/45 group-hover:text-white/80',
+                                    ? 'text-heat-300 drop-shadow-[0_0_8px_rgb(255_165_61/0.45)]'
+                                    : 'text-white/45 group-hover:scale-110 group-hover:text-white/85',
                                 )}
                                 strokeWidth={isActive ? 2.1 : 1.8}
                               />
                               {!collapsed ? (
-                                <span className="min-w-0 flex-1 truncate text-[13px] font-medium tracking-[-0.006em]">
+                                <span className="min-w-0 flex-1 truncate text-[13px] font-medium tracking-[-0.006em] transition-transform duration-300 ease-out-expo group-hover:translate-x-0.5">
                                   {item.label}
                                 </span>
                               ) : null}
@@ -545,29 +552,6 @@ export function Sidebar({
         ) : null}
       </aside>
     </>
-  );
-}
-
-/** Logotip belgisi — to'q panel uchun: chuqur ko'k plitka, iliq alanga. */
-function Emblem() {
-  return (
-    <span
-      className="grid size-8 shrink-0 place-items-center rounded-[9px] ring-1 ring-white/15 ring-inset"
-      style={{
-        background:
-          'linear-gradient(150deg, #1d72bb 0%, #0e4273 55%, #0a2943 100%)',
-        boxShadow:
-          'inset 0 1px 0 rgb(255 255 255 / 0.18), 0 8px 18px -10px rgb(0 0 0 / 0.8)',
-      }}
-    >
-      <svg viewBox="0 0 24 24" className="size-[18px]" aria-hidden>
-        <path
-          d="M12 3c.5 2.6-.9 3.7-2.1 4.9C8.6 9.1 7.4 10.3 7.4 12.6A4.6 4.6 0 0 0 12 17.2a4.6 4.6 0 0 0 4.6-4.6c0-1.8-.7-2.9-1.5-4-.2.8-.7 1.4-1.4 1.7.3-2.7-.8-4.8-3.3-6.4"
-          fill="#ffb454"
-          transform="translate(1 1) scale(0.92)"
-        />
-      </svg>
-    </span>
   );
 }
 
@@ -709,7 +693,7 @@ function SystemPulse({
             className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/[0.08]"
           >
             <div
-              className="h-full rounded-full bg-brand-300 transition-[width] duration-700"
+              className="h-full rounded-full bg-linear-to-r from-brand-400 to-[#38b6ff] shadow-[0_0_10px_rgb(56_182_255/0.6)] transition-[width] duration-700 ease-out-expo"
               style={{ width: `${share}%` }}
             />
           </div>

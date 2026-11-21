@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Save, Trash2, TrendingUp } from 'lucide-react';
+import { Info, Plus, Save, Trash2, TrendingUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { errorMessage, get, put } from '@/shared/api/client';
@@ -10,7 +10,6 @@ import { ALERT_SEVERITY } from '@/shared/constants/status';
 import {
   Button,
   Card,
-  CardBody,
   CardHeader,
   ErrorState,
   Input,
@@ -22,6 +21,7 @@ import {
   Th,
   Tr,
 } from '@/shared/ui';
+import { cn } from '@/shared/utils/cn';
 import { useAuthStore } from '@/store/auth.store';
 
 const CONDITION_LABELS: Record<EscalationRule['condition'], string> = {
@@ -103,6 +103,16 @@ export function EscalationRulesTab() {
   return (
     <Card className="overflow-hidden">
       <CardHeader
+        eyebrow={
+          dirty ? (
+            <span className="inline-flex items-center gap-1.5 text-warn-600 dark:text-warn-300">
+              <span aria-hidden className="size-1.5 rounded-full bg-warn-400" />
+              Saqlanmagan o‘zgarish
+            </span>
+          ) : (
+            `${rows.length} ta qoida`
+          )
+        }
         title="Eskalatsiya qoidalari"
         subtitle="Javobgar belgilangan vaqtda qabul qilmasa yoki bartaraf etmasa — XAVF yuqori mas‘ulga ko‘tariladi"
         icon={<TrendingUp className="size-4" />}
@@ -158,7 +168,14 @@ export function EscalationRulesTab() {
         </thead>
         <tbody>
           {rows.map((row, index) => (
-            <Tr key={`${row.id ?? 'new'}-${index}`}>
+            <Tr
+              key={`${row.id ?? 'new'}-${index}`}
+              className={cn(
+                'hover:bg-[var(--surface-muted)] dark:hover:bg-white/[0.025]',
+                /* Faolsiz qoida XIRA — lekin tahrirlanadi (qaytarib yoqish shu yerda). */
+                !row.isActive && 'opacity-60 hover:opacity-100',
+              )}
+            >
               <Td>
                 <Select
                   value={row.severity ?? ''}
@@ -266,11 +283,15 @@ export function EscalationRulesTab() {
           ))}
         </tbody>
       </Table>
-      <CardBody className="py-3 text-micro text-faint">
-        Aniq og‘irlikdagi qoida shu darajadagi «Hammasi» qoidasini almashtiradi
-        (faolsizi ham — shu yo‘l bilan bitta og‘irlik uchun darajani o‘chirish
-        mumkin). Vaqt hodisa ochilgan (yoki qayta ochilgan) paytdan hisoblanadi.
-      </CardBody>
+      <div className="flex items-start gap-2.5 border-t border-[var(--border-subtle)] bg-[var(--surface-muted)] px-5 py-3 text-micro text-muted">
+        <Info className="mt-px size-3.5 shrink-0 text-faint" aria-hidden />
+        <p>
+          Aniq og‘irlikdagi qoida shu darajadagi «Hammasi» qoidasini
+          almashtiradi (faolsizi ham — shu yo‘l bilan bitta og‘irlik uchun
+          darajani o‘chirish mumkin). Vaqt hodisa ochilgan (yoki qayta ochilgan)
+          paytdan hisoblanadi.
+        </p>
+      </div>
     </Card>
   );
 }

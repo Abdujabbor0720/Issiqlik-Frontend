@@ -1,10 +1,14 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import axios from 'axios';
+import { MotionConfig } from 'motion/react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { get, setSessionExpiredHandler, tokenStore } from '@/shared/api/client';
 import { API } from '@/shared/api/endpoints';
 import type { AuthUser } from '@/shared/api/types';
+import { BRAND } from '@/shared/constants/brand';
+import { useSpotlight } from '@/shared/hooks/useSpotlight';
+import { StateEmblem } from '@/shared/ui/StateEmblem';
 import { useAuthStore } from '@/store/auth.store';
 
 /**
@@ -44,26 +48,43 @@ const queryClient = new QueryClient({
 });
 
 export function AppProviders({ children }: { children: ReactNode }) {
+  useSpotlight();
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <SessionBootstrap>{children}</SessionBootstrap>
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 3500,
-          style: {
-            background: 'var(--surface)',
-            color: 'var(--ink-strong)',
-            fontSize: '13px',
-            borderRadius: '11px',
-            boxShadow: 'var(--shadow-pop)',
-            padding: '10px 14px',
-          },
-          success: { iconTheme: { primary: '#118a56', secondary: '#fff' } },
-          error: { iconTheme: { primary: '#c8362c', secondary: '#fff' } },
-        }}
-      />
-    </QueryClientProvider>
+    /* ⚠️ `reducedMotion="user"` — tizimda «harakatni kamaytirish»
+       yoqilgan bo'lsa, `motion` animatsiyalari (segment plitkasi, raqam
+       sanog'i) o'z-o'zidan o'chadi. CSS animatsiyalari esa
+       `index.css` dagi `prefers-reduced-motion` bloki bilan. */
+    <MotionConfig reducedMotion="user">
+      <QueryClientProvider client={queryClient}>
+        <SessionBootstrap>{children}</SessionBootstrap>
+        <Toaster
+          position="top-right"
+          gutter={10}
+          toastOptions={{
+            duration: 3500,
+            style: {
+              background: 'var(--surface)',
+              color: 'var(--ink-strong)',
+              fontSize: '13px',
+              fontWeight: 500,
+              borderRadius: '10px',
+              boxShadow: 'var(--shadow-pop)',
+              padding: '11px 14px',
+              borderLeft: '3px solid var(--color-brand-500)',
+            },
+            success: {
+              iconTheme: { primary: '#118a56', secondary: '#fff' },
+              style: { borderLeft: '3px solid #118a56' },
+            },
+            error: {
+              iconTheme: { primary: '#c8362c', secondary: '#fff' },
+              style: { borderLeft: '3px solid #c8362c' },
+            },
+          }}
+        />
+      </QueryClientProvider>
+    </MotionConfig>
   );
 }
 
@@ -119,11 +140,19 @@ function SessionBootstrap({ children }: { children: ReactNode }) {
   }, [setUser]);
 
   if (!checked) {
+    /* Yuklanish ekrani — gerb + termal chiziq. ⚠️ Spinner emas: bu
+       ekran odatda 200–400 ms ko'rinadi va aylanuvchi doira «nimadir
+       osilib qoldi» degan taassurot berardi. */
     return (
-      <div className="grid min-h-dvh place-items-center bg-[var(--canvas)]">
-        <div className="flex flex-col items-center gap-3">
-          <span className="size-8 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600" />
-          <p className="text-meta text-muted">Yuklanmoqda…</p>
+      <div className="relative grid min-h-dvh place-items-center overflow-hidden bg-[var(--canvas)]">
+        <div className="flex flex-col items-center gap-5">
+          <StateEmblem size={72} glow />
+          <div className="flex flex-col items-center gap-3">
+            <span className="relative h-[3px] w-40 overflow-hidden rounded-full bg-[var(--surface-sunken)]">
+              <span className="loader-run thermal-line absolute inset-y-0 left-0 w-1/2 rounded-full" />
+            </span>
+            <p className="label-eyebrow">{BRAND.short} · yuklanmoqda</p>
+          </div>
         </div>
       </div>
     );

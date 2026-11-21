@@ -6,12 +6,12 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import toast from 'react-hot-toast';
 import { errorMessage, get, postForm } from '@/shared/api/client';
 import { API, qk } from '@/shared/api/endpoints';
 import type { BoilerImportPlan, DistrictOption } from '@/shared/api/types';
-import { Button, Field, Modal, Select } from '@/shared/ui';
+import { AnimatedNumber, Button, Field, Modal, Select } from '@/shared/ui';
 import { cn } from '@/shared/utils/cn';
 import { formatDateUz } from '@/shared/utils/date';
 import { formatNumber } from '@/shared/utils/format';
@@ -177,6 +177,8 @@ export function BoilerImportModal({
       description="Ta’lim boshqarmasining qozonxonalar jadvali (.xlsx) — avval tekshiriladi, keyin yoziladi"
       footer={footer}
     >
+      <StepTrack step={step} />
+
       {step === 'select' ? (
         <div className="flex flex-col gap-4">
           <Field label="Tuman / shahar" required>
@@ -249,6 +251,59 @@ export function BoilerImportModal({
   );
 }
 
+const STEPS: ReadonlyArray<{ key: Step; label: string }> = [
+  { key: 'select', label: 'Fayl' },
+  { key: 'preview', label: 'Tekshirish' },
+  { key: 'done', label: 'Natija' },
+];
+
+/**
+ * Qadamlar chizig'i — «hozir qaysi bosqichdaman».
+ *
+ * ⚠️ Faqat KO'RSATKICH, tugma emas: qadamlar orasida yurish faqat oyna
+ * pastidagi «Tekshirish» / «Orqaga» orqali — aks holda tekshirilmagan
+ * fayl bilan to'g'ridan-to'g'ri «Natija» ga o'tib bo'lardi.
+ */
+function StepTrack({ step }: { step: Step }) {
+  const current = STEPS.findIndex((item) => item.key === step);
+  return (
+    <ol className="mb-5 grid grid-cols-3 gap-2" aria-label="Import bosqichlari">
+      {STEPS.map((item, index) => {
+        const state =
+          index < current ? 'done' : index === current ? 'current' : 'next';
+        return (
+          <li
+            key={item.key}
+            aria-current={state === 'current' ? 'step' : undefined}
+            className="flex flex-col gap-1.5"
+          >
+            <span className="relative h-[3px] overflow-hidden rounded-full bg-[var(--surface-sunken)]">
+              <span
+                className={cn(
+                  'absolute inset-0 origin-left transition-transform duration-500 ease-out-expo',
+                  state === 'next' ? 'scale-x-0' : 'scale-x-100',
+                  state === 'current' ? 'thermal-line' : 'bg-brand-500',
+                )}
+              />
+            </span>
+            <span
+              className={cn(
+                'font-mono text-[10.5px] font-semibold tracking-[0.1em] uppercase',
+                state === 'next' ? 'text-faint' : 'text-strong',
+              )}
+            >
+              <span className="text-faint">
+                {String(index + 1).padStart(2, '0')}
+              </span>{' '}
+              {item.label}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 function FilePicker({
   label,
   hint,
@@ -283,12 +338,15 @@ function FilePicker({
   return (
     <Field label={label} required={required} hint={hint}>
       {(id) => (
+        /* ⚠️ Chegara HAR DOIM 1px (faqat uslubi o'zgaradi: punktir →
+           yaxlit): fayl tanlanganda qalinlik o'zgarsa, forma sakrardi. */
         <div
           className={cn(
-            'flex items-center gap-3 rounded-lg px-3 py-2.5 ring-1 transition-colors ring-inset',
+            'group flex items-center gap-3 rounded-tile border px-3 py-3 transition-[background-color,border-color] duration-200',
+            'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-400',
             file
-              ? 'bg-brand-50/60 ring-brand-200 dark:bg-brand-500/10 dark:ring-brand-500/30'
-              : 'ring-[var(--border-strong)]',
+              ? 'border-brand-300 bg-brand-50/60 dark:border-brand-400/35 dark:bg-brand-400/10'
+              : 'border-dashed border-[var(--border-strong)] bg-[var(--surface-muted)] hover:border-brand-400 hover:bg-[var(--surface)] dark:hover:border-brand-400/60',
           )}
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => {
@@ -296,20 +354,23 @@ function FilePicker({
             pick(event.dataTransfer.files[0]);
           }}
         >
-          <FileSpreadsheet
+          <span
             className={cn(
-              'size-5 shrink-0',
-              file ? 'text-brand-600' : 'text-faint',
+              'grid size-9 shrink-0 place-items-center rounded-md ring-1 ring-inset transition-transform duration-300 ease-out-expo group-hover:-translate-y-0.5',
+              file
+                ? 'bg-brand-600 text-white ring-brand-700 shadow-[var(--shadow-brand)] dark:ring-brand-400/40'
+                : 'bg-[var(--surface)] text-faint ring-[var(--border-subtle)]',
             )}
-            aria-hidden
-          />
+          >
+            <FileSpreadsheet className="size-[18px]" aria-hidden />
+          </span>
           <div className="min-w-0 flex-1">
             {file ? (
               <>
-                <p className="truncate text-meta font-medium text-strong">
+                <p className="truncate text-meta font-semibold text-strong">
                   {file.name}
                 </p>
-                <p className="text-micro text-muted">
+                <p className="font-mono text-[10.5px] text-muted tabular-nums">
                   {formatNumber(Math.max(1, Math.round(file.size / 1024)))} KB
                 </p>
               </>
@@ -327,14 +388,14 @@ function FilePicker({
                 if (inputRef.current) inputRef.current.value = '';
               }}
               aria-label={`${label} — olib tashlash`}
-              className="grid size-8 place-items-center rounded-lg text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-strong"
+              className="group/x grid size-8 place-items-center rounded-md text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-strong"
             >
-              <X className="size-4" />
+              <X className="size-4 transition-transform duration-300 ease-out-expo group-hover/x:rotate-90" />
             </button>
           ) : null}
           <label
             htmlFor={id}
-            className="inline-flex h-8 cursor-pointer items-center rounded-lg px-3 text-micro font-semibold text-brand-600 ring-1 ring-[var(--border-strong)] transition-colors ring-inset hover:bg-[var(--surface-sunken)]"
+            className="inline-flex h-8 cursor-pointer items-center rounded-md bg-[var(--surface)] px-3 text-micro font-semibold text-brand-600 shadow-[var(--shadow-card)] transition-[box-shadow,transform] duration-200 hover:shadow-[var(--shadow-raise)] active:scale-[0.97] dark:bg-white/[0.05] dark:text-brand-300"
           >
             Tanlash
           </label>
@@ -378,17 +439,25 @@ function PlanView({ plan, done }: { plan: BoilerImportPlan; done: boolean }) {
 
       <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Tile
+          index={0}
           label="Muassasa"
           value={formatNumber(t.institutions)}
           hint={`yangi ${formatNumber(t.newOrganizations)} · mavjud ${formatNumber(t.existingOrganizations)}`}
         />
         <Tile
+          index={1}
           label="Qozonxona"
           value={formatNumber(t.boilers)}
           hint={done ? 'rejada edi' : 'yaratiladi'}
         />
-        <Tile label="Kotyol" value={formatNumber(t.units)} hint="jami" />
         <Tile
+          index={2}
+          label="Kotyol"
+          value={formatNumber(t.units)}
+          hint="jami"
+        />
+        <Tile
+          index={3}
           label="Qozonxonasiz"
           value={formatNumber(t.withoutBoiler)}
           hint="markazlashgan va b."
@@ -405,22 +474,25 @@ function PlanView({ plan, done }: { plan: BoilerImportPlan; done: boolean }) {
         </div>
       ))}
 
-      <div className="max-h-[320px] overflow-auto rounded-lg ring-1 ring-[var(--border-subtle)]">
+      <div className="max-h-[320px] overflow-auto rounded-tile ring-1 ring-[var(--border-subtle)]">
         <table className="w-full text-left text-micro">
-          <thead className="sticky top-0 bg-[var(--surface-sunken)] text-muted">
+          <thead className="sticky top-0 z-10 bg-[var(--surface-muted)] text-muted shadow-[inset_0_-1px_0_var(--border-subtle)]">
             <tr>
-              <th className="px-3 py-2 font-medium">Muassasa</th>
-              <th className="px-3 py-2 font-medium">Natija</th>
-              <th className="px-3 py-2 font-medium">Plata</th>
+              <th className="th-mono px-3 py-2">Muassasa</th>
+              <th className="th-mono px-3 py-2">Natija</th>
+              <th className="th-mono px-3 py-2">Plata</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[var(--border-subtle)]">
+          <tbody className="divide-y divide-[var(--border-cell)]">
             {plan.rows.map((row) => (
-              <tr key={row.excelRow}>
+              <tr
+                key={row.excelRow}
+                className="transition-colors duration-150 hover:bg-[var(--surface-muted)] dark:hover:bg-white/[0.025]"
+              >
                 <td className="px-3 py-1.5">
                   <span className="font-medium text-strong">{row.name}</span>
                   {row.organizationId ? (
-                    <span className="ml-1.5 rounded bg-[var(--surface-sunken)] px-1 text-nano text-muted">
+                    <span className="ml-1.5 rounded-[4px] bg-[var(--surface-sunken)] px-1.5 py-px align-middle font-mono text-[9.5px] font-semibold tracking-[0.08em] text-muted uppercase ring-1 ring-[var(--border-subtle)] ring-inset">
                       mavjud
                     </span>
                   ) : null}
@@ -451,18 +523,24 @@ function Tile({
   label,
   value,
   hint,
+  index,
 }: {
   label: string;
   value: string;
   hint: string;
+  /** Ketma-ket paydo bo'lish tartibi. */
+  index: number;
 }) {
   return (
-    <div className="rounded-tile bg-[var(--surface-sunken)] px-3 py-2">
-      <dt className="text-micro text-muted">{label}</dt>
-      <dd className="text-lede font-semibold text-strong tabular-nums">
-        {value}
+    <div
+      style={{ '--i': index } as CSSProperties}
+      className="reveal rounded-tile bg-[var(--surface-sunken)] px-3 py-2.5 ring-1 ring-[var(--border-subtle)] ring-inset"
+    >
+      <dt className="label-eyebrow">{label}</dt>
+      <dd className="mt-1.5">
+        <AnimatedNumber value={value} className="figure-display text-[24px]" />
       </dd>
-      <dd className="truncate text-nano text-faint">{hint}</dd>
+      <dd className="mt-1 truncate text-nano text-faint">{hint}</dd>
     </div>
   );
 }

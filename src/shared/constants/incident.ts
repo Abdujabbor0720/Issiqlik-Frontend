@@ -48,29 +48,32 @@ export const INCIDENT_STATUS: Record<
   IncidentStatus,
   { label: string; chip: string; dot: string }
 > = {
+  /* ⚠️ Qorong'i rejim halqasi (`dark:ring-*`) ham SHART: och halqa
+     (`ring-danger-200`) to'q fonda oq chiziq bo'lib «yonib» turardi.
+     Qiymatlar `status.ts` dagi chiplar bilan AYNI qadamda. */
   new: {
     label: 'Yangi xavf',
-    chip: 'bg-danger-50 text-danger-700 ring-1 ring-danger-200 dark:bg-danger-500/12 dark:text-danger-300',
+    chip: 'bg-danger-50 text-danger-700 ring-1 ring-danger-200 dark:bg-danger-500/14 dark:text-danger-300 dark:ring-danger-400/30',
     dot: 'bg-danger-500',
   },
   acknowledged: {
     label: 'Qabul qilindi',
-    chip: 'bg-warn-50 text-warn-700 ring-1 ring-warn-200 dark:bg-warn-400/14 dark:text-warn-300',
+    chip: 'bg-warn-50 text-warn-700 ring-1 ring-warn-200 dark:bg-warn-400/12 dark:text-warn-300 dark:ring-warn-400/25',
     dot: 'bg-warn-400',
   },
   in_progress: {
     label: 'Chora ko‘rilmoqda',
-    chip: 'bg-brand-50 text-brand-700 ring-1 ring-brand-200 dark:bg-brand-500/12 dark:text-brand-300',
+    chip: 'bg-brand-50 text-brand-700 ring-1 ring-brand-200 dark:bg-brand-400/12 dark:text-brand-200 dark:ring-brand-400/25',
     dot: 'bg-brand-500',
   },
   resolved: {
     label: 'Bartaraf etildi',
-    chip: 'bg-ok-50 text-ok-700 ring-1 ring-ok-200 dark:bg-ok-500/12 dark:text-ok-300',
+    chip: 'bg-ok-50 text-ok-700 ring-1 ring-ok-200 dark:bg-ok-500/12 dark:text-ok-300 dark:ring-ok-400/25',
     dot: 'bg-ok-500',
   },
   closed: {
     label: 'Yopildi',
-    chip: 'bg-idle-100 text-idle-700 ring-1 ring-idle-200 dark:bg-white/6 dark:text-idle-300',
+    chip: 'bg-idle-100 text-idle-700 ring-1 ring-idle-200 dark:bg-white/[0.06] dark:text-idle-300 dark:ring-white/10',
     dot: 'bg-idle-400',
   },
 };

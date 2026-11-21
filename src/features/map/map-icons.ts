@@ -36,7 +36,15 @@ export function districtBadgeSize(
   solo: boolean,
   compact = false,
 ): number {
-  const base = solo ? 40 : total >= 20 ? 34 : total >= 10 ? 30 : total >= 1 ? 27 : 24;
+  const base = solo
+    ? 40
+    : total >= 20
+      ? 34
+      : total >= 10
+        ? 30
+        : total >= 1
+          ? 27
+          : 24;
   // Telefonda (tor xarita) ~18% kichikroq — 16 tuman bir-birini yopmasin.
   return compact ? Math.round(base * 0.82) : base;
 }
@@ -54,8 +62,16 @@ export function districtBadgeIcon(
   options: { size: number; showName: boolean; selected: boolean },
 ): L.DivIcon {
   const hex = BOILER_STATUS[props.dominantStatus].hex;
+  const rgb = hexToRgb(hex);
   const { size, showName, selected } = options;
   const height = size + (showName ? 18 : 0);
+  /* ⚠️ Tashqi halqa — `box-shadow`, `border` EMAS: u o'lchamga qo'shilmaydi,
+     ya'ni oqim kanali (`districtBadgeSize`) aynan doira CHETIGA kirishda
+     davom etadi. Tanlangan tuman — brend halqasi, qolganlari — o'z holat
+     rangidagi xira nur. */
+  const halo = selected
+    ? '0 0 0 3px rgba(11,91,181,.26)'
+    : `0 0 0 3px rgba(${rgb},.18)`;
 
   return L.divIcon({
     className: '',
@@ -81,19 +97,26 @@ export function districtBadgeIcon(
           radial-gradient(120% 120% at 32% 24%, rgba(255,255,255,.34), rgba(255,255,255,0) 58%),
           ${hex};
         color:#fff;
-        font:600 ${props.total >= 100 ? 10.5 : 12}px/1 var(--font-sans);
+        /* ⚠️ Raqam DISPLEY shriftida (sahifadagi KPI raqamlari bilan bir
+           oila). Yupqa soya — oq raqam sariq («o'rta») doira ustida ham
+           o'qilsin. */
+        font:700 ${props.total >= 100 ? 10.5 : 12}px/1 var(--font-display);
+        font-stretch:108%;letter-spacing:-.01em;
         font-variant-numeric:tabular-nums;
-        box-shadow:0 1px 3px rgba(8,30,60,.36),0 5px 12px -5px rgba(8,30,60,.5);
-        border:${selected ? '3px solid #12538f' : '2px solid #fff'};
+        text-shadow:0 1px 1px rgba(8,20,40,.35);
+        box-shadow:${halo},0 1px 3px rgba(8,30,60,.36),0 6px 14px -5px rgba(8,30,60,.55);
+        border:${selected ? '3px solid #0b5bb5' : '2px solid #fff'};
       ">${esc(props.total)}</span>
       ${
         showName
           ? `<span style="
-        display:inline-block;padding:1px 6px;border-radius:6px;
+        display:inline-block;padding:1px 6px;border-radius:4px;
         background:var(--surface);
         /* Halqa + yumshoq soya: yorliq xarita ko'pburchagi ustida
-           turadi va faqat 1px halqa bilan u fonga singib ketardi. */
-        box-shadow:0 0 0 1px rgb(20 45 80 / .11),0 2px 5px -2px rgba(8,30,60,.32);
+           turadi va faqat 1px halqa bilan u fonga singib ketardi.
+           ⚠️ Shrift va o'lcham O'ZGARMAYDI (Inter 10px): nomlar to'qnashuvi
+           («DistrictLayer») aynan shu harf kengligi bilan hisoblanadi. */
+        box-shadow:0 0 0 1px color-mix(in srgb,var(--ink-strong) 13%,transparent),0 2px 6px -2px rgba(8,30,60,.34);
         font:600 10px/1.35 var(--font-sans);
         color:var(--ink-strong);white-space:nowrap;
       ">${esc(props.shortName)}</span>`
@@ -193,15 +216,28 @@ export function boilerModelIcon(
  * ⚠️ Fon HAR DOIM to'q, yorug' rejimda ham: ko'rsatma xarita USTIDA
  * suzadi va oq fonli bo'lsa, ochiq ko'k tumanlar ustida chegarasi
  * yo'qolib ketardi.
+ *
+ * ⚠️ To'q fonda holat ranglari OCH qadamda (`*-300`): `#118a56` kabi asosiy
+ * qadam to'q ko'k ustida o'qilmay qolardi. Nuqta va bo'lakli chiziq esa
+ * asosiy hex'da — ular xaritadagi belgilar bilan AYNI rangda bo'lishi kerak.
  */
 export function districtTooltipHtml(props: DistrictStats): string {
   const ink = '#ffffff';
-  const bg = '#16222f';
-  const faint = 'rgba(255,255,255,.62)';
+  const bg = '#0b1626';
+  const faint = 'rgba(214,226,242,.58)';
 
-  const row = (label: string, value: string | number, color?: string): string =>
-    `<div style="display:flex;justify-content:space-between;gap:16px">
-       <span style="color:${faint}">${esc(label)}</span>
+  const row = (
+    label: string,
+    value: string | number,
+    color?: string,
+    dot?: string,
+  ): string =>
+    `<div style="display:flex;justify-content:space-between;align-items:center;gap:16px">
+       <span style="display:inline-flex;align-items:center;gap:6px;color:${faint}">${
+         dot
+           ? `<span style="width:6px;height:6px;border-radius:999px;background:${dot};box-shadow:0 0 0 2px ${dot}33"></span>`
+           : ''
+       }${esc(label)}</span>
        <strong style="font-weight:600;font-variant-numeric:tabular-nums;${
          color ? `color:${color}` : ''
        }">${esc(value)}</strong>
@@ -212,18 +248,42 @@ export function districtTooltipHtml(props: DistrictStats): string {
       ? '—'
       : `${props.avgTemperature.toFixed(1).replace('.', ',')} °C`;
 
+  /* Holatlar taqsimoti — jadvaldagi bo'lakli chiziq bilan AYNI shakl. */
+  const parts = [
+    { value: props.active, hex: BOILER_STATUS.active.hex },
+    { value: props.medium, hex: BOILER_STATUS.medium.hex },
+    { value: props.inactive, hex: BOILER_STATUS.inactive.hex },
+    { value: props.offline, hex: BOILER_STATUS.offline.hex },
+  ];
+  const sum = parts.reduce((acc, part) => acc + part.value, 0);
+  const bar =
+    sum > 0
+      ? parts
+          .filter((part) => part.value > 0)
+          .map(
+            (part) =>
+              `<span style="width:${((part.value / sum) * 100).toFixed(2)}%;background:${part.hex}"></span>`,
+          )
+          .join('')
+      : '';
+
   return `<div style="
-      min-width:208px;padding:10px 12px;border-radius:11px;
+      position:relative;overflow:hidden;
+      min-width:216px;padding:12px 12px 9px;border-radius:10px;
       background:${bg};color:${ink};font:400 11.5px/1.7 var(--font-sans);
-      box-shadow:0 12px 30px rgba(6,16,30,.4)
+      box-shadow:0 0 0 1px rgba(140,175,220,.18),0 18px 40px -12px rgba(4,10,22,.65)
     ">
-    <div style="font-weight:600;font-size:12.5px;margin-bottom:6px">${esc(props.name)}</div>
+    <span style="position:absolute;left:0;right:0;top:0;height:2px;background:var(--thermal)"></span>
+    <div style="font:600 9.5px/1.4 var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:${faint}">Hudud</div>
+    <div style="font:700 13.5px/1.25 var(--font-display);font-stretch:108%;letter-spacing:-.012em;margin-top:1px">${esc(props.name)}</div>
+    <div style="display:flex;gap:1px;height:4px;margin:8px 0 7px;border-radius:2px;overflow:hidden;background:rgba(255,255,255,.08)">${bar}</div>
     ${row('Qozonxonalar', props.total)}
     ${row('Kotyollar soni', props.boilerUnits)}
-    ${row('Faol', props.active, BOILER_STATUS.active.hex)}
-    ${row('O‘rta', props.medium, BOILER_STATUS.medium.hex)}
-    ${row('Ishlamayotgan', props.inactive, BOILER_STATUS.inactive.hex)}
-    ${row('Aloqa yo‘q', props.offline, '#aab8c8')}
+    ${row('Faol', props.active, '#6ccb98', BOILER_STATUS.active.hex)}
+    ${row('O‘rta', props.medium, '#efb954', BOILER_STATUS.medium.hex)}
+    ${row('Ishlamayotgan', props.inactive, '#f3948c', BOILER_STATUS.inactive.hex)}
+    ${row('Aloqa yo‘q', props.offline, '#aeb9c9', BOILER_STATUS.offline.hex)}
+    <div style="height:1px;margin:4px 0 3px;background:rgba(255,255,255,.08)"></div>
     ${row('O‘rtacha harorat', temp)}
   </div>`;
 }

@@ -6,7 +6,16 @@ import { API, qk } from '@/shared/api/endpoints';
 import type { GaugeBoard, GaugeItem } from '@/shared/api/types';
 import { usePrefersReducedMotion } from '@/shared/hooks/useMediaQuery';
 import { useDebounce } from '@/shared/hooks/useDebounce';
-import { Card, EmptyState, ErrorState, Input, Skeleton } from '@/shared/ui';
+import {
+  AnimatedNumber,
+  Card,
+  EmptyState,
+  ErrorState,
+  Input,
+  PageHeader,
+  Segmented,
+  Skeleton,
+} from '@/shared/ui';
 import { cn } from '@/shared/utils/cn';
 import { formatTimeUz } from '@/shared/utils/date';
 import { formatNumber, formatTemperature } from '@/shared/utils/format';
@@ -148,8 +157,7 @@ export function InstitutionsPage() {
    * o'rnida havoda osilib qolardi.
    */
   const inspectItem = inspect
-    ? (visible.find((item) => item.boilerId === inspect.item.boilerId) ??
-      null)
+    ? (visible.find((item) => item.boilerId === inspect.item.boilerId) ?? null)
     : null;
   useEffect(() => {
     if (inspect && (!inspectItem || !inspect.trigger.isConnected)) {
@@ -162,76 +170,81 @@ export function InstitutionsPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      {/* ───── Sarlavha + jonli o'rtachalar ───── */}
-      <div className="flex flex-wrap items-end justify-between gap-3 px-1">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-tile bg-brand-600 text-white shadow-[var(--shadow-brand)]">
+      {/* ───── Sarlavha + jonli o'rtachalar ─────
+          ⚠️ Sarlavha ikonkasi va nomi TANLANGAN turga ergashadi («Maktablar»):
+          operator qaysi kesimda turganini sarlavhadan biladi. */}
+      <PageHeader
+        leading={
+          <span
+            key={activeKey}
+            className="reveal grid size-10 place-items-center rounded-tile bg-linear-to-b from-brand-500 to-brand-700 text-white shadow-[var(--shadow-brand),inset_0_1px_0_rgb(255_255_255/0.22)]"
+          >
             <TitleIcon className="size-5" strokeWidth={1.9} aria-hidden />
           </span>
-          <div className="min-w-0">
-            <h1 className="truncate text-sub font-semibold tracking-tight text-strong">
-              {title}
-            </h1>
-            <p className="text-meta text-muted">
-              {board
-                ? `${formatNumber(stats.total)} ta qozonxona · ${
-                    districtId ? 'tanlangan tuman' : 'butun viloyat'
-                  } · yangilandi ${formatTimeUz(board.updatedAt)}`
-                : 'Yuklanmoqda…'}
-            </p>
-          </div>
-        </div>
-
-        <dl className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
-          <StatTile
-            label="O‘rtacha kirish"
-            hue="var(--gauge-inlet)"
-            value={formatTemperature(stats.avgInlet)}
-          />
-          <StatTile
-            label="O‘rtacha chiqish"
-            hue="var(--gauge-outlet)"
-            value={formatTemperature(stats.avgOutlet)}
-          />
-          <StatTile
-            label="O‘rtacha ΔT"
-            value={formatTemperature(stats.avgDelta)}
-          />
-          <StatTile
-            label="Onlayn"
-            value={`${formatNumber(stats.online)} / ${formatNumber(stats.total)}`}
-            live={stats.online > 0}
-          />
-        </dl>
-      </div>
+        }
+        title={title}
+        subtitle={
+          board
+            ? `${formatNumber(stats.total)} ta qozonxona · ${
+                districtId ? 'tanlangan tuman' : 'butun viloyat'
+              } · yangilandi ${formatTimeUz(board.updatedAt)}`
+            : 'Yuklanmoqda…'
+        }
+        actions={
+          <dl className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+            <StatTile
+              label="O‘rtacha kirish"
+              hue="var(--gauge-inlet)"
+              value={formatTemperature(stats.avgInlet)}
+            />
+            <StatTile
+              label="O‘rtacha chiqish"
+              hue="var(--gauge-outlet)"
+              value={formatTemperature(stats.avgOutlet)}
+            />
+            <StatTile
+              label="O‘rtacha ΔT"
+              value={formatTemperature(stats.avgDelta)}
+            />
+            <StatTile
+              label="Onlayn"
+              value={`${formatNumber(stats.online)} / ${formatNumber(stats.total)}`}
+              live={stats.online > 0}
+            />
+          </dl>
+        }
+      />
 
       {/* ───── Turlar + qidiruv ─────
           ⚠️ Kompyuterda tablar QATORGA O'RALADI (hammasi ko'rinadi), telefonda
           gorizontal suriladi: sakkizta tur tor ekranga sig'maydi, lekin
           ikki-uch qatorga o'ralsa kartalarni pastga itarib yuborardi. */}
       <div className="flex flex-wrap items-center gap-2">
-        <div
-          role="group"
-          aria-label="Muassasa turi"
-          className="-mx-1 flex max-w-[calc(100%+0.5rem)] gap-1.5 overflow-x-auto px-1 pt-0.5 pb-2 [scrollbar-width:none] lg:pb-0.5 max-lg:w-[calc(100%+0.5rem)] lg:flex-wrap lg:overflow-visible [&::-webkit-scrollbar]:hidden"
-        >
-          <TypeButton
-            label="Hammasi"
-            icon={LayoutGrid}
-            count={items.length}
-            active={activeKey === ALL_KEY}
-            onClick={() => setTypeKey(ALL_KEY)}
+        <div className="-mx-1 flex max-w-[calc(100%+0.5rem)] overflow-x-auto px-1 pt-0.5 pb-2 [scrollbar-width:none] max-lg:w-[calc(100%+0.5rem)] lg:overflow-visible lg:pb-0.5 [&::-webkit-scrollbar]:hidden">
+          <Segmented
+            size="md"
+            ariaLabel="Muassasa turi"
+            value={activeKey}
+            onChange={setTypeKey}
+            className="lg:max-w-full lg:shrink lg:flex-wrap"
+            options={[
+              {
+                value: ALL_KEY,
+                label: 'Hammasi',
+                icon: <LayoutGrid strokeWidth={1.9} aria-hidden />,
+                count: formatNumber(items.length),
+              },
+              ...tabs.map((tab) => {
+                const Icon = typeIcon(tab.code);
+                return {
+                  value: tab.key,
+                  label: tab.name,
+                  icon: <Icon strokeWidth={1.9} aria-hidden />,
+                  count: formatNumber(tab.total),
+                };
+              }),
+            ]}
           />
-          {tabs.map((tab) => (
-            <TypeButton
-              key={tab.key}
-              label={tab.name}
-              icon={typeIcon(tab.code)}
-              count={tab.total}
-              active={activeKey === tab.key}
-              onClick={() => setTypeKey(tab.key)}
-            />
-          ))}
         </div>
         <div className="w-full lg:ml-auto lg:w-72">
           <Input
@@ -286,9 +299,12 @@ export function InstitutionsPage() {
                 <SectionHeader tab={tab} shown={sectionItems.length} />
               ) : null}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                {sectionItems.map((item) => (
+                {sectionItems.map((item, index) => (
                   <InstitutionCard
                     key={item.boilerId}
+                    /* ⚠️ Ketma-ket chiqish 12 ta bilan cheklanadi: 200 ta
+                       kartada oxirgisi 12 soniya kutib turardi. */
+                    revealIndex={Math.min(index, 12)}
                     item={item}
                     norm={board?.normTemperature ?? 60}
                     reducedMotion={reducedMotion}
@@ -317,6 +333,11 @@ export function InstitutionsPage() {
   );
 }
 
+/**
+ * Jonli o'rtacha plitkasi. ⚠️ Raqam sanab o'tadi (`AnimatedNumber`): har
+ * 30 soniyada yangilanganda ko'z «o'zgardi» ni ko'radi, lekin yakuniy matn
+ * aynan `formatTemperature` natijasi.
+ */
 function StatTile({
   label,
   value,
@@ -329,8 +350,15 @@ function StatTile({
   live?: boolean;
 }) {
   return (
-    <div className="min-w-[132px] rounded-tile bg-[var(--surface)] px-3 py-2 shadow-[var(--shadow-card)]">
-      <dt className="flex items-center gap-1.5 text-nano font-medium text-muted">
+    <div className="card relative min-w-[136px] overflow-hidden px-3 pt-2 pb-2.5">
+      {hue ? (
+        <span
+          aria-hidden
+          className="absolute inset-x-0 top-0 h-[2px]"
+          style={{ backgroundColor: hue }}
+        />
+      ) : null}
+      <dt className="label-eyebrow flex items-center gap-1.5">
         {hue ? (
           <span
             aria-hidden
@@ -341,7 +369,7 @@ function StatTile({
         {live !== undefined ? (
           <span className="relative flex size-1.5" aria-hidden>
             {live ? (
-              <span className="rail-live-ping absolute inset-0 rounded-full bg-ok-500" />
+              <span className="live-ping absolute inset-0 rounded-full bg-ok-500" />
             ) : null}
             <span
               className={cn(
@@ -353,70 +381,42 @@ function StatTile({
         ) : null}
         {label}
       </dt>
-      <dd className="mt-0.5 text-lede font-semibold text-strong tabular-nums">
-        {value}
+      <dd className="mt-1">
+        <AnimatedNumber value={value} className="figure-display text-[21px]" />
       </dd>
     </div>
-  );
-}
-
-function TypeButton({
-  label,
-  icon: Icon,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  icon: typeof Gauge;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        'inline-flex h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-meta font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand-400/70',
-        active
-          ? 'bg-brand-600 text-white shadow-[var(--shadow-brand)]'
-          : 'bg-[var(--surface)] text-muted shadow-[var(--shadow-card)] hover:text-strong',
-      )}
-    >
-      <Icon className="size-4" strokeWidth={1.9} aria-hidden />
-      {label}
-      <span
-        className={cn(
-          'rounded-md px-1.5 text-[11px] leading-[18px] font-semibold tabular-nums',
-          active
-            ? 'bg-white/18 text-white'
-            : 'bg-[var(--surface-sunken)] text-muted',
-        )}
-      >
-        {formatNumber(count)}
-      </span>
-    </button>
   );
 }
 
 function SectionHeader({ tab, shown }: { tab: TypeTab; shown: number }) {
   const Icon = typeIcon(tab.code);
   return (
-    <div className="mb-2 flex items-center gap-2.5 px-1">
-      <Icon className="size-4 text-faint" strokeWidth={1.9} aria-hidden />
-      <h2 className="text-ui font-semibold text-strong">
+    <div className="mb-2.5 flex items-center gap-2.5 px-1">
+      <span className="grid size-7 shrink-0 place-items-center rounded-md bg-[var(--surface)] text-muted shadow-[var(--shadow-card)] dark:bg-white/[0.04]">
+        <Icon className="size-3.5" strokeWidth={2} aria-hidden />
+      </span>
+      <h2 className="font-display text-[15.5px] font-[720] tracking-[-0.012em] text-strong [font-stretch:106%]">
         {pluralTypeName(tab.name)}
       </h2>
-      <span className="text-micro text-muted tabular-nums">
-        {shown === tab.total
-          ? `${formatNumber(tab.total)} ta`
-          : `${formatNumber(shown)} / ${formatNumber(tab.total)}`}
-        <span className="text-faint"> · </span>
-        onlayn {formatNumber(tab.online)}
+      <span className="flex items-center gap-2 font-mono text-[10.5px] font-semibold text-muted tabular-nums">
+        <span>
+          {shown === tab.total
+            ? `${formatNumber(tab.total)} ta`
+            : `${formatNumber(shown)} / ${formatNumber(tab.total)}`}
+        </span>
+        <span className="text-faint">·</span>
+        <span className="flex items-center gap-1.5">
+          <span
+            aria-hidden
+            className={cn(
+              'size-1.5 rounded-full',
+              tab.online > 0 ? 'bg-ok-500' : 'bg-idle-400',
+            )}
+          />
+          onlayn {formatNumber(tab.online)}
+        </span>
       </span>
-      <span className="h-px flex-1 bg-[var(--border-subtle)]" />
+      <span aria-hidden className="h-px flex-1 bg-[var(--border-subtle)]" />
     </div>
   );
 }

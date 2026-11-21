@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import type { GaugeItem } from '@/shared/api/types';
 import { BRAND } from '@/shared/constants/brand';
 import { BOILER_STATUS } from '@/shared/constants/status';
+import { Button } from '@/shared/ui';
 import { cn } from '@/shared/utils/cn';
 import { formatDateTimeUz, formatRelativeUz } from '@/shared/utils/date';
 import { formatTemperature } from '@/shared/utils/format';
@@ -67,7 +68,10 @@ export function GaugeInspector({
       below + height <= window.innerHeight - 8
         ? below
         : anchor.top - GAP - height;
-    const top = Math.max(8, Math.min(preferred, window.innerHeight - height - 8));
+    const top = Math.max(
+      8,
+      Math.min(preferred, window.innerHeight - height - 8),
+    );
     const left = Math.min(
       Math.max(8, anchor.left + anchor.width / 2 - width / 2),
       window.innerWidth - width - 8,
@@ -166,36 +170,44 @@ export function GaugeInspector({
         visibility: position ? 'visible' : 'hidden',
       }}
     >
+      {/* Termal imzo — modal oynalar bilan bir xil. */}
+      <span
+        aria-hidden
+        className="thermal-line pointer-events-none absolute inset-x-0 top-0 h-[2px] opacity-90"
+      />
+
       {/* ───── Tuman ───── */}
       <div className="flex items-start gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-tile bg-brand-600 text-white shadow-[var(--shadow-brand)]">
+        <span className="grid size-10 shrink-0 place-items-center rounded-tile bg-linear-to-b from-brand-500 to-brand-700 text-white shadow-[var(--shadow-brand),inset_0_1px_0_rgb(255_255_255/0.22)]">
           <MapPin className="size-5" strokeWidth={2} aria-hidden />
         </span>
         <div className="min-w-0 flex-1">
           <p className="label-eyebrow">Tuman</p>
-          <p className="text-lede leading-tight font-semibold text-strong">
+          <p className="font-display text-[17px] leading-tight font-[760] tracking-[-0.015em] text-strong [font-stretch:108%]">
             {item.districtName}
           </p>
-          <p className="text-micro text-muted">{BRAND.scope}</p>
+          <p className="mt-0.5 text-micro text-muted">{BRAND.scope}</p>
         </div>
         <button
           type="button"
           onClick={onClose}
           aria-label="Yopish"
-          className="-mt-1 -mr-1 grid size-8 place-items-center rounded-lg text-faint transition-colors hover:bg-[var(--surface-sunken)] hover:text-strong"
+          className="group -mt-1 -mr-1 grid size-8 place-items-center rounded-md text-faint ring-1 ring-[var(--border-subtle)] transition-colors ring-inset hover:bg-[var(--surface-sunken)] hover:text-strong"
         >
-          <X className="size-4" />
+          <X className="size-4 transition-transform duration-300 ease-out-expo group-hover:rotate-90" />
         </button>
       </div>
 
       {/* ───── Muassasa ───── */}
-      <div className="mt-3 rounded-tile bg-[var(--surface-sunken)] px-3 py-2.5">
-        <p className="line-clamp-2 text-ui leading-snug font-medium text-strong">
+      <div className="mt-3 rounded-tile bg-[var(--surface-sunken)] px-3 py-2.5 ring-1 ring-[var(--border-subtle)] ring-inset">
+        <p className="line-clamp-2 text-ui leading-snug font-semibold text-strong">
           {name}
         </p>
         <p className="mt-0.5 text-micro text-muted">
           {item.objectTypeName ?? 'Turi belgilanmagan'} ·{' '}
-          <span className="tabular-nums">{lotLabel(item.lotNumber)}</span>
+          <span className="font-mono text-[10.5px] tabular-nums">
+            {lotLabel(item.lotNumber)}
+          </span>
         </p>
       </div>
 
@@ -220,17 +232,28 @@ export function GaugeInspector({
 
       <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-micro text-muted">
         <span className="flex items-center gap-1.5">
-          <span aria-hidden className={cn('size-2 rounded-full', status.dot)} />
-          <span className="font-medium text-strong">{status.label}</span>
+          <span
+            aria-hidden
+            className={cn('size-2 rounded-full', status.dot)}
+            style={live ? { boxShadow: `0 0 8px ${status.hex}` } : undefined}
+          />
+          <span className="font-semibold text-strong">{status.label}</span>
         </span>
         <span className="text-faint">·</span>
-        <span>Me‘yor {formatTemperature(norm)}</span>
+        <span>
+          Me‘yor{' '}
+          <span className="font-mono text-[10.5px] font-semibold text-strong tabular-nums">
+            {formatTemperature(norm)}
+          </span>
+        </span>
       </div>
       <p className="mt-1 text-micro text-muted">
         Oxirgi o‘lchov:{' '}
         {item.lastReadingAt ? (
           <>
-            {formatDateTimeUz(item.lastReadingAt)}{' '}
+            <span className="font-mono text-[10.5px] text-strong tabular-nums">
+              {formatDateTimeUz(item.lastReadingAt)}
+            </span>{' '}
             <span className="text-faint">
               ({formatRelativeUz(item.lastReadingAt)})
             </span>
@@ -241,21 +264,22 @@ export function GaugeInspector({
       </p>
 
       <div className="mt-3.5 grid grid-cols-2 gap-2">
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="md"
+          className="justify-center"
+          icon={<MapIcon className="size-4" />}
           onClick={showOnMap}
-          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-brand-600 text-meta font-semibold text-white shadow-[var(--shadow-brand)] transition-colors hover:bg-brand-700 focus-visible:ring-2 focus-visible:ring-brand-400/70 focus-visible:outline-none"
         >
-          <MapIcon className="size-4" />
           Xaritada
-        </button>
+        </Button>
         <Link
           to={`/boilers/${item.boilerId}`}
           onClick={onClose}
-          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg text-meta font-semibold text-strong ring-1 ring-[var(--border-strong)] transition-colors ring-inset hover:bg-[var(--surface-sunken)] focus-visible:ring-2 focus-visible:ring-brand-400/70 focus-visible:outline-none"
+          className="group inline-flex h-9.5 items-center justify-center gap-1.5 rounded-lg bg-[var(--surface)] text-ui font-semibold text-strong shadow-[var(--shadow-card)] transition-[background-color,box-shadow,transform] duration-200 ease-out-quint hover:bg-[var(--surface-muted)] hover:shadow-[var(--shadow-raise)] focus-visible:ring-2 focus-visible:ring-brand-400/70 focus-visible:outline-none active:scale-[0.97] dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
         >
           Kotyol
-          <ArrowUpRight className="size-4" />
+          <ArrowUpRight className="size-4 transition-transform duration-300 ease-out-expo group-hover:translate-x-px group-hover:-translate-y-px" />
         </Link>
       </div>
     </div>
@@ -278,13 +302,21 @@ function Value({
   return (
     <div
       className={cn(
-        'rounded-tile px-2.5 py-2 ring-1 ring-inset',
+        'relative overflow-hidden rounded-tile px-2.5 pt-2 pb-2.5 ring-1 ring-inset',
         active
           ? 'bg-[var(--surface-sunken)] ring-[var(--border-strong)]'
           : 'ring-[var(--border-subtle)]',
       )}
     >
-      <dt className="flex items-center gap-1.5 text-nano font-medium text-muted">
+      {/* Tanlangan shkala — yuqori chekkada o'z rangidagi chiziq. */}
+      {active && hue ? (
+        <span
+          aria-hidden
+          className="absolute inset-x-0 top-0 h-[2px]"
+          style={{ backgroundColor: live ? hue : 'var(--gauge-stale)' }}
+        />
+      ) : null}
+      <dt className="flex items-center gap-1.5 font-mono text-[9.5px] font-semibold tracking-[0.1em] text-muted uppercase">
         {hue ? (
           <span
             aria-hidden
@@ -296,8 +328,8 @@ function Value({
       </dt>
       <dd
         className={cn(
-          'mt-0.5 text-ui font-semibold tabular-nums',
-          live ? 'text-strong' : 'text-muted',
+          'figure-display mt-1 text-[16px]',
+          !live && 'text-[color:var(--ink-muted)]',
         )}
       >
         {value}

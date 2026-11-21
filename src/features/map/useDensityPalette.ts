@@ -78,7 +78,7 @@ export function useDensityPalette(maxTotal: number): DensityPalette {
         return ramp[step];
       },
       strokeHex: dark ? '#0c131b' : '#ffffff',
-      selectedStrokeHex: dark ? '#7db7e6' : '#12538f',
+      selectedStrokeHex: dark ? '#72b3fb' : '#0b5bb5',
       soloHex: ramp[1],
     };
   }, [dark, maxTotal]);

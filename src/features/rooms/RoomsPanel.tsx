@@ -7,7 +7,7 @@ import {
   Thermometer,
   Trash2,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import toast from 'react-hot-toast';
 import {
   CartesianGrid,
@@ -21,19 +21,27 @@ import {
 } from 'recharts';
 import { del, errorMessage, get, patch } from '@/shared/api/client';
 import { API, qk } from '@/shared/api/endpoints';
-import type { BoilerRooms, Room, RoomHistorySeries } from '@/shared/api/types';
+import type {
+  BoilerRooms,
+  Room,
+  RoomCondition,
+  RoomHistorySeries,
+} from '@/shared/api/types';
 import { ROOM_CONDITION, ROOM_STALE } from '@/shared/constants/status';
 import {
+  AnimatedNumber,
   Badge,
   Button,
   Card,
   CardBody,
   CardHeader,
   ConfirmModal,
+  EmptyState,
   ErrorState,
   Field,
   Input,
   Modal,
+  Segmented,
   Skeleton,
   Switch,
 } from '@/shared/ui';
@@ -80,6 +88,16 @@ export function summarizeRooms(rooms: Room[]): {
  * komponent: ikki joyda ikki xil ko'rinish bo'lsa, xaritada «sovuq»,
  * kotyol sahifasida «me'yordan past» deb turib qolardi.
  */
+/*
+ * ⚠️ `ROOM_CONDITION.text` ning bir qismi faqat yorug' qadamni beradi
+ * (`text-warn-600`): to'q fonda och qadam shu yerda qo'shiladi.
+ */
+const TEMP_DARK: Record<RoomCondition, string> = {
+  cold: '',
+  cool: 'dark:text-warn-300',
+  normal: 'dark:text-ok-300',
+};
+
 export function RoomList({
   rooms,
   onEdit,
@@ -116,7 +134,10 @@ export function RoomList({
             {seriesColor ? (
               <span
                 className="size-2.5 shrink-0 rounded-full"
-                style={{ background: seriesColor.get(room.id) }}
+                style={{
+                  background: seriesColor.get(room.id),
+                  boxShadow: `0 0 0 3px ${seriesColor.get(room.id) ?? '#000000'}26`,
+                }}
                 aria-hidden
               />
             ) : (
@@ -130,15 +151,15 @@ export function RoomList({
             )}
 
             <div className="min-w-0 flex-1">
-              <p className="flex flex-wrap items-center gap-1.5 text-ui font-medium text-strong">
+              <p className="flex flex-wrap items-center gap-1.5 text-ui font-semibold text-strong">
                 <span className="truncate">{room.name}</span>
                 {room.isAutoCreated && !compact ? (
-                  <Badge className="bg-brand-50 text-brand-700 ring-1 ring-brand-200 dark:bg-brand-500/12 dark:text-brand-200">
+                  <Badge className="bg-brand-50 text-brand-700 ring-1 ring-brand-200 ring-inset dark:bg-brand-400/12 dark:text-brand-200 dark:ring-brand-400/25">
                     yangi — nomlang
                   </Badge>
                 ) : null}
                 {!room.isMonitored ? (
-                  <Badge className="bg-[var(--surface-sunken)] text-faint">
+                  <Badge className="bg-[var(--surface-sunken)] text-faint ring-1 ring-[var(--border-subtle)] ring-inset">
                     <EyeOff className="mr-1 inline size-3" aria-hidden />
                     nazoratda emas
                   </Badge>
@@ -161,9 +182,10 @@ export function RoomList({
 
             <span
               className={cn(
-                'shrink-0 font-semibold tabular-nums',
-                compact ? 'text-ui' : 'text-lede',
+                'shrink-0 font-display font-[740] tracking-[-0.02em] tabular-nums [font-stretch:108%]',
+                compact ? 'text-[14px]' : 'text-[17px]',
                 meta?.text ?? ROOM_STALE.text,
+                room.condition ? TEMP_DARK[room.condition] : null,
               )}
               data-numeric
               title={meta ? meta.label : ROOM_STALE.label}
@@ -279,23 +301,27 @@ export function RoomsPanel({ boilerId }: { boilerId: string }) {
             onRetry={() => void roomsQuery.refetch()}
           />
         ) : rooms.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-8 text-center">
-            <Thermometer className="size-6 text-faint" aria-hidden />
-            <p className="text-ui font-medium text-strong">
-              Xona harorati hali kelmagan
-            </p>
-            <p className="max-w-md text-meta text-muted">
-              ESP32 moduli havo datchiklari qiymatini yubora boshlaganda xonalar
-              shu yerda avtomatik paydo bo‘ladi. Modul ulanmagan bo‘lsa, avval
-              uni kotyolga biriktiring.
-            </p>
-          </div>
+          <EmptyState
+            icon={Thermometer}
+            title="Xona harorati hali kelmagan"
+            description="ESP32 moduli havo datchiklari qiymatini yubora boshlaganda xonalar shu yerda avtomatik paydo bo‘ladi. Modul ulanmagan bo‘lsa, avval uni kotyolga biriktiring."
+            className="py-8"
+          />
         ) : (
           <>
             <dl className="mb-3 grid grid-cols-3 gap-2">
-              <Stat label="O‘rtacha" value={formatTemperature(stats.avg)} />
-              <Stat label="Eng past" value={formatTemperature(stats.min)} />
               <Stat
+                index={0}
+                label="O‘rtacha"
+                value={formatTemperature(stats.avg)}
+              />
+              <Stat
+                index={1}
+                label="Eng past"
+                value={formatTemperature(stats.min)}
+              />
+              <Stat
+                index={2}
                 label="Sovuq xonalar"
                 value={stats.count ? `${stats.cold} / ${stats.count}` : '—'}
                 tone={stats.cold > 0 ? 'cold' : undefined}
@@ -351,29 +377,42 @@ export function RoomsPanel({ boilerId }: { boilerId: string }) {
   );
 }
 
+/**
+ * RAQAM PLITKASI — dashboard'dagi «Xonalar harorati» plitkasi bilan AYNI
+ * ko'rinish: bir xil raqam ikki ekranda ikki xil shaklda turmasin.
+ */
 function Stat({
   label,
   value,
   tone,
+  index,
 }: {
   label: string;
   value: string;
   tone?: 'cold';
+  index: number;
 }) {
   return (
-    <div className="rounded-tile bg-[var(--surface-sunken)] px-3 py-2">
-      <dt className="text-micro text-muted">{label}</dt>
+    <div
+      className={cn(
+        'reveal rounded-tile px-3 pt-2 pb-2.5 ring-1 ring-inset',
+        tone === 'cold'
+          ? 'bg-sky-50 ring-sky-200 dark:bg-sky-500/10 dark:ring-sky-400/25'
+          : 'bg-[var(--surface-sunken)] ring-[var(--border-subtle)]',
+      )}
+      style={{ '--i': index } as CSSProperties}
+    >
+      <dt className="label-eyebrow truncate">{label}</dt>
       <dd
         className={cn(
-          'text-lede font-semibold text-strong tabular-nums',
+          'figure-display mt-1 flex items-center gap-1.5 text-[21px]',
           tone === 'cold' && ROOM_CONDITION.cold.text,
         )}
-        data-numeric
       >
         {tone === 'cold' ? (
-          <Snowflake className="mr-1 inline size-4 align-[-2px]" aria-hidden />
+          <Snowflake className="size-4 shrink-0" aria-hidden />
         ) : null}
-        {value}
+        <AnimatedNumber value={value} />
       </dd>
     </div>
   );
@@ -610,36 +649,35 @@ function RoomsChart({
     });
   };
 
-  const tick = { fontSize: 11, fill: dark ? '#8da0b5' : '#97a5b7' };
+  const tick = {
+    fontSize: 10.5,
+    fontFamily: 'JetBrains Mono Variable, monospace',
+    fill: 'var(--ink-faint)',
+  };
   const refStroke = dark ? '#8da0b5' : '#637386';
 
   return (
     <div className="mt-4 border-t border-[var(--border-subtle)] pt-4">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-ui font-medium text-strong">Harorat tarixi</p>
-        <div className="flex rounded-full bg-[var(--surface-sunken)] p-0.5">
-          {(Object.keys(RANGES) as unknown as RangeHours[]).map((key) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setHours(Number(key) as RangeHours)}
-              className={
-                Number(hours) === Number(key)
-                  ? 'rounded-full bg-[var(--surface)] px-2.5 py-1 text-micro font-semibold text-strong shadow-[var(--shadow-hair)]'
-                  : 'rounded-full px-2.5 py-1 text-micro font-medium text-muted transition-colors hover:text-strong'
-              }
-            >
-              {RANGES[key]}
-            </button>
-          ))}
-        </div>
+      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+        <p className="font-display text-[14.5px] font-[720] tracking-[-0.012em] text-strong [font-stretch:106%]">
+          Harorat tarixi
+        </p>
+        <Segmented
+          ariaLabel="Davr"
+          size="xs"
+          value={String(hours)}
+          onChange={(value) => setHours(Number(value) as RangeHours)}
+          options={(Object.keys(RANGES) as unknown as RangeHours[]).map(
+            (key) => ({ value: String(key), label: RANGES[key] }),
+          )}
+        />
       </div>
 
       {historyQuery.isLoading ? (
         <Skeleton className="h-[240px]" />
       ) : data.length === 0 ? (
-        <div className="grid h-[160px] place-items-center text-meta text-muted">
-          Bu davr uchun xona tarixi yo‘q
+        <div className="grid-bg grid h-[160px] place-items-center rounded-tile [mask-image:radial-gradient(closest-side,#000_40%,transparent)]">
+          <span className="label-eyebrow">Bu davr uchun xona tarixi yo‘q</span>
         </div>
       ) : (
         <>
@@ -654,16 +692,23 @@ function RoomsChart({
                   onClick={() => toggle(item.roomId)}
                   aria-pressed={!off}
                   className={cn(
-                    'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-micro font-medium ring-1 ring-[var(--border-subtle)] transition-opacity',
-                    off ? 'text-faint opacity-50' : 'text-ink',
+                    'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-micro font-semibold ring-1 ring-inset transition-[opacity,background-color,box-shadow] duration-200 ease-out-quint',
+                    off
+                      ? 'text-faint opacity-55 ring-[var(--border-subtle)] hover:opacity-80'
+                      : 'bg-[var(--surface)] text-ink ring-[var(--border-strong)] hover:bg-[var(--surface-muted)] dark:bg-white/[0.03]',
                   )}
                 >
                   <span
-                    className="size-2 rounded-full"
+                    className={cn(
+                      'size-2 rounded-full transition-[scale] duration-200 ease-out-expo',
+                      off && 'scale-75',
+                    )}
                     style={{ background: colorOf.get(item.roomId) }}
                     aria-hidden
                   />
-                  {nameOf(item.roomId)}
+                  <span className={cn(off && 'line-through decoration-1')}>
+                    {nameOf(item.roomId)}
+                  </span>
                 </button>
               );
             })}
@@ -675,7 +720,8 @@ function RoomsChart({
               margin={{ top: 8, right: 8, bottom: 0, left: -18 }}
             >
               <CartesianGrid
-                stroke={dark ? 'rgba(255,255,255,.07)' : 'rgba(20,45,80,.08)'}
+                stroke="var(--border-subtle)"
+                strokeDasharray="3 4"
                 vertical={false}
               />
               <XAxis
@@ -686,6 +732,7 @@ function RoomsChart({
                 tick={tick}
                 tickLine={false}
                 axisLine={false}
+                dy={4}
                 minTickGap={28}
                 /*
                  * ⚠️ Sana QO'LDA yig'ilmaydi (`dates.md`): 24 soatda —
@@ -717,7 +764,8 @@ function RoomsChart({
                 label={{
                   value: `me‘yor ${thresholds.normC}°`,
                   position: 'insideTopRight',
-                  fontSize: 11,
+                  fontSize: 10.5,
+                  fontFamily: 'JetBrains Mono Variable, monospace',
                   fill: refStroke,
                 }}
               />
@@ -728,60 +776,101 @@ function RoomsChart({
                 label={{
                   value: `eng past ${thresholds.minC}°`,
                   position: 'insideBottomRight',
-                  fontSize: 11,
+                  fontSize: 10.5,
+                  fontFamily: 'JetBrains Mono Variable, monospace',
                   fill: refStroke,
                 }}
               />
               <Tooltip
-                cursor={{ stroke: refStroke, strokeWidth: 1 }}
+                cursor={{
+                  stroke: refStroke,
+                  strokeOpacity: 0.5,
+                  strokeWidth: 1,
+                  strokeDasharray: '3 3',
+                }}
                 content={({ active, payload, label }) => {
                   if (!active || !payload?.length) return null;
                   const items = [...payload]
                     .filter((entry) => typeof entry.value === 'number')
                     .sort((a, b) => Number(b.value) - Number(a.value));
                   return (
-                    <div className="rounded-lg bg-neutral-900 px-3 py-2 text-micro text-white shadow-[var(--shadow-pop)]">
-                      <p className="mb-1 font-semibold">
+                    <div className="relative min-w-[180px] overflow-hidden rounded-[10px] bg-[var(--surface)] px-3 pt-2.5 pb-2 text-micro shadow-[var(--shadow-pop)]">
+                      <span
+                        aria-hidden
+                        className="thermal-line absolute inset-x-0 top-0 h-[2px]"
+                      />
+                      <p className="mb-1.5 font-mono text-[10.5px] font-semibold text-muted">
                         {formatDateTimeUz(new Date(Number(label)))}
                       </p>
-                      {items.map((entry) => (
-                        <p
-                          key={String(entry.dataKey)}
-                          className="flex items-center gap-1.5"
-                        >
-                          <span
-                            className="size-2 rounded-full"
-                            style={{ background: entry.color }}
-                            aria-hidden
-                          />
-                          {nameOf(String(entry.dataKey))}:{' '}
-                          <strong>
-                            {formatTemperature(Number(entry.value))}
-                          </strong>
-                        </p>
-                      ))}
+                      <div className="flex flex-col gap-0.5">
+                        {items.map((entry) => (
+                          <p
+                            key={String(entry.dataKey)}
+                            className="flex items-center justify-between gap-5"
+                          >
+                            <span className="flex min-w-0 items-center gap-1.5 text-ink">
+                              <span
+                                className="size-2 shrink-0 rounded-full"
+                                style={{ background: entry.color }}
+                                aria-hidden
+                              />
+                              <span className="truncate">
+                                {nameOf(String(entry.dataKey))}
+                              </span>
+                            </span>
+                            <strong
+                              className="shrink-0 font-display text-[12.5px] font-[740] text-strong [font-stretch:106%]"
+                              data-numeric
+                            >
+                              {formatTemperature(Number(entry.value))}
+                            </strong>
+                          </p>
+                        ))}
+                      </div>
                     </div>
                   );
                 }}
               />
-              {series.map((item) => (
-                <Line
-                  key={item.roomId}
-                  type="monotone"
-                  dataKey={item.roomId}
-                  stroke={colorOf.get(item.roomId)}
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{
-                    r: 4,
-                    strokeWidth: 2,
-                    stroke: dark ? '#151d27' : '#ffffff',
-                  }}
-                  connectNulls
-                  hide={hidden.has(item.roomId)}
-                  isAnimationActive={false}
-                />
-              ))}
+              {series.map((item) => {
+                const color = colorOf.get(item.roomId) ?? OVERFLOW_HEX;
+                return (
+                  <Line
+                    key={item.roomId}
+                    type="monotone"
+                    dataKey={item.roomId}
+                    stroke={color}
+                    strokeWidth={2.25}
+                    strokeLinecap="round"
+                    dot={false}
+                    activeDot={(props: { cx?: number; cy?: number }) =>
+                      props.cx === undefined ||
+                      props.cy === undefined ? null : (
+                        <g>
+                          <circle
+                            cx={props.cx}
+                            cy={props.cy}
+                            r={9}
+                            fill={color}
+                            fillOpacity={0.16}
+                          />
+                          <circle
+                            cx={props.cx}
+                            cy={props.cy}
+                            r={4}
+                            fill={color}
+                            stroke="var(--surface)"
+                            strokeWidth={2}
+                          />
+                        </g>
+                      )
+                    }
+                    connectNulls
+                    hide={hidden.has(item.roomId)}
+                    animationDuration={900}
+                    animationEasing="ease-out"
+                  />
+                );
+              })}
             </LineChart>
           </ResponsiveContainer>
         </>

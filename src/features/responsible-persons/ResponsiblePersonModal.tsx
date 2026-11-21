@@ -158,6 +158,7 @@ export function ResponsiblePersonModal({
       }
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <p className="label-eyebrow sm:col-span-2">Shaxs va aloqa</p>
         <Field label="F.I.Sh." required className="sm:col-span-2">
           {(id) => (
             <Input
@@ -217,6 +218,13 @@ export function ResponsiblePersonModal({
           )}
         </Field>
 
+        {!isOperator || can('users.view') ? (
+          <p className="label-eyebrow mt-1 flex items-center gap-2 sm:col-span-2">
+            Vakolat va hisob
+            <span aria-hidden className="h-px flex-1 bg-line" />
+          </p>
+        ) : null}
+
         {!isOperator ? (
           <Field
             label="Tuman"
@@ -273,7 +281,7 @@ export function ResponsiblePersonModal({
         </Field>
 
         {person ? (
-          <div className="sm:col-span-2">
+          <div className="rounded-lg bg-[var(--surface-muted)] px-3 py-2.5 ring-1 ring-[var(--border-subtle)] ring-inset sm:col-span-2">
             <label className="inline-flex cursor-pointer items-center gap-2 text-meta text-ink">
               <Switch
                 checked={form.isActive}
@@ -289,7 +297,10 @@ export function ResponsiblePersonModal({
       </div>
 
       {error ? (
-        <p className="mt-3 rounded-lg bg-danger-50 px-3 py-2 text-meta font-medium text-danger-700 dark:bg-danger-500/10 dark:text-danger-300">
+        <p
+          role="alert"
+          className="shake mt-3 rounded-lg bg-danger-50 px-3 py-2 text-meta font-medium text-danger-700 ring-1 ring-danger-200 ring-inset dark:bg-danger-500/14 dark:text-danger-300 dark:ring-danger-400/30"
+        >
           {error}
         </p>
       ) : null}

@@ -26,6 +26,7 @@ import {
   EmptyState,
   ErrorState,
   Input,
+  PageHeader,
   Pagination,
   Skeleton,
   StatusBadge,
@@ -144,62 +145,63 @@ export function BoilersPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end justify-between gap-3 px-1">
-        <div>
-          <h1 className="text-sub font-semibold tracking-tight text-strong">
-            Kotyollar
-          </h1>
-          <p className="text-meta text-muted">
+      <PageHeader
+        title="Kotyollar"
+        subtitle={
+          <>
             {query.data
               ? `${formatNumber(query.data.meta.total)} ta qozonxona`
               : 'Yuklanmoqda…'}
             {districtId ? ' · tanlangan tuman bo‘yicha' : ''}
-          </p>
-        </div>
+          </>
+        }
+        actions={
+          <>
+            {can('reports.export') ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={<Download className="size-3.5" />}
+                onClick={() => void handleExport()}
+                loading={exporting}
+              >
+                Excel
+              </Button>
+            ) : null}
 
-        <div className="flex flex-wrap items-center gap-2">
-          {can('reports.export') ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              icon={<Download className="size-3.5" />}
-              onClick={() => void handleExport()}
-              loading={exporting}
-            >
-              Excel
-            </Button>
-          ) : null}
+            {can('boilers.create') ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={<FileUp className="size-3.5" />}
+                onClick={() => setImportOpen(true)}
+              >
+                Excel'dan import
+              </Button>
+            ) : null}
 
-          {can('boilers.create') ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              icon={<FileUp className="size-3.5" />}
-              onClick={() => setImportOpen(true)}
-            >
-              Excel'dan import
-            </Button>
-          ) : null}
+            {can('boilers.create') ? (
+              <Button
+                size="sm"
+                variant="primary"
+                icon={<Plus className="size-3.5" />}
+                onClick={() => {
+                  setEditing(null);
+                  setFormOpen(true);
+                }}
+              >
+                Yangi qozonxona
+              </Button>
+            ) : null}
+          </>
+        }
+      />
 
-          {can('boilers.create') ? (
-            <Button
-              size="sm"
-              variant="primary"
-              icon={<Plus className="size-3.5" />}
-              onClick={() => {
-                setEditing(null);
-                setFormOpen(true);
-              }}
-            >
-              Yangi qozonxona
-            </Button>
-          ) : null}
-        </div>
-      </div>
-
-      {/* ───── Filtrlar ───── */}
+      {/* ───── Filtrlar ─────
+          ⚠️ Holat tugmalari Segmented EMAS: bu KO'P tanlov (bir vaqtda
+          «O'rta» va «Ishlamayapti»), Segmented esa bitta qiymat tanlaydi. */}
       <Card>
-        <CardBody className="flex flex-wrap items-center gap-2 py-3">
+        <CardBody className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3">
           <div className="min-w-[220px] flex-1">
             <Input
               value={search}
@@ -212,7 +214,12 @@ export function BoilersPage() {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div
+            role="group"
+            aria-label="Holat bo‘yicha"
+            className="flex flex-wrap items-center gap-1.5"
+          >
+            <span className="label-eyebrow mr-1 hidden md:inline">Holat</span>
             {STATUS_ORDER.map((status) => {
               const meta = BOILER_STATUS[status];
               const active = statuses.includes(status);
@@ -220,34 +227,49 @@ export function BoilersPage() {
                 <button
                   key={status}
                   type="button"
+                  aria-pressed={active}
                   onClick={() => toggleStatus(status)}
                   className={cn(
-                    'inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-meta font-medium transition-colors',
+                    'inline-flex h-8 items-center gap-2 rounded-md px-3 text-meta font-semibold outline-none',
+                    'transition-[background-color,box-shadow,color,transform] duration-200 ease-out-quint active:scale-[0.97]',
+                    'focus-visible:ring-2 focus-visible:ring-brand-400',
                     active
                       ? meta.chip
-                      : 'text-muted ring-1 ring-[var(--border-strong)] hover:text-strong',
+                      : 'text-muted ring-1 ring-[var(--border-strong)] ring-inset hover:bg-[var(--surface-muted)] hover:text-strong',
                   )}
                 >
+                  {/* Tanlangan holat nuqtasi «yonadi» — o'z rangida nur. */}
                   <span
-                    className="size-1.5 rounded-full"
-                    style={{ backgroundColor: meta.hex }}
+                    aria-hidden
+                    className="size-1.5 rounded-full transition-shadow duration-300"
+                    style={{
+                      backgroundColor: meta.hex,
+                      boxShadow: active
+                        ? `0 0 0 3px ${meta.hex}26, 0 0 8px ${meta.hex}`
+                        : undefined,
+                    }}
                   />
                   {meta.short}
                 </button>
               );
             })}
 
+            <span aria-hidden className="mx-1 h-5 w-px bg-line" />
+
             <button
               type="button"
+              aria-pressed={includeArchived}
               onClick={() => {
                 setIncludeArchived((value) => !value);
                 setPage(1);
               }}
               className={cn(
-                'inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-meta font-medium transition-colors',
+                'inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-meta font-semibold outline-none',
+                'transition-[background-color,box-shadow,color,transform] duration-200 ease-out-quint active:scale-[0.97]',
+                'focus-visible:ring-2 focus-visible:ring-brand-400',
                 includeArchived
-                  ? 'bg-neutral-200 text-neutral-700 dark:bg-white/10 dark:text-neutral-200'
-                  : 'text-muted ring-1 ring-[var(--border-strong)] hover:text-strong',
+                  ? 'bg-neutral-800 text-white ring-1 ring-neutral-800 ring-inset dark:bg-white/12 dark:text-neutral-100 dark:ring-white/15'
+                  : 'text-muted ring-1 ring-[var(--border-strong)] ring-inset hover:bg-[var(--surface-muted)] hover:text-strong',
               )}
             >
               <SlidersHorizontal className="size-3.5" />
@@ -321,10 +343,12 @@ export function BoilersPage() {
                     <Td className="whitespace-nowrap text-muted">
                       {boiler.district?.shortName ?? '—'}
                     </Td>
-                    <Td className="font-medium whitespace-nowrap text-strong">
-                      {boiler.lotNumber ?? <span className="text-faint">—</span>}
+                    <Td className="font-mono text-ui font-medium whitespace-nowrap text-strong">
+                      {boiler.lotNumber ?? (
+                        <span className="text-faint">—</span>
+                      )}
                       {boiler.isArchived ? (
-                        <span className="ml-1.5 rounded bg-[var(--surface-sunken)] px-1 py-0.5 text-nano text-faint">
+                        <span className="ml-1.5 rounded-[4px] bg-[var(--surface-sunken)] px-1.5 py-0.5 align-middle text-[9.5px] font-semibold tracking-[0.1em] text-faint uppercase ring-1 ring-[var(--border-subtle)] ring-inset">
                           arxiv
                         </span>
                       ) : null}
@@ -338,10 +362,13 @@ export function BoilersPage() {
                     <Td className="whitespace-nowrap text-muted">
                       {orDash(boiler.brand?.name)}
                     </Td>
-                    <Td align="right" className="font-semibold text-strong">
+                    <Td
+                      align="right"
+                      className="font-semibold text-strong tabular-nums"
+                    >
                       {boiler.boilerCount}
                     </Td>
-                    <Td align="right" className="text-muted">
+                    <Td align="right" className="text-muted tabular-nums">
                       {boiler.normAt60 === null
                         ? '—'
                         : formatNumber(boiler.normAt60)}
@@ -349,17 +376,20 @@ export function BoilersPage() {
                     <Td>
                       <StatusBadge status={boiler.currentStatus} short />
                     </Td>
+                    {/* Harorat — displey shriftida: ro'yxatdagi eng muhim raqam. */}
                     <Td
                       align="right"
-                      className="font-semibold"
+                      className="font-display text-[15px] font-[720] whitespace-nowrap tabular-nums [font-stretch:106%]"
                       style={{
-                        color:
-                          BOILER_STATUS[boiler.currentStatus].hex,
+                        color: BOILER_STATUS[boiler.currentStatus].hex,
                       }}
                     >
                       {formatTemperature(boiler.lastTemperature)}
                     </Td>
-                    <Td align="right" className="whitespace-nowrap text-muted">
+                    <Td
+                      align="right"
+                      className="text-meta whitespace-nowrap text-muted"
+                    >
                       {boiler.lastReadingAt
                         ? formatRelativeUz(boiler.lastReadingAt)
                         : 'signal yo‘q'}
@@ -382,7 +412,7 @@ export function BoilersPage() {
                               setEditing(boiler);
                               setFormOpen(true);
                             }}
-                            className="grid size-7 place-items-center rounded-md text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-strong"
+                            className="grid size-7 place-items-center rounded-md text-muted outline-none transition-[background-color,color,transform] duration-200 focus-visible:ring-2 focus-visible:ring-brand-400 active:scale-90 hover:bg-[var(--surface-sunken)] hover:text-strong"
                           >
                             <Pencil className="size-3.5" />
                           </button>
@@ -394,7 +424,7 @@ export function BoilersPage() {
                               type="button"
                               aria-label="Arxivdan qaytarish"
                               onClick={() => restoreMutation.mutate(boiler.id)}
-                              className="grid size-7 place-items-center rounded-md text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-ok-600"
+                              className="grid size-7 place-items-center rounded-md text-muted outline-none transition-[background-color,color,transform] duration-200 focus-visible:ring-2 focus-visible:ring-brand-400 active:scale-90 hover:bg-[var(--surface-sunken)] hover:text-ok-600"
                             >
                               <ArchiveRestore className="size-3.5" />
                             </button>
@@ -403,7 +433,7 @@ export function BoilersPage() {
                               type="button"
                               aria-label="Arxivlash"
                               onClick={() => setArchiving(boiler)}
-                              className="grid size-7 place-items-center rounded-md text-muted transition-colors hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/10"
+                              className="grid size-7 place-items-center rounded-md text-muted outline-none transition-[background-color,color,transform] duration-200 focus-visible:ring-2 focus-visible:ring-brand-400 active:scale-90 hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/10"
                             >
                               <Archive className="size-3.5" />
                             </button>

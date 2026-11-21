@@ -1,50 +1,74 @@
 @import 'tailwindcss';
-/* ─────────────────────────── SHRIFT ───────────────────────────
-   BITTA oila — Inter, o'z serverimizdan (CDN emas): davlat tarmog'ida
-   tashqi so'rov bloklansa sahifa shriftsiz qolmaydi.
+/* ─────────────────────────── SHRIFTLAR ───────────────────────────
+   UCH oila, har birining VAZIFASI qat'iy — aralashtirilmaydi:
 
-   ⚠️ Raqamlar uchun ALOHIDA shrift YO'Q. Raqam matndan OG'IRLIK va
-   O'LCHAM bilan ajraladi; boshqa shrift ishlatilsa, u ekranda
-   «boshqa saytdan kelgan» bo'lib ko'rinadi.
-   ───────────────────────────────────────────────────────────── */
+   • Inter      — interfeys matni (jadval, forma, tugma). O'qilishi birinchi.
+   • Archivo    — DISPLEY: sahifa sarlavhalari va katta raqamlar
+                  (kengaytirilgan `wdth` o'qi, og'ir vazn). Nazorat
+                  markazining «ovozi» — rahbar ekranga qaraganda birinchi
+                  raqamni ko'radi.
+   • JetBrains  — TEXNIK yorliqlar: bo'lim yorliqlari, jadval sarlavhalari,
+     Mono         vaqt, ID, klaviatura tugmalari.
+
+   ⚠️ Hammasi o'z serverimizdan (CDN emas): davlat tarmog'ida tashqi
+   so'rov bloklansa sahifa shriftsiz qolmaydi.
+   ⚠️ Displey shrifti FAQAT `.title-display` / `.figure-display` orqali —
+   oddiy matnga qo'llansa, uzun jadval o'qilmay qoladi.
+   ───────────────────────────────────────────────────────────────── */
 @import '@fontsource-variable/inter';
+@import '@fontsource-variable/archivo/wdth.css';
+@import '@fontsource-variable/jetbrains-mono';
 
 /*
  * DIZAYN TOKENLARI — YAGONA manba.
  *
- * ⚠️ Ranglar komponentlarda qo'lda yozilmaydi (`#12538f` kabi), faqat
+ * ⚠️ Ranglar komponentlarda qo'lda yozilmaydi (`#0b5bb5` kabi), faqat
  * shu yerdagi o'zgaruvchilar orqali. Aks holda qorong'i rejimga
  * o'tishda yoki holat rangi o'zgarganda har bir faylni qidirib
  * chiqishga to'g'ri kelardi.
  */
 @theme {
-  /* ───────── Brend: davlat ko'ki ─────────
-     Logotip, asosiy tugma, faol tab, fokus halqasi.
+  /* ───────── Brend: osmon ko'ki (bayroqdagi moviy oila) ─────────
+     Asosiy tugma, faol tab, fokus halqasi.
      ⚠️ HOLAT ranglari (yashil/sariq/qizil) bundan ALOHIDA oilada:
-     brend ko'k bo'lgani uchun «faol kotyol» yashili bilan hech qachon
-     chalkashmaydi. Agar brend ham yashil bo'lsa, «faol menyu» bilan
-     «faol kotyol» bir xil rangda bo'lib qolardi. */
-  --color-brand-50: #eef6fd;
-  --color-brand-100: #d6e9f8;
-  --color-brand-200: #b0d4f1;
-  --color-brand-300: #7db7e6;
-  --color-brand-400: #4292d4;
-  --color-brand-500: #1d72bb;
-  --color-brand-600: #12538f;
-  --color-brand-700: #0e4273;
-  --color-brand-800: #0c3459;
-  --color-brand-900: #0a2943;
-  --color-brand-950: #061a2c;
+     brend ko'k bo'lgani uchun «faol menyu» bilan «faol kotyol» hech
+     qachon bir xil rangda bo'lmaydi. */
+  --color-brand-50: #ecf5ff;
+  --color-brand-100: #d5e9ff;
+  --color-brand-200: #acd3ff;
+  --color-brand-300: #72b3fb;
+  --color-brand-400: #3b91ef;
+  --color-brand-500: #1673d6;
+  --color-brand-600: #0b5bb5;
+  --color-brand-700: #0b4a93;
+  --color-brand-800: #0d3d75;
+  --color-brand-900: #0d315a;
+  --color-brand-950: #071c36;
 
-  /* ───────── YON PANEL (rail) ─────────
-     To'q dengiz ko'ki — oddiy «qora panel» EMAS. Ko'k ton brend bilan
-     bitta oilada qoladi va faol element (yorqin ko'k) fonda ADASHMAYDI:
-     qora fonda u «yopishtirilgan» bo'lib ko'rinardi. Login sahifasining
-     chap paneli ham shu oiladan — ikki ekran bitta brendda. */
-  --color-rail-700: #0f4273;
-  --color-rail-800: #0b3259;
-  --color-rail-900: #082741;
-  --color-rail-950: #051a2c;
+  /* ───────── ISSIQLIK — brend urg'usi ─────────
+     Domen «issiqlik»: logotip nuri, termal chiziq, kirish sahifasi.
+     ⚠️ HOLAT uchun ISHLATILMAYDI — «o'rta ishlayotgan» sariq va
+     «ishlamayotgan» qizil bilan chalkashardi. Faqat bezak/brend. */
+  --color-heat-200: #ffe1b0;
+  --color-heat-300: #ffc46b;
+  --color-heat-400: #ffa53d;
+  --color-heat-500: #ff7f1f;
+  --color-heat-600: #e85d0c;
+  --color-heat-700: #b9440a;
+
+  /* ───────── O'zbekiston bayrog'i (rasmiy ranglar) ─────────
+     Faqat bayroq lentasi uchun — interfeys rangi sifatida emas. */
+  --color-flag-blue: #0099b5;
+  --color-flag-red: #ce1126;
+  --color-flag-green: #1eb53a;
+
+  /* ───────── YON PANEL (rail) — obsidian dengiz ko'ki ─────────
+     Deyarli qora, lekin KO'K tonda: faol element (yorqin ko'k) fonda
+     adashmaydi, qora fonda esa «yopishtirilgan» bo'lib ko'rinardi. */
+  --color-rail-700: #11294a;
+  --color-rail-800: #0b1d36;
+  --color-rail-900: #071427;
+  --color-rail-950: #040b17;
 
   /* ───────── HOLAT RANGLARI ─────────
      ⚠️ `shared/constants/status.ts` bilan MOS bo'lishi SHART: u yerda
@@ -52,19 +76,19 @@
      o'zgaruvchisini o'qiy olmaydi). */
 
   /* Faol ishlayotgan — ≥ 50 °C */
-  --color-ok-50: #effaf3;
-  --color-ok-100: #d6f0e0;
-  --color-ok-200: #ace0c3;
-  --color-ok-300: #6fc998;
-  --color-ok-400: #35ab73;
+  --color-ok-50: #edfaf2;
+  --color-ok-100: #d3f1df;
+  --color-ok-200: #a8e1c1;
+  --color-ok-300: #6ccb98;
+  --color-ok-400: #34ad74;
   --color-ok-500: #118a56;
   --color-ok-600: #0b7148;
   --color-ok-700: #095c3c;
 
   /* O'rta ishlayotgan — 40–50 °C */
-  --color-warn-50: #fff8ea;
-  --color-warn-100: #fdebc7;
-  --color-warn-200: #f8d693;
+  --color-warn-50: #fff7e8;
+  --color-warn-100: #fdeac4;
+  --color-warn-200: #f8d58f;
   --color-warn-300: #efb954;
   --color-warn-400: #e09e21;
   --color-warn-500: #c0820b;
@@ -72,7 +96,7 @@
   --color-warn-700: #7d5304;
 
   /* Ishlamayotgan — 20–40 °C */
-  --color-danger-50: #fef3f2;
+  --color-danger-50: #fef2f1;
   --color-danger-100: #fde0dd;
   --color-danger-200: #fbc2bd;
   --color-danger-300: #f3948c;
@@ -83,34 +107,36 @@
 
   /* Aloqa yo'q / sovuq — betaraf, «yomon» emas, NOMA'LUM.
      ⚠️ Qizil QILINMAYDI: qizil «avariya» degani, aloqa yo'qligi esa
-     ko'pincha internetning uzilishi — ikkalasi bir xil rangda bo'lsa,
-     operator haqiqiy avariyani ko'rmay qolardi. */
-  --color-idle-50: #f4f6f8;
-  --color-idle-100: #e7ebf0;
-  --color-idle-200: #d3dae3;
-  --color-idle-300: #aeb9c8;
-  --color-idle-400: #8494a8;
-  --color-idle-500: #637386;
-  --color-idle-600: #4c5a6b;
-  --color-idle-700: #3b4857;
+     ko'pincha internetning uzilishi. */
+  --color-idle-50: #f4f6f9;
+  --color-idle-100: #e7ebf1;
+  --color-idle-200: #d3dae4;
+  --color-idle-300: #aeb9c9;
+  --color-idle-400: #8494a9;
+  --color-idle-500: #637387;
+  --color-idle-600: #4c5a6c;
+  --color-idle-700: #3b4858;
 
-  /* Neytral — SOVUQ ko'kish kulrang (iliq zinc EMAS): ko'k brend va
-     ko'kish xarita yonida iliq kulrang sarg'ish «kir» bo'lib ko'rinadi. */
-  --color-neutral-50: #f7f9fb;
-  --color-neutral-100: #eff3f7;
-  --color-neutral-200: #e3e9f0;
-  --color-neutral-300: #ccd6e1;
-  --color-neutral-400: #97a5b7;
-  --color-neutral-500: #66778c;
-  --color-neutral-600: #4b5b6f;
-  --color-neutral-700: #374556;
-  --color-neutral-800: #263241;
-  --color-neutral-900: #18212c;
-  --color-neutral-950: #0e151d;
+  /* Neytral — SOVUQ ko'kish kulrang (iliq zinc EMAS). */
+  --color-neutral-50: #f6f8fb;
+  --color-neutral-100: #edf1f6;
+  --color-neutral-200: #e0e7ef;
+  --color-neutral-300: #c9d3df;
+  --color-neutral-400: #95a3b6;
+  --color-neutral-500: #64758b;
+  --color-neutral-600: #48586c;
+  --color-neutral-700: #334153;
+  --color-neutral-800: #1f2a38;
+  --color-neutral-900: #121a25;
+  --color-neutral-950: #080d15;
 
   /* ───────── Shriftlar ───────── */
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system,
     'Segoe UI', sans-serif;
+  --font-display: 'Archivo Variable', 'Inter Variable', ui-sans-serif,
+    system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular',
+    Menlo, Consolas, monospace;
 
   /* ───────── O'lcham shkalasi ─────────
      Nomlar VAZIFA bo'yicha (`text-xs/sm` emas): «meta» har joyda bir xil
@@ -133,53 +159,55 @@
   --text-sub--line-height: 1.25;
   --text-display: 26px;
   --text-display--line-height: 1.15;
-  --text-figure: 32px;
-  --text-figure--line-height: 1.05;
-  --text-mega: 40px;
-  --text-mega--line-height: 1;
+  --text-figure: 34px;
+  --text-figure--line-height: 1;
+  --text-title: 30px;
+  --text-title--line-height: 1.02;
+  --text-mega: 44px;
+  --text-mega--line-height: 0.98;
 
   /* ───────── Burchak radiusi ─────────
-     ⚠️ Ichma-ich joylashgan ikki burchak BIR XIL radiusda bo'lsa,
-     ichkisi «shishgan» bo'lib ko'rinadi: karta 16px, ichidagi plitka
-     10px, boshqaruv 9px. */
-  --radius-xs: 5px;
-  --radius-sm: 7px;
-  --radius-md: 9px;
-  --radius-lg: 11px;
-  --radius-xl: 13px;
-  --radius-card: 16px;
-  --radius-tile: 10px;
+     ⚠️ ATAYLAB keskinroq (karta 12px): nazorat markazi — aniqlik
+     ohangi, «yumshoq ilova» emas. Ichma-ich ikki burchak bir xil
+     radiusda bo'lmaydi: karta 12, plitka 8, boshqaruv 7. */
+  --radius-xs: 4px;
+  --radius-sm: 5px;
+  --radius-md: 7px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-card: 12px;
+  --radius-tile: 8px;
 
-  /* ───────── Soyalar ─────────
-     ⚠️ Yengil va KO'KISH: sof qora soya oq karta ostida «kir» bo'lib
-     ko'rinadi. Har bir soya ikki qatlamdan — halqa (1px chegara) va
-     juda tarqoq uzoq soya. Uzoq, yumshoq qatlamsiz karta ekranga
-     «yopishtirilgan» bo'lib ko'rinadi: ko'z chuqurlikni aynan undan
-     o'qiydi. */
-  --shadow-hair: 0 0 0 1px rgb(18 53 143 / 0.07);
+  /* ───────── Soyalar (yorug' rejim) ─────────
+     Halqa (1px chegara) + juda tarqoq uzoq soya. Qorong'i rejimda
+     `.dark` bloki ularni QAYTA belgilaydi: to'q fonda soya ko'rinmaydi,
+     chuqurlikni yorug' ichki chiziq beradi. */
+  --shadow-hair: 0 0 0 1px rgb(15 40 80 / 0.08);
   --shadow-card:
-    0 0 0 1px rgb(20 45 80 / 0.06), 0 1px 2px rgb(20 45 80 / 0.03),
-    0 8px 22px -16px rgb(20 45 80 / 0.22);
+    0 0 0 1px rgb(15 35 70 / 0.075), 0 1px 2px rgb(15 35 70 / 0.04),
+    0 10px 28px -18px rgb(15 35 70 / 0.28);
   --shadow-raise:
-    0 0 0 1px rgb(20 45 80 / 0.07), 0 2px 5px rgb(20 45 80 / 0.05),
-    0 16px 34px -18px rgb(20 45 80 / 0.3);
+    0 0 0 1px rgb(15 35 70 / 0.09), 0 4px 10px -2px rgb(15 35 70 / 0.07),
+    0 22px 44px -22px rgb(15 35 70 / 0.38);
   --shadow-pop:
-    0 0 0 1px rgb(20 45 80 / 0.08), 0 3px 8px rgb(20 45 80 / 0.06),
-    0 24px 50px -20px rgb(20 45 80 / 0.34);
-  /* Brend tugmasi ostidagi soya KULRANG emas, KO'K: rangli element
-     ostidagi neytral soya uni «kesib qo'yilgan» qilib ko'rsatadi. */
+    0 0 0 1px rgb(15 35 70 / 0.1), 0 6px 14px -4px rgb(15 35 70 / 0.1),
+    0 32px 64px -24px rgb(15 35 70 / 0.45);
+  /* Brend tugmasi ostidagi soya KO'K: rangli element ostidagi neytral
+     soya uni «kesib qo'yilgan» qilib ko'rsatadi. */
   --shadow-brand:
-    0 1px 2px rgb(8 40 80 / 0.24), 0 5px 12px -5px rgb(18 83 143 / 0.42);
+    0 1px 2px rgb(7 40 90 / 0.3), 0 8px 18px -8px rgb(11 91 181 / 0.6);
 
-  /* ───────── Tartib ─────────
-     ⚠️ `--spacing-shell` (1440px) OLIB TASHLANDI. U kontentni cheklab,
-     keng monitorda ikki chetda keng bo'sh joy qoldirardi — holbuki bu
-     tizimning asosiy ekrani XARITA va JADVAL: ularga qancha kenglik
-     berilsa, shuncha yaxshi. Endi kenglikni yon panel va chetki
-     bo'shliq hal qiladi. */
-  --spacing-topbar: 58px;
-  --spacing-rail: 236px;
-  --spacing-rail-tight: 68px;
+  /* ───────── Harakat ─────────
+     Bitta egri oilasi: tez boshlanib, yumshoq to'xtaydi. Bir ekranda
+     turli egrilar bo'lsa, harakat «tasodifiy» bo'lib ko'rinadi. */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out-sine: cubic-bezier(0.37, 0, 0.63, 1);
+
+  /* ───────── Tartib ───────── */
+  --spacing-topbar: 60px;
+  --spacing-rail: 248px;
+  --spacing-rail-tight: 72px;
 }
 
 /* Qorong'i rejim `class` strategiyasi bilan — foydalanuvchi tanlovi
@@ -191,58 +219,98 @@
     color-scheme: light;
 
     --surface: #ffffff;
-    --surface-muted: #f8fafc;
-    --surface-sunken: #f1f5f9;
-    --canvas: #eef1f5;
+    --surface-muted: #f7f9fc;
+    --surface-sunken: #eff3f8;
+    --canvas: #e9eef4;
 
-    --border-subtle: #e6ecf3;
-    --border-strong: #d4dee9;
+    --border-subtle: #e1e8f0;
+    --border-strong: #cbd5e1;
     /* Jadval katagi — `--border-subtle` dan ANCHA och: ustun chizig'i
        qator ajratgichi bilan bir xil quyuqlikda bo'lsa, jadval «to'r»
        bo'lib ko'rinadi va raqamlar o'qilmay qoladi. */
-    --border-cell: #eef2f7;
+    --border-cell: #edf1f6;
 
-    --ink-strong: #18212c;
-    --ink-body: #374556;
-    --ink-muted: #66778c;
-    --ink-faint: #97a5b7;
+    --ink-strong: #0b1422;
+    --ink-body: #2f3d50;
+    --ink-muted: #5d6e84;
+    --ink-faint: #8f9db1;
     --ink-invert: #ffffff;
 
+    /* Kartaning chetidagi «projektor» nuri (kursor ortidan). */
+    --spot: rgb(22 115 214 / 0.55);
+    --spot-soft: rgb(22 115 214 / 0.06);
+
+    /* TERMAL SHKALA — sovuqdan issiqqa. Tizimning vizual imzosi:
+       faol menyu, sarlavha osti, yuqori panel chizig'i. */
+    --thermal: linear-gradient(
+      90deg,
+      #1673d6 0%,
+      #38b6ff 24%,
+      #ffd27a 56%,
+      #ff8a2a 80%,
+      #ff5a1f 100%
+    );
+    --thermal-v: linear-gradient(
+      180deg,
+      #38b6ff 0%,
+      #ffc46b 55%,
+      #ff7f1f 100%
+    );
+
+    /* Fon to'ri (login, bo'sh holatlar). */
+    --grid-line: rgb(15 40 80 / 0.06);
+
     /* SHKALA: kirish (qaytuvchi, sovuqroq) va chiqish (uzatuvchi, issiq).
-       ⚠️ dataviz validatori bilan tekshirilgan juftlik (oq fonda: CVD ΔE
-       24,7, oddiy ko'z 33,6, kontrast ≥ 3:1). Holat ranglari (yashil /
-       sariq / qizil / kulrang) ATAYLAB ishlatilmaydi — ular band. */
+       ⚠️ dataviz validatori bilan tekshirilgan juftlik — holat ranglari
+       ATAYLAB ishlatilmaydi. */
     --gauge-inlet: #2a78d6;
     --gauge-outlet: #eb6834;
-    --gauge-track: #e9eef4;
-    --gauge-tick: #d3dbe5;
+    --gauge-track: #e7edf4;
+    --gauge-tick: #d0d9e4;
     --gauge-stale: #aeb9c8;
   }
 
   .dark {
     color-scheme: dark;
 
-    --surface: #151d27;
-    --surface-muted: #19222e;
-    --surface-sunken: #121a23;
-    --canvas: #0c131b;
+    --surface: #0e1623;
+    --surface-muted: #121c2b;
+    --surface-sunken: #0a111b;
+    --canvas: #060b13;
 
-    --border-subtle: #243140;
-    --border-strong: #2f3f52;
-    --border-cell: #1f2b38;
+    --border-subtle: #1b2738;
+    --border-strong: #293a50;
+    --border-cell: #152030;
 
-    --ink-strong: #eef3f8;
-    --ink-body: #c3cfdc;
-    --ink-muted: #8da0b5;
-    --ink-faint: #64788f;
-    --ink-invert: #0e151d;
+    --ink-strong: #f1f5fa;
+    --ink-body: #c0ccda;
+    --ink-muted: #8798ae;
+    --ink-faint: #5d6f86;
+    --ink-invert: #0b1422;
 
-    /* Qorong'i fon (#151d27) uchun ALOHIDA tanlangan qadamlar —
-       avtomatik teskari emas (validator: CVD ΔE 26,8, kontrast ≥ 3:1). */
+    --spot: rgb(114 179 251 / 0.6);
+    --spot-soft: rgb(56 146 240 / 0.07);
+    --grid-line: rgb(140 180 230 / 0.06);
+
+    /* ⚠️ Qorong'i rejimda soya o'rniga YORUG' ICHKI CHIZIQ: to'q fonda
+       qora soya ko'rinmaydi va karta fonga singib ketardi. */
+    --shadow-hair: 0 0 0 1px rgb(150 190 240 / 0.08);
+    --shadow-card:
+      inset 0 1px 0 rgb(255 255 255 / 0.035), 0 0 0 1px rgb(140 175 220 / 0.09),
+      0 14px 30px -20px rgb(0 0 0 / 0.9);
+    --shadow-raise:
+      inset 0 1px 0 rgb(255 255 255 / 0.05), 0 0 0 1px rgb(140 175 220 / 0.14),
+      0 24px 48px -24px rgb(0 0 0 / 0.95);
+    --shadow-pop:
+      inset 0 1px 0 rgb(255 255 255 / 0.06), 0 0 0 1px rgb(140 175 220 / 0.16),
+      0 36px 72px -24px rgb(0 0 0 / 0.95);
+
+    /* Qorong'i fon uchun ALOHIDA tanlangan qadamlar (validator: CVD ΔE
+       26,8, kontrast ≥ 3:1). */
     --gauge-inlet: #3987e5;
     --gauge-outlet: #d95926;
-    --gauge-track: #1e2935;
-    --gauge-tick: #2c3a4a;
+    --gauge-track: #182334;
+    --gauge-tick: #26364b;
     --gauge-stale: #5b6b7e;
   }
 
@@ -262,6 +330,7 @@
     font-family: var(--font-sans);
     font-size: var(--text-body);
     line-height: 1.6;
+    font-feature-settings: 'cv11', 'ss01';
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -278,14 +347,22 @@
      tashlanmaydi: `outline: none` butun interfeysni klaviatura bilan
      boshqarib bo'lmaydigan qilib qo'yadi. */
   :focus-visible {
-    outline: 2px solid var(--color-brand-500);
+    outline: 2px solid var(--color-brand-400);
     outline-offset: 2px;
     border-radius: var(--radius-sm);
   }
 
   ::selection {
     background: var(--color-brand-200);
-    color: var(--color-brand-900);
+    color: var(--color-brand-950);
+  }
+  .dark ::selection {
+    background: rgb(56 146 240 / 0.4);
+    color: #fff;
+  }
+
+  kbd {
+    font-family: var(--font-mono);
   }
 }
 
@@ -304,24 +381,55 @@
   /*
    * KARTA — interfeysning asosiy g'ishti.
    *
-   * ⚠️ Chegara CHIZIQ bilan emas, SOYA ichidagi halqa bilan
-   * (`--shadow-card` ning birinchi qatlami): `border` qo'yilsa u
-   * elementning o'lchamiga qo'shilib, yonma-yon turgan kartalar
-   * 1px ga siljib qolardi.
+   * ⚠️ Chegara CHIZIQ bilan emas, SOYA ichidagi halqa bilan: `border`
+   * elementning o'lchamiga qo'shilib, yonma-yon kartalar 1px siljirdi.
+   *
+   * ⚠️ `::before` — kursor ortidan yuradigan PROJEKTOR chegarasi
+   * (`--mx/--my` ni `useSpotlight` yozadi). Faqat 1px halqa — kontent
+   * ustiga tushmaydi, bosishni to'smaydi.
    */
   .card {
+    position: relative;
     background: var(--surface);
     border-radius: var(--radius-card);
     box-shadow: var(--shadow-card);
   }
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border-radius: inherit;
+    padding: 1px;
+    pointer-events: none;
+    background: radial-gradient(
+      380px circle at var(--mx, -500px) var(--my, -500px),
+      var(--spot),
+      transparent 42%
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+  }
+  .card:hover::before {
+    opacity: 1;
+  }
 
   .card-hover {
     transition:
-      box-shadow 160ms ease,
-      transform 160ms ease;
+      box-shadow 0.3s var(--ease-out-quint),
+      transform 0.3s var(--ease-out-quint);
   }
   .card-hover:hover {
     box-shadow: var(--shadow-raise);
+    transform: translateY(-2px);
+  }
+  .card-hover:active {
+    transform: translateY(0) scale(0.995);
   }
 
   /* ───────── Matn ohanglari ───────── */
@@ -333,10 +441,7 @@
    *
    * `--text-body: 14px` tokeni Tailwind'da `text-body` UTILITASINI
    * (font-size) hosil qiladi. Rang sinfi ham shunday nomlansa, bitta
-   * sinf IKKI xil narsa qilardi va `tailwind-merge` qaysi guruhga
-   * tegishli ekanini aniqlay olmasdi: `cn('text-strong', 'text-body')`
-   * da ikkalasi ham qolib, CSS tartibi hal qilardi — jadval katagi
-   * «kuchli» rang o'rniga oddiy rangda chiqardi.
+   * sinf IKKI xil narsa qilardi va `tailwind-merge` adashardi.
    *
    * O'LCHAM → `text-*` (nano, micro, meta, ui, body, …)
    * RANG    → `text-ink`, `text-strong`, `text-muted`, `text-faint`
@@ -356,43 +461,251 @@
   }
 
   /*
-   * BO'LIM YORLIG'I — kartadagi kichik sarlavha.
-   * ⚠️ Harflar orasi kengaytirilgan (`0.06em`): 11px dagi katta
-   * harflar zich yozilsa, so'z «bir bo'lak» bo'lib ko'rinadi va
-   * o'qilmaydi.
+   * BO'LIM YORLIG'I — monoshirift, katta harf, keng harf oralig'i.
+   * Nazorat pulti tilida: «bu yorliq, matn emas». ⚠️ 10.5px dagi katta
+   * harflar zich yozilsa so'z «bir bo'lak» bo'lib qoladi — 0.12em.
    */
   .label-eyebrow {
-    font-size: var(--text-micro);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    line-height: 1.5;
     font-weight: 600;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--ink-faint);
   }
 
-  /*
-   * SKELET — yuklanayotgan joy.
-   * ⚠️ Spinner EMAS: spinner «qancha kutish kerak» degan savolga
-   * javob bermaydi va sahifa tayyor bo'lganda tartib SAKRAB ketadi.
-   * Skelet esa bo'lajak tartibning o'lchamini oldindan egallaydi.
-   */
-  .skeleton {
-    background: linear-gradient(
-      90deg,
-      var(--surface-sunken) 0%,
-      var(--surface-muted) 50%,
-      var(--surface-sunken) 100%
-    );
-    background-size: 200% 100%;
-    animation: skeleton 1.4s ease-in-out infinite;
+  /* ───────── DISPLEY TIPOGRAFIYA ─────────
+     ⚠️ Faqat sarlavha va katta raqam. `font-stretch` — Archivo'ning
+     kenglik o'qi: kengaytirilgan og'ir harf «muhr» ohangini beradi. */
+  .title-display {
+    font-family: var(--font-display);
+    font-stretch: 116%;
+    font-weight: 800;
+    letter-spacing: -0.028em;
+    line-height: 1.02;
+    color: var(--ink-strong);
+  }
+  .figure-display {
+    font-family: var(--font-display);
+    font-stretch: 110%;
+    font-weight: 760;
+    letter-spacing: -0.035em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-strong);
+  }
+  .mono {
+    font-family: var(--font-mono);
   }
 
-  @keyframes skeleton {
+  /* ───────── TERMAL IMZO ─────────
+     Sovuqdan issiqqa oqadigan chiziq. ⚠️ Faqat `background-position`
+     animatsiyasi — sahifa qotmaydi. */
+  .thermal-line {
+    background: var(--thermal);
+    background-size: 200% 100%;
+    animation: thermal-flow 9s linear infinite;
+  }
+  .thermal-text {
+    background: var(--thermal);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: thermal-flow 9s linear infinite;
+  }
+  @keyframes thermal-flow {
+    from {
+      background-position: 0% 50%;
+    }
+    to {
+      background-position: 200% 50%;
+    }
+  }
+
+  /* Bayroq lentasi: moviy · qizil · oq · qizil · yashil. */
+  .flag-ribbon {
+    background: linear-gradient(
+      90deg,
+      var(--color-flag-blue) 0 32%,
+      var(--color-flag-red) 32% 34%,
+      #fff 34% 66%,
+      var(--color-flag-red) 66% 68%,
+      var(--color-flag-green) 68% 100%
+    );
+  }
+
+  /* Texnik to'r — fon uchun. */
+  .grid-bg {
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  /* Plyonka donasi — yassi rangni «material» qiladi. SVG shovqin,
+     tarmoq so'rovisiz. ⚠️ Ota element `position` ga ega bo'lishi shart. */
+  .grain::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.07;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  /*
+   * SKELET — yuklanayotgan joy.
+   * ⚠️ Spinner EMAS: skelet bo'lajak tartibning o'lchamini oldindan
+   * egallaydi va sahifa «o'rniga tushadi», sakramaydi.
+   */
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background: var(--surface-sunken);
+  }
+  .skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      100deg,
+      transparent 20%,
+      color-mix(in srgb, var(--surface) 75%, transparent) 50%,
+      transparent 80%
+    );
+    animation: skeleton-sweep 1.5s var(--ease-in-out-sine) infinite;
+  }
+  .dark .skeleton::after {
+    background: linear-gradient(
+      100deg,
+      transparent 20%,
+      rgb(140 180 230 / 0.06) 50%,
+      transparent 80%
+    );
+  }
+  @keyframes skeleton-sweep {
+    to {
+      transform: translateX(100%);
+    }
+  }
+
+  /* ───────── PAYDO BO'LISH ─────────
+     `--i` — tartib raqami: elementlar ketma-ket (60 ms) chiqadi.
+     ⚠️⚠️ To'ldirish rejimi `backwards`, `both` EMAS: `both` da animatsiya
+     tugagach ham oxirgi kadr «osilib» qoladi va brauzer elementni alohida
+     qatlam (stacking context) deb biladi — ichidagi to'liq ekranli xarita
+     (`fixed z-50`) yon panel ostiga qamalib qolardi. `backwards` faqat
+     kechikish paytida boshlang'ich kadrni ushlaydi, keyin element oddiy
+     holatiga qaytadi (natija ko'zga bir xil). */
+  .reveal {
+    animation: reveal-up 0.7s var(--ease-out-expo) backwards;
+    animation-delay: calc(var(--i, 0) * 60ms);
+  }
+  @keyframes reveal-up {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* Sahifa almashganda — bo'limlar zinapoya bo'lib tushadi. AppLayout
+     har sahifa ildizini `.page-stage` ichiga qo'yadi; sahifalarni
+     o'zgartirish shart emas. */
+  .page-stage > * > * {
+    animation: reveal-up 0.75s var(--ease-out-expo) backwards;
+  }
+  .page-stage > * > *:nth-child(2) {
+    animation-delay: 60ms;
+  }
+  .page-stage > * > *:nth-child(3) {
+    animation-delay: 120ms;
+  }
+  .page-stage > * > *:nth-child(4) {
+    animation-delay: 180ms;
+  }
+  .page-stage > * > *:nth-child(5) {
+    animation-delay: 230ms;
+  }
+  .page-stage > * > *:nth-child(6) {
+    animation-delay: 270ms;
+  }
+  .page-stage > * > *:nth-child(n + 7) {
+    animation-delay: 300ms;
+  }
+
+  /* Jonli nuqta — sekin, sokin to'lqin. */
+  .live-ping {
+    animation: live-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+  @keyframes live-ping {
     0% {
-      background-position: 200% 0;
+      transform: scale(1);
+      opacity: 0.6;
     }
+    70%,
     100% {
-      background-position: -200% 0;
+      transform: scale(2.8);
+      opacity: 0;
     }
+  }
+
+  /* Tugmadagi yorug' «chaqnash» — sichqoncha ostida bir marta o'tadi. */
+  .btn-sheen {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .btn-sheen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(
+      105deg,
+      transparent 35%,
+      rgb(255 255 255 / 0.28) 50%,
+      transparent 65%
+    );
+    transform: translateX(-120%);
+  }
+  .btn-sheen:hover:not(:disabled)::after {
+    transform: translateX(120%);
+    transition: transform 0.75s var(--ease-out-quint);
+  }
+
+  /* Jadval sarlavhasi — texnik yorliq. */
+  .th-mono {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thermal-line,
+  .thermal-text,
+  .reveal,
+  .page-stage > * > *,
+  .live-ping,
+  .skeleton::after {
+    animation: none !important;
+  }
+  .card-hover,
+  .card-hover:hover {
+    transform: none;
+  }
+  .btn-sheen::after {
+    display: none;
   }
 }
 
@@ -719,5 +1032,207 @@ html:not(.dark) .issiqlik-tiles-muted {
   }
   .gauge-sheen {
     opacity: 0;
+  }
+}
+
+/* ═══════════════════════ BREND HARAKATLARI ═══════════════════════ */
+
+/* GERB NURI — gerbning O'ZIGA emas, orqasiga: sekin «nafas». Moviy
+   (bayroq) va iliq (issiqlik) qatlam — ikki ma'no bitta nurda. */
+.emblem-glow {
+  position: absolute;
+  inset: -34%;
+  border-radius: 9999px;
+  pointer-events: none;
+  background: radial-gradient(
+    closest-side,
+    rgb(56 182 255 / 0.34),
+    rgb(255 165 61 / 0.12) 58%,
+    transparent 100%
+  );
+  animation: emblem-breathe 5.5s var(--ease-in-out-sine) infinite;
+}
+@keyframes emblem-breathe {
+  0%,
+  100% {
+    opacity: 0.65;
+    transform: scale(0.94);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+/* Yuklanish chizig'i — termal bo'lak chapdan o'ngga yuguradi. */
+.loader-run {
+  animation:
+    loader-run 1.25s var(--ease-in-out-sine) infinite,
+    thermal-flow 9s linear infinite;
+}
+@keyframes loader-run {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(220%);
+  }
+}
+
+/* KPI ulush chizig'i — birinchi chizishda chapdan o'sib chiqadi. */
+.stat-bar {
+  transform-origin: left center;
+  animation: stat-bar-grow 1.3s var(--ease-out-expo) backwards;
+  animation-delay: calc(var(--i, 0) * 60ms + 200ms);
+}
+@keyframes stat-bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* Soat ikki nuqtasi — sekundiga bir «tepadi». */
+.clock-colon {
+  animation: clock-colon 1s steps(1, end) infinite;
+}
+@keyframes clock-colon {
+  50% {
+    opacity: 0.2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .emblem-glow,
+  .loader-run,
+  .stat-bar,
+  .clock-colon {
+    animation: none !important;
+  }
+}
+
+/* ═══════════════════════ KIRISH SAHIFASI ═══════════════════════
+   ⚠️ Faqat `transform` / `opacity` / `background-position`. */
+.login-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.5;
+  pointer-events: none;
+  animation: blob-drift 20s var(--ease-in-out-sine) infinite alternate;
+}
+@keyframes blob-drift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(7%, -5%, 0) scale(1.08);
+  }
+  100% {
+    transform: translate3d(-5%, 6%, 0) scale(0.95);
+  }
+}
+
+.login-floor {
+  position: absolute;
+  left: -25%;
+  right: -25%;
+  bottom: -12%;
+  height: 58%;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgb(120 175 240 / 0.2) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(120 175 240 / 0.2) 1px, transparent 1px);
+  background-size: 54px 54px;
+  transform: perspective(620px) rotateX(64deg);
+  transform-origin: bottom center;
+  -webkit-mask-image: linear-gradient(to top, #000 5%, transparent 80%);
+  mask-image: linear-gradient(to top, #000 5%, transparent 80%);
+  animation: floor-move 3.6s linear infinite;
+}
+@keyframes floor-move {
+  to {
+    background-position: 0 54px;
+  }
+}
+
+.ember {
+  position: absolute;
+  left: var(--x, 50%);
+  bottom: -12px;
+  width: 3px;
+  height: 3px;
+  border-radius: 9999px;
+  background: #ffc46b;
+  box-shadow: 0 0 10px 2px rgb(255 140 40 / 0.65);
+  opacity: 0;
+  animation: ember-rise var(--d, 10s) linear infinite;
+  animation-delay: var(--delay, 0s);
+}
+@keyframes ember-rise {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.95;
+  }
+  70% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate3d(var(--drift, 20px), -92vh, 0) scale(0.3);
+    opacity: 0;
+  }
+}
+
+.scale-marker {
+  animation: marker-in 1.9s var(--ease-out-expo) 0.6s backwards;
+}
+@keyframes marker-in {
+  from {
+    left: 0%;
+    opacity: 0;
+  }
+}
+
+.shake {
+  animation: shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+@keyframes shake {
+  10%,
+  90% {
+    transform: translateX(-1px);
+  }
+  20%,
+  80% {
+    transform: translateX(2px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translateX(-4px);
+  }
+  40%,
+  60% {
+    transform: translateX(4px);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-blob,
+  .login-floor,
+  .ember,
+  .scale-marker,
+  .shake {
+    animation: none !important;
+  }
+  .ember {
+    display: none;
   }
 }

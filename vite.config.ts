@@ -49,6 +49,13 @@ export default defineConfig({
             'socket.io-client',
             'zustand',
           ],
+          /*
+           * ⚠️ Animatsiya dvigateli ham ALOHIDA: u har sahifada (segment
+           * boshqaruvi, raqam sanog'i) kerak, lekin deyarli o'zgarmaydi —
+           * ilova kodi bilan bitta bo'lakda bo'lsa, har deploy'da qayta
+           * yuklanardi.
+           */
+          'motion-vendor': ['motion', 'motion/react'],
         },
       },
     },

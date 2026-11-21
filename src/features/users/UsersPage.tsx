@@ -29,6 +29,7 @@ import type {
 import { ROLE_LABELS } from '@/shared/constants/status';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import {
+  AnimatedNumber,
   Badge,
   Button,
   Card,
@@ -39,6 +40,7 @@ import {
   Field,
   Input,
   Modal,
+  PageHeader,
   Pagination,
   Select,
   Skeleton,
@@ -53,20 +55,26 @@ import { formatRelativeUz } from '@/shared/utils/date';
 import { formatNumber, initials, orDash } from '@/shared/utils/format';
 import { useAuthStore } from '@/store/auth.store';
 
+/* ⚠️ Rol yorlig'i ham HALQA (`ring-inset`) bilan: qorong'i rejimda och
+   fon yo'qoladi va chegarasiz yorliq matnga qo'shilib ketardi. */
 const ROLE_TONE: Record<UserRole, string> = {
   super_admin:
-    'bg-brand-50 text-brand-700 ring-1 ring-brand-200 dark:bg-brand-500/12 dark:text-brand-300',
+    'bg-brand-600 text-white ring-1 ring-brand-700 ring-inset shadow-[0_2px_8px_-3px_rgb(11_91_181/0.6)] dark:bg-brand-500 dark:ring-brand-400/40',
   admin:
-    'bg-brand-50/60 text-brand-700 ring-1 ring-brand-200 dark:bg-brand-500/10 dark:text-brand-300',
+    'bg-brand-50 text-brand-700 ring-1 ring-brand-200 ring-inset dark:bg-brand-400/12 dark:text-brand-200 dark:ring-brand-400/25',
   operator:
-    'bg-ok-50 text-ok-700 ring-1 ring-ok-200 dark:bg-ok-500/12 dark:text-ok-300',
+    'bg-ok-50 text-ok-700 ring-1 ring-ok-200 ring-inset dark:bg-ok-500/12 dark:text-ok-300 dark:ring-ok-400/25',
   viewer:
-    'bg-idle-100 text-idle-700 ring-1 ring-idle-200 dark:bg-white/6 dark:text-idle-300',
+    'bg-idle-100 text-idle-700 ring-1 ring-idle-200 ring-inset dark:bg-white/[0.06] dark:text-idle-300 dark:ring-white/10',
   agency_officer:
-    'bg-warn-50 text-warn-700 ring-1 ring-warn-200 dark:bg-warn-400/14 dark:text-warn-300',
+    'bg-warn-50 text-warn-700 ring-1 ring-warn-200 ring-inset dark:bg-warn-400/12 dark:text-warn-300 dark:ring-warn-400/25',
   responsible:
-    'bg-[var(--surface-sunken)] text-ink ring-1 ring-[var(--border-subtle)]',
+    'bg-[var(--surface-sunken)] text-ink ring-1 ring-[var(--border-strong)] ring-inset',
 };
+
+/** Parol maydoni — chuqur fon, mono (nuqtalar teng oraliqda). */
+const SECRET =
+  'bg-[var(--surface-sunken)] font-mono tracking-[0.12em] placeholder:tracking-normal';
 
 /**
  * FOYDALANUVCHILAR.
@@ -121,35 +129,41 @@ export function UsersPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end justify-between gap-3 px-1">
-        <div>
-          <h1 className="text-sub font-semibold tracking-tight text-strong">
-            Foydalanuvchilar
-          </h1>
-          <p className="text-meta text-muted">
-            {query.data
-              ? `${formatNumber(query.data.meta.total)} ta hisob`
-              : 'Yuklanmoqda…'}
-          </p>
-        </div>
-
-        {can('users.create') ? (
-          <Button
-            size="sm"
-            variant="primary"
-            icon={<Plus className="size-3.5" />}
-            onClick={() => {
-              setEditing(null);
-              setFormOpen(true);
-            }}
-          >
-            Yangi foydalanuvchi
-          </Button>
-        ) : null}
-      </div>
+      <PageHeader
+        title="Foydalanuvchilar"
+        subtitle={
+          query.data ? (
+            <span className="inline-flex items-baseline gap-1.5">
+              <AnimatedNumber
+                value={formatNumber(query.data.meta.total)}
+                className="font-mono text-[12.5px] font-bold text-strong"
+              />
+              ta hisob
+            </span>
+          ) : (
+            'Yuklanmoqda…'
+          )
+        }
+        actions={
+          can('users.create') ? (
+            <Button
+              size="sm"
+              variant="primary"
+              icon={<Plus className="size-3.5" />}
+              onClick={() => {
+                setEditing(null);
+                setFormOpen(true);
+              }}
+            >
+              Yangi foydalanuvchi
+            </Button>
+          ) : null
+        }
+      />
 
       <Card>
         <CardBody className="flex flex-wrap items-center gap-2 py-3">
+          <span className="label-eyebrow mr-1 hidden md:inline">Filtr</span>
           <div className="min-w-[220px] flex-1">
             <Input
               value={search}
@@ -212,104 +226,128 @@ export function UsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((user) => (
-                  <Tr key={user.id} className={cn(!user.isActive && 'opacity-60')}>
-                    <Td>
-                      <div className="flex items-center gap-2.5">
-                        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-brand-600 text-micro font-semibold text-white">
-                          {initials(user.fullName)}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="truncate font-medium text-strong">
-                            {user.fullName}
-                            {user.id === currentUser?.id ? (
-                              <span className="ml-1.5 text-micro font-normal text-faint">
-                                (siz)
-                              </span>
-                            ) : null}
-                          </p>
-                          <p className="truncate text-micro text-muted">
-                            {user.login}
-                          </p>
-                        </div>
-                      </div>
-                    </Td>
-
-                    <Td>
-                      <Badge className={ROLE_TONE[user.role]}>
-                        {user.role === 'super_admin' ? (
-                          <ShieldCheck className="size-3" />
-                        ) : null}
-                        {ROLE_LABELS[user.role]}
-                      </Badge>
-                    </Td>
-
-                    <Td className="text-muted">
-                      {/* ⚠️ Tashkilot mas'ulining kesimi — tuman emas, idora. */}
-                      {orDash(user.district?.shortName ?? user.agency?.name)}
-                    </Td>
-                    <Td className="max-w-[200px] truncate text-muted">
-                      {orDash(user.position)}
-                    </Td>
-                    <Td align="right" className="whitespace-nowrap text-muted">
-                      {user.lastLoginAt
-                        ? formatRelativeUz(user.lastLoginAt)
-                        : 'hech qachon'}
-                    </Td>
-
-                    <Td>
-                      {user.isActive ? (
-                        <Badge
-                          className="bg-ok-50 text-ok-700 ring-1 ring-ok-200 dark:bg-ok-500/12 dark:text-ok-300"
-                          dot="bg-ok-500"
-                        >
-                          Faol
-                        </Badge>
-                      ) : (
-                        <Badge
-                          className="bg-idle-100 text-idle-700 ring-1 ring-idle-200 dark:bg-white/6 dark:text-idle-300"
-                          dot="bg-idle-400"
-                        >
-                          Faolsiz
-                        </Badge>
+                {items.map((user) => {
+                  const isMe = user.id === currentUser?.id;
+                  return (
+                    <Tr
+                      key={user.id}
+                      className={cn(
+                        'group/row hover:bg-[var(--surface-muted)] hover:shadow-[inset_3px_0_0_var(--color-brand-500)] dark:hover:bg-white/[0.025]',
+                        !user.isActive && 'opacity-60 hover:opacity-90',
+                        isMe && 'bg-brand-50/40 dark:bg-brand-400/[0.04]',
                       )}
-                    </Td>
-
-                    <Td align="right">
-                      <span className="flex items-center justify-end gap-1">
-                        {can('users.update') ? (
-                          <>
-                            <IconButton
-                              label="Tahrirlash"
-                              onClick={() => {
-                                setEditing(user);
-                                setFormOpen(true);
-                              }}
-                            >
-                              <Pencil className="size-3.5" />
-                            </IconButton>
-                            <IconButton
-                              label="Parolni almashtirish"
-                              onClick={() => setResetting(user)}
-                            >
-                              <KeyRound className="size-3.5" />
-                            </IconButton>
-                          </>
-                        ) : null}
-
-                        {can('users.delete') && user.id !== currentUser?.id ? (
-                          <IconButton
-                            label="Ro‘yxatdan chiqarish"
-                            danger
-                            onClick={() => setRemoving(user)}
+                    >
+                      <Td>
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className={cn(
+                              'relative grid size-8 shrink-0 place-items-center rounded-md font-mono text-[11px] font-bold tracking-wide text-white transition-transform duration-300 ease-out-expo group-hover/row:scale-105',
+                              user.isActive
+                                ? 'bg-linear-to-br from-brand-500 to-brand-800 shadow-[var(--shadow-brand),inset_0_1px_0_rgb(255_255_255/0.25)]'
+                                : 'bg-linear-to-br from-idle-400 to-idle-600 shadow-[inset_0_1px_0_rgb(255_255_255/0.2)]',
+                            )}
                           >
-                            <Trash2 className="size-3.5" />
-                          </IconButton>
-                        ) : null}
-                      </span>
-                    </Td>
-                  </Tr>
-                ))}
+                            {initials(user.fullName)}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="flex items-center truncate font-semibold text-strong">
+                              <span className="truncate">{user.fullName}</span>
+                              {isMe ? (
+                                <span className="ml-1.5 shrink-0 rounded-[4px] bg-brand-500/12 px-1 font-mono text-[9.5px] leading-4 font-bold tracking-[0.08em] text-brand-700 uppercase dark:text-brand-200">
+                                  siz
+                                </span>
+                              ) : null}
+                            </p>
+                            <p className="truncate font-mono text-micro text-muted">
+                              {user.login}
+                            </p>
+                          </div>
+                        </div>
+                      </Td>
+
+                      <Td>
+                        <Badge className={ROLE_TONE[user.role]}>
+                          {user.role === 'super_admin' ? (
+                            <ShieldCheck className="size-3" />
+                          ) : null}
+                          {ROLE_LABELS[user.role]}
+                        </Badge>
+                      </Td>
+
+                      <Td className="text-muted">
+                        {/* ⚠️ Tashkilot mas'ulining kesimi — tuman emas, idora. */}
+                        {orDash(user.district?.shortName ?? user.agency?.name)}
+                      </Td>
+                      <Td className="max-w-[200px] truncate text-muted">
+                        {orDash(user.position)}
+                      </Td>
+                      <Td
+                        align="right"
+                        className={cn(
+                          'font-mono text-meta whitespace-nowrap',
+                          user.lastLoginAt ? 'text-ink' : 'text-faint',
+                        )}
+                      >
+                        {user.lastLoginAt
+                          ? formatRelativeUz(user.lastLoginAt)
+                          : 'hech qachon'}
+                      </Td>
+
+                      <Td>
+                        {user.isActive ? (
+                          <Badge
+                            className="bg-ok-50 text-ok-700 ring-1 ring-ok-200 ring-inset dark:bg-ok-500/12 dark:text-ok-300 dark:ring-ok-400/25"
+                            dot="bg-ok-500 shadow-[0_0_6px_var(--color-ok-400)]"
+                          >
+                            Faol
+                          </Badge>
+                        ) : (
+                          <Badge
+                            className="bg-idle-100 text-idle-700 ring-1 ring-idle-200 ring-inset dark:bg-white/[0.06] dark:text-idle-300 dark:ring-white/10"
+                            dot="bg-idle-400"
+                          >
+                            Faolsiz
+                          </Badge>
+                        )}
+                      </Td>
+
+                      <Td align="right">
+                        <span className="flex items-center justify-end gap-1">
+                          {can('users.update') ? (
+                            <>
+                              <IconButton
+                                label="Tahrirlash"
+                                onClick={() => {
+                                  setEditing(user);
+                                  setFormOpen(true);
+                                }}
+                              >
+                                <Pencil className="size-3.5" />
+                              </IconButton>
+                              <IconButton
+                                label="Parolni almashtirish"
+                                onClick={() => setResetting(user)}
+                              >
+                                <KeyRound className="size-3.5" />
+                              </IconButton>
+                            </>
+                          ) : null}
+
+                          {can('users.delete') &&
+                          user.id !== currentUser?.id ? (
+                            <IconButton
+                              label="Ro‘yxatdan chiqarish"
+                              danger
+                              onClick={() => setRemoving(user)}
+                            >
+                              <Trash2 className="size-3.5" />
+                            </IconButton>
+                          ) : null}
+                        </span>
+                      </Td>
+                    </Tr>
+                  );
+                })}
               </tbody>
             </Table>
 
@@ -369,10 +407,10 @@ function IconButton({
       title={label}
       onClick={onClick}
       className={cn(
-        'grid size-7 place-items-center rounded-md text-muted transition-colors',
+        'grid size-7 place-items-center rounded-md text-muted transition-[background-color,color,box-shadow,transform] duration-200 active:scale-95',
         danger
-          ? 'hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/10'
-          : 'hover:bg-[var(--surface-sunken)] hover:text-strong',
+          ? 'hover:bg-danger-50 hover:text-danger-600 hover:shadow-[inset_0_0_0_1px_var(--color-danger-200)] dark:hover:bg-danger-500/14 dark:hover:text-danger-300 dark:hover:shadow-[inset_0_0_0_1px_rgb(226_89_79/0.3)]'
+          : 'hover:bg-[var(--surface)] hover:text-strong hover:shadow-[var(--shadow-hair)]',
       )}
     >
       {children}
@@ -451,8 +489,7 @@ function UserFormModal({
            xatosini qaytaradi. */
         districtId: form.role === 'operator' ? form.districtId : undefined,
         /* ⚠️ Tashkilot FAQAT tashkilot mas'uliga (server boshqa rolga rad etadi). */
-        agencyId:
-          form.role === 'agency_officer' ? form.agencyId : undefined,
+        agencyId: form.role === 'agency_officer' ? form.agencyId : undefined,
         email: form.email.trim() || undefined,
         phone: form.phone.trim() || undefined,
         position: form.position.trim() || undefined,
@@ -526,6 +563,7 @@ function UserFormModal({
               value={form.login}
               onChange={(event) => set('login', event.target.value)}
               placeholder="operator.jalaquduq"
+              className="font-mono font-medium"
             />
           )}
         </Field>
@@ -539,19 +577,30 @@ function UserFormModal({
                 value={form.password}
                 onChange={(event) => set('password', event.target.value)}
                 autoComplete="new-password"
+                className={SECRET}
               />
             )}
           </Field>
         ) : (
-          <Field label="Hisob holati" hint="Faolsizlantirilsa sessiyalar yopiladi">
+          <Field
+            label="Hisob holati"
+            hint="Faolsizlantirilsa sessiyalar yopiladi"
+          >
             {() => (
-              <div className="flex h-9.5 items-center gap-2">
+              <div className="flex h-9.5 items-center gap-2.5 rounded-lg bg-[var(--surface-sunken)] px-3 ring-1 ring-[var(--border-subtle)] ring-inset">
                 <Switch
                   checked={form.isActive}
                   onChange={(value) => set('isActive', value)}
                   label="Hisob faol"
                 />
-                <span className="text-ui text-ink">
+                <span
+                  className={cn(
+                    'font-mono text-[11px] font-bold tracking-[0.1em] uppercase transition-colors duration-200',
+                    form.isActive
+                      ? 'text-ok-600 dark:text-ok-300'
+                      : 'text-idle-500 dark:text-idle-300',
+                  )}
+                >
                   {form.isActive ? 'Faol' : 'Faolsiz'}
                 </span>
               </div>
@@ -667,7 +716,10 @@ function UserFormModal({
         </Field>
 
         {error ? (
-          <p className="rounded-lg bg-danger-50 px-3 py-2 text-meta font-medium text-danger-700 sm:col-span-2 dark:bg-danger-500/10 dark:text-danger-300">
+          <p
+            role="alert"
+            className="reveal rounded-lg bg-danger-50 px-3 py-2 text-meta font-medium text-danger-700 shadow-[inset_3px_0_0_var(--color-danger-500)] ring-1 ring-danger-200 ring-inset sm:col-span-2 dark:bg-danger-500/14 dark:text-danger-300 dark:ring-danger-400/30"
+          >
             {error}
           </p>
         ) : null}
@@ -733,11 +785,11 @@ function ResetPasswordModal({
       }
     >
       <div className="flex flex-col gap-3">
-        <div className="flex items-start gap-2 rounded-lg bg-warn-50 px-3 py-2.5 text-meta text-warn-700 ring-1 ring-warn-200 dark:bg-warn-400/10 dark:text-warn-300 dark:ring-warn-400/25">
+        <div className="flex items-start gap-2.5 rounded-lg bg-warn-50 px-3 py-2.5 text-meta text-warn-700 shadow-[inset_3px_0_0_var(--color-warn-400)] ring-1 ring-warn-200 ring-inset dark:bg-warn-400/12 dark:text-warn-300 dark:ring-warn-400/25">
           <UserX className="mt-0.5 size-4 shrink-0" />
           <span>
-            Parol almashgach foydalanuvchining BARCHA ochiq sessiyalari
-            yopiladi — u qaytadan kirishi kerak bo‘ladi.
+            Parol almashgach foydalanuvchining BARCHA ochiq sessiyalari yopiladi
+            — u qaytadan kirishi kerak bo‘ladi.
           </span>
         </div>
 
@@ -750,6 +802,7 @@ function ResetPasswordModal({
               onChange={(event) => setPassword(event.target.value)}
               autoComplete="new-password"
               invalid={Boolean(error)}
+              className={SECRET}
             />
           )}
         </Field>

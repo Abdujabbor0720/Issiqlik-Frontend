@@ -3,7 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { errorMessage, get } from '@/shared/api/client';
 import { API, qk } from '@/shared/api/endpoints';
-import type { BoilerPoint, BoilerRooms } from '@/shared/api/types';
+import type { BoilerPoint, BoilerRooms, BoilerStatus } from '@/shared/api/types';
 import { BOILER_STATUS } from '@/shared/constants/status';
 import {
   Button,
@@ -15,6 +15,14 @@ import {
 import { formatTemperature } from '@/shared/utils/format';
 import { RoomList, summarizeRooms } from '@/features/rooms/RoomsPanel';
 import { boilerName } from '@/shared/utils/boiler';
+
+/** `BOILER_STATUS.text` faqat yorug' qadam — to'q fonda och qadam kerak. */
+const TEMP_DARK: Record<BoilerStatus, string> = {
+  active: 'dark:text-ok-300',
+  medium: 'dark:text-warn-300',
+  inactive: 'dark:text-danger-300',
+  offline: 'dark:text-idle-300',
+};
 
 /**
  * XARITADAGI NUQTA BOSILGANDA — bino va uning xonalari.
@@ -72,13 +80,20 @@ export function BoilerRoomsModal({
     >
       {point ? (
         <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between rounded-tile bg-[var(--surface-sunken)] px-3 py-2">
-            <div>
-              <p className="text-micro text-muted">Kotyol</p>
+          {/* ⚠️ Kotyol plitkasi — chap chetida HOLAT chizig'i va katta
+              DISPLEY raqami: oyna ochilganda ko'z birinchi «qozon
+              qanday» degan savolga javob topadi, keyin xonalarga tushadi. */}
+          <div className="relative flex items-center justify-between overflow-hidden rounded-tile bg-[var(--surface-sunken)] py-2.5 pr-3.5 pl-4 ring-1 ring-[var(--border-subtle)] ring-inset">
+            <span
+              aria-hidden
+              className={`absolute inset-y-0 left-0 w-[3px] ${BOILER_STATUS[point.status].dot}`}
+            />
+            <div className="flex flex-col items-start gap-1">
+              <p className="label-eyebrow">Kotyol</p>
               <StatusBadge status={point.status} />
             </div>
             <p
-              className={`text-lede font-semibold tabular-nums ${BOILER_STATUS[point.status].text}`}
+              className={`figure-display text-[26px] ${BOILER_STATUS[point.status].text} ${TEMP_DARK[point.status]}`}
               data-numeric
             >
               {formatTemperature(point.temperature)}
@@ -86,12 +101,18 @@ export function BoilerRoomsModal({
           </div>
 
           <div>
-            <p className="mb-1 flex items-baseline justify-between text-ui font-medium text-strong">
-              Xonalar
+            <p className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3">
+              <span className="label-eyebrow">Xonalar</span>
               {stats.count > 0 ? (
-                <span className="text-micro font-normal text-muted">
-                  o‘rtacha {formatTemperature(stats.avg)} · eng past{' '}
-                  {formatTemperature(stats.min)}
+                <span className="text-micro text-muted">
+                  o‘rtacha{' '}
+                  <span className="font-semibold text-strong" data-numeric>
+                    {formatTemperature(stats.avg)}
+                  </span>{' '}
+                  · eng past{' '}
+                  <span className="font-semibold text-strong" data-numeric>
+                    {formatTemperature(stats.min)}
+                  </span>
                 </span>
               ) : null}
             </p>

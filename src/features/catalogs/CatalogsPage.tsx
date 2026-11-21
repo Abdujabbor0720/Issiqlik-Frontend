@@ -3,6 +3,7 @@ import {
   Archive,
   ArchiveRestore,
   Building2,
+  Check,
   Factory,
   Landmark,
   Library,
@@ -34,7 +35,9 @@ import {
   Field,
   Input,
   Modal,
+  PageHeader,
   Pagination,
+  Segmented,
   Select,
   Skeleton,
   Table,
@@ -44,7 +47,7 @@ import {
   Tr,
 } from '@/shared/ui';
 import { cn } from '@/shared/utils/cn';
-import { orDash } from '@/shared/utils/format';
+import { formatNumber, orDash } from '@/shared/utils/format';
 import { useAuthStore } from '@/store/auth.store';
 
 interface TabConfig {
@@ -233,58 +236,58 @@ export function CatalogsPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end justify-between gap-3 px-1">
-        <div>
-          <h1 className="text-sub font-semibold tracking-tight text-strong">
-            Kataloglar
-          </h1>
-          <p className="text-meta text-muted">
-            Marka, firma, muassasa va MFY ro‘yxatlari — kotyol formasida
-            shulardan tanlanadi
-          </p>
-        </div>
+      <PageHeader
+        title="Kataloglar"
+        subtitle="Marka, firma, muassasa va MFY ro‘yxatlari — kotyol formasida shulardan tanlanadi"
+        actions={
+          can('catalogs.manage') ? (
+            <Button
+              size="sm"
+              variant="primary"
+              icon={<Plus className="size-3.5" />}
+              onClick={() => {
+                setEditing(null);
+                setFormOpen(true);
+              }}
+            >
+              Yangi yozuv
+            </Button>
+          ) : null
+        }
+      />
 
-        {can('catalogs.manage') ? (
-          <Button
-            size="sm"
-            variant="primary"
-            icon={<Plus className="size-3.5" />}
-            onClick={() => {
-              setEditing(null);
-              setFormOpen(true);
-            }}
-          >
-            Yangi yozuv
-          </Button>
-        ) : null}
-      </div>
-
-      {/* ───── Tablar ───── */}
-      <div className="flex flex-wrap items-center gap-2 px-1">
-        {TABS.map((item) => (
-          <button
-            key={item.kind}
-            type="button"
-            onClick={() => {
-              setKind(item.kind);
-              setPage(1);
-              setSearch('');
-            }}
-            className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-meta font-medium transition-colors',
-              kind === item.kind
-                ? 'bg-brand-600 text-white shadow-[var(--shadow-brand)]'
-                : 'bg-[var(--surface)] text-muted shadow-[var(--shadow-card)] hover:text-strong',
-            )}
-          >
-            <item.icon className="size-3.5" />
-            {item.label}
-          </button>
-        ))}
+      {/* ───── Tablar ─────
+          ⚠️ Gorizontal aylantiriladigan O'RAMda: oltita katalog telefonda
+          bir qatorga sig'maydi, `Segmented` esa ataylab bo'linmaydi
+          (tanlov plitkasi bitta qatorda suriladi). */}
+      <div className="-mx-1 overflow-x-auto px-1 pb-0.5">
+        <Segmented
+          size="md"
+          ariaLabel="Katalog turi"
+          value={kind}
+          onChange={(next) => {
+            setKind(next);
+            setPage(1);
+            setSearch('');
+          }}
+          options={TABS.map((item) => ({
+            value: item.kind,
+            label: item.label,
+            icon: <item.icon />,
+            // ⚠️ Son faqat JORIY tabda va faqat o'z ma'lumoti kelganda:
+            // oldingi tabning `placeholderData` si yangi tab yonida
+            // bir lahza boshqa raqam ko'rsatib qo'ymasin.
+            count:
+              item.kind === kind && query.data && !query.isPlaceholderData
+                ? formatNumber(query.data.meta.total)
+                : undefined,
+          }))}
+        />
       </div>
 
       <Card>
         <CardBody className="flex flex-wrap items-center gap-2 py-3">
+          <span className="label-eyebrow mr-1 hidden md:inline">Filtr</span>
           <div className="min-w-[220px] flex-1">
             <Input
               value={search}
@@ -325,13 +328,33 @@ export function CatalogsPage() {
               setPage(1);
             }}
             className={cn(
-              'inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-meta font-medium transition-colors',
+              'group inline-flex h-9.5 items-center gap-2 rounded-lg px-3 text-meta font-semibold ring-1 transition-[background-color,box-shadow,color] duration-200 ring-inset',
               includeArchived
-                ? 'bg-neutral-200 text-neutral-700 dark:bg-white/10 dark:text-neutral-200'
-                : 'text-muted ring-1 ring-[var(--border-strong)] hover:text-strong',
+                ? 'bg-brand-50 text-brand-700 ring-brand-200 dark:bg-brand-400/12 dark:text-brand-200 dark:ring-brand-400/25'
+                : 'bg-[var(--surface-sunken)] text-muted ring-[var(--border-subtle)] hover:text-strong hover:ring-[var(--border-strong)]',
             )}
           >
-            <Archive className="size-3.5" />
+            {/* Belgi katagi — tugma «kalit» ekanini ko'rsatadi. */}
+            <span
+              aria-hidden
+              className={cn(
+                'grid size-3.5 place-items-center rounded-[4px] ring-1 transition-[background-color,box-shadow] duration-200 ring-inset',
+                includeArchived
+                  ? 'bg-brand-500 ring-brand-600'
+                  : 'bg-[var(--surface)] ring-[var(--border-strong)]',
+              )}
+            >
+              <Check
+                className={cn(
+                  'size-2.5 text-white transition-[opacity,transform] duration-200 ease-out-expo',
+                  includeArchived
+                    ? 'scale-100 opacity-100'
+                    : 'scale-50 opacity-0',
+                )}
+                strokeWidth={3.5}
+              />
+            </span>
+            <Archive className="size-3.5 opacity-70" />
             Arxivdagilar
           </button>
         </CardBody>
@@ -385,19 +408,30 @@ export function CatalogsPage() {
                 {items.map((item) => (
                   <Tr
                     key={item.id}
-                    className={cn(item.isArchived && 'opacity-60')}
+                    className={cn(
+                      'hover:bg-[var(--surface-muted)] hover:shadow-[inset_3px_0_0_var(--color-brand-500)] dark:hover:bg-white/[0.025]',
+                      item.isArchived && 'opacity-60 hover:opacity-90',
+                    )}
                   >
-                    <Td className="font-medium text-strong">
+                    <Td className="font-semibold text-strong">
                       {item.name}
                       {item.isArchived ? (
-                        <Badge className="ml-2 bg-[var(--surface-sunken)] text-faint">
+                        <Badge className="ml-2 bg-idle-100 font-mono text-[10px] tracking-[0.08em] text-idle-600 uppercase ring-1 ring-idle-200 ring-inset dark:bg-white/[0.06] dark:text-idle-300 dark:ring-white/10">
                           arxiv
                         </Badge>
                       ) : null}
                     </Td>
 
                     {tab.extraColumns.map((column) => (
-                      <Td key={column.header} className="text-muted">
+                      <Td
+                        key={column.header}
+                        className={cn(
+                          'text-muted',
+                          // Raqamli identifikatorlar — monoshriftda.
+                          (column.key === 'tin' || column.key === 'phone') &&
+                            'font-mono text-meta whitespace-nowrap',
+                        )}
+                      >
                         {column.key === 'objectType' ? (
                           orDash(item.objectType?.name)
                         ) : column.key === 'mahalla' ? (
@@ -416,7 +450,7 @@ export function CatalogsPage() {
                         ) : column.key === 'code' ? (
                           /* Kalit — mashina qiymati, shuning uchun
                              monoshrift va «kod» ko'rinishida. */
-                          <code className="rounded bg-[var(--surface-sunken)] px-1.5 py-0.5 font-mono text-micro">
+                          <code className="rounded-[5px] bg-[var(--surface-sunken)] px-1.5 py-0.5 font-mono text-micro font-semibold text-ink ring-1 ring-[var(--border-subtle)] ring-inset">
                             {orDash(item.code)}
                           </code>
                         ) : (
@@ -535,10 +569,10 @@ function IconButton({
       title={label}
       onClick={onClick}
       className={cn(
-        'grid size-7 place-items-center rounded-md text-muted transition-colors',
+        'grid size-7 place-items-center rounded-md text-muted transition-[background-color,color,box-shadow,transform] duration-200 active:scale-95',
         danger
-          ? 'hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/10'
-          : 'hover:bg-[var(--surface-sunken)] hover:text-strong',
+          ? 'hover:bg-danger-50 hover:text-danger-600 hover:shadow-[inset_0_0_0_1px_var(--color-danger-200)] dark:hover:bg-danger-500/14 dark:hover:text-danger-300 dark:hover:shadow-[inset_0_0_0_1px_rgb(226_89_79/0.3)]'
+          : 'hover:bg-[var(--surface)] hover:text-strong hover:shadow-[var(--shadow-hair)]',
       )}
     >
       {children}
@@ -930,9 +964,7 @@ function CatalogFormModal({
           </Field>
         ) : null}
 
-        {kind === 'firms' ||
-        kind === 'organizations' ||
-        kind === 'agencies' ? (
+        {kind === 'firms' || kind === 'organizations' || kind === 'agencies' ? (
           <Field label="Telefon">
             {(id) => (
               <Input
@@ -959,7 +991,10 @@ function CatalogFormModal({
         )}
 
         {error ? (
-          <p className="rounded-lg bg-danger-50 px-3 py-2 text-meta font-medium text-danger-700 dark:bg-danger-500/10 dark:text-danger-300">
+          <p
+            role="alert"
+            className="reveal rounded-lg bg-danger-50 px-3 py-2 text-meta font-medium text-danger-700 shadow-[inset_3px_0_0_var(--color-danger-500)] ring-1 ring-danger-200 ring-inset dark:bg-danger-500/14 dark:text-danger-300 dark:ring-danger-400/30"
+          >
             {error}
           </p>
         ) : null}

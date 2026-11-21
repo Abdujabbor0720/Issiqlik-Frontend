@@ -1,4 +1,5 @@
 import { ChevronRight } from 'lucide-react';
+import type { CSSProperties } from 'react';
 import type { DistrictRow } from '@/shared/api/types';
 import { BOILER_STATUS } from '@/shared/constants/status';
 import { SegmentedBar } from '@/shared/ui';
@@ -16,7 +17,11 @@ import { formatNumber, formatTemperature } from '@/shared/utils/format';
  *
  * ⚠️ Ro'yxat ISHLAYOTGAN ULUSHI bo'yicha saralanadi, alifbo bo'yicha
  * emas: rahbarga «qaysi tuman eng yomon» kerak, «Andijondan
- * boshlanadigan tumanlar» emas.
+ * boshlanadigan tumanlar» emas. Chapdagi o'rin raqami (01 — eng yomon)
+ * shu tartibni so'zsiz aytadi.
+ *
+ * ⚠️ Chiziqlar birinchi chizishda chapdan «o'sib» chiqadi (`stat-bar`,
+ * faqat `transform`) — qatorlar ketma-ket, yuqoridan pastga.
  */
 export function DistrictBars({
   rows,
@@ -42,38 +47,58 @@ export function DistrictBars({
     .slice(0, limit ?? rows.length);
 
   return (
-    <div className="flex flex-col">
-      {sorted.map((row) => {
+    <div className="flex flex-col gap-px">
+      {sorted.map((row, index) => {
         const selected = selectedId === row.districtId;
         return (
           <button
             key={row.districtId}
             type="button"
             onClick={() => onSelect(selected ? null : row.districtId)}
+            aria-pressed={selected}
+            style={{ '--i': Math.min(index, 12) } as CSSProperties}
             className={cn(
-              'group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 rounded-lg px-2 py-2 text-left transition-colors',
+              'group grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1.5 rounded-tile px-2 py-2 text-left',
+              'transition-[background-color,box-shadow] duration-200 ease-out-quint',
               selected
-                ? 'bg-brand-50 dark:bg-brand-500/10'
-                : 'hover:bg-[var(--surface-sunken)]',
+                ? 'bg-brand-50 shadow-[inset_3px_0_0_var(--color-brand-500)] dark:bg-brand-400/10'
+                : 'hover:bg-[var(--surface-sunken)] hover:shadow-[inset_3px_0_0_var(--border-strong)] dark:hover:bg-white/[0.03]',
             )}
           >
-            <div className="flex min-w-0 items-center gap-1.5">
+            <span
+              aria-hidden
+              className={cn(
+                'font-mono text-[10.5px] font-semibold tabular-nums transition-colors',
+                selected
+                  ? 'text-brand-600 dark:text-brand-300'
+                  : 'text-faint group-hover:text-muted',
+              )}
+            >
+              {String(index + 1).padStart(2, '0')}
+            </span>
+
+            <div className="flex min-w-0 items-center gap-1">
               <span
                 className={cn(
-                  'truncate text-ui font-medium',
-                  selected ? 'text-brand-700 dark:text-brand-300' : 'text-strong',
+                  'truncate text-ui font-semibold',
+                  selected
+                    ? 'text-brand-700 dark:text-brand-200'
+                    : 'text-strong',
                 )}
               >
                 {row.shortName}
               </span>
-              <ChevronRight className="size-3 shrink-0 text-faint opacity-0 transition-opacity group-hover:opacity-100" />
+              <ChevronRight className="size-3 shrink-0 -translate-x-1 text-faint opacity-0 transition-[opacity,translate] duration-300 ease-out-expo group-hover:translate-x-0 group-hover:opacity-100" />
             </div>
 
             <div className="flex shrink-0 items-center gap-2.5 text-meta">
               <span className="text-muted" data-numeric>
                 {formatTemperature(row.avgTemperature)}
               </span>
-              <span className="w-10 text-right font-semibold text-strong" data-numeric>
+              <span
+                className="w-9 text-right font-semibold text-strong"
+                data-numeric
+              >
                 {formatNumber(row.total)}
               </span>
               {/* ⚠️ Foiz CHIP ichida va rangi natijaga qarab:
@@ -81,14 +106,8 @@ export function DistrictBars({
                   ko'zga tashlanmasdi. */}
               <span
                 className={cn(
-                  'w-12 rounded-full px-1.5 py-0.5 text-center text-micro font-semibold',
-                  row.total === 0
-                    ? 'bg-[var(--surface-sunken)] text-faint'
-                    : row.workingPercent >= 80
-                      ? 'bg-ok-50 text-ok-700 dark:bg-ok-500/12 dark:text-ok-300'
-                      : row.workingPercent >= 55
-                        ? 'bg-warn-50 text-warn-700 dark:bg-warn-400/14 dark:text-warn-300'
-                        : 'bg-danger-50 text-danger-700 dark:bg-danger-500/12 dark:text-danger-300',
+                  'w-12 rounded-md py-0.5 text-center font-mono text-[11px] font-semibold ring-1 ring-inset',
+                  workingChip(row.workingPercent, row.total),
                 )}
                 data-numeric
               >
@@ -96,7 +115,7 @@ export function DistrictBars({
               </span>
             </div>
 
-            <div className="col-span-2">
+            <div className="stat-bar col-span-2 col-start-2">
               <SegmentedBar
                 size="sm"
                 segments={[
@@ -128,4 +147,21 @@ export function DistrictBars({
       })}
     </div>
   );
+}
+
+/**
+ * «Ishlayapti» foizi chipi — 80% va 55% chegaralari (jadval bilan AYNI).
+ * ⚠️ Sinflar to'liq yozilgan: Tailwind yig'ilgan nomni CSS ga chiqarmaydi.
+ */
+function workingChip(percent: number, total: number): string {
+  if (total === 0) {
+    return 'bg-[var(--surface-sunken)] text-faint ring-[var(--border-subtle)]';
+  }
+  if (percent >= 80) {
+    return 'bg-ok-50 text-ok-700 ring-ok-200 dark:bg-ok-500/12 dark:text-ok-300 dark:ring-ok-400/25';
+  }
+  if (percent >= 55) {
+    return 'bg-warn-50 text-warn-700 ring-warn-200 dark:bg-warn-400/12 dark:text-warn-300 dark:ring-warn-400/25';
+  }
+  return 'bg-danger-50 text-danger-700 ring-danger-200 dark:bg-danger-500/14 dark:text-danger-300 dark:ring-danger-400/30';
 }

@@ -11,7 +11,7 @@ import {
   TriangleAlert,
   Waves,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import toast from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 import { errorMessage, getPaged, post } from '@/shared/api/client';
@@ -29,7 +29,9 @@ import {
   Field,
   Input,
   Modal,
+  PageHeader,
   Pagination,
+  Segmented,
   Skeleton,
   Textarea,
 } from '@/shared/ui';
@@ -136,39 +138,39 @@ export function AlertsPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end justify-between gap-3 px-1">
-        <div>
-          <h1 className="text-sub font-semibold tracking-tight text-strong">
-            Ogohlantirishlar
-          </h1>
-          <p className="text-meta text-muted">
-            {query.data
-              ? `${formatNumber(query.data.meta.total)} ta yozuv`
-              : 'Yuklanmoqda…'}
+      <PageHeader
+        title="Ogohlantirishlar"
+        subtitle={
+          <>
+            {query.data ? (
+              <>
+                <span className="font-mono font-semibold text-strong tabular-nums">
+                  {formatNumber(query.data.meta.total)}
+                </span>{' '}
+                ta yozuv
+              </>
+            ) : (
+              'Yuklanmoqda…'
+            )}
             {districtId ? ' · tanlangan tuman bo‘yicha' : ''}
-          </p>
-        </div>
-
-        <div className="flex rounded-full bg-[var(--surface-sunken)] p-0.5">
-          {TABS.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => {
-                setTab(item.key);
-                setPage(1);
-              }}
-              className={
-                tab === item.key
-                  ? 'rounded-full bg-[var(--surface)] px-3.5 py-1.5 text-meta font-semibold text-strong shadow-[var(--shadow-hair)]'
-                  : 'rounded-full px-3.5 py-1.5 text-meta font-medium text-muted transition-colors hover:text-strong'
-              }
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </div>
+          </>
+        }
+        actions={
+          <Segmented
+            size="md"
+            ariaLabel="Ogohlantirish holati"
+            value={tab}
+            onChange={(value) => {
+              setTab(value);
+              setPage(1);
+            }}
+            options={TABS.map((item) => ({
+              value: item.key,
+              label: item.label,
+            }))}
+          />
+        }
+      />
 
       <Card>
         <CardBody className="py-3">
@@ -215,20 +217,55 @@ export function AlertsPage() {
                 const severity = ALERT_SEVERITY[alert.severity];
                 const Icon = TYPE_ICONS[alert.type] ?? Flame;
                 const acknowledged = alert.state === 'acknowledged';
+                const resolved = alert.state === 'resolved';
+                const critical = alert.severity === 'critical';
 
                 return (
-                  <li key={alert.id}>
+                  <li
+                    key={alert.id}
+                    className="reveal"
+                    style={{ '--i': Math.min(index, 12) } as CSSProperties}
+                  >
                     {index > 0 ? <div className="h-px bg-line" /> : null}
-                    <div className="flex flex-wrap items-start gap-3 px-5 py-3.5">
+                    {/*
+                      ⚠️ Chap chetdagi og'irlik chizig'i faqat OCHIQ yozuvda
+                      rangli, jonli to'lqin — faqat ko'rib chiqilmagan
+                      KRITIK yozuvda: «Yopilgan» tabi «yonib» turmasligi va
+                      operator kimga hali hech kim qaramaganini darhol
+                      ajratishi uchun.
+                    */}
+                    <div className="group relative flex flex-wrap items-start gap-3.5 px-5 py-3.5 transition-[background-color] duration-200 hover:bg-[var(--surface-muted)] dark:hover:bg-white/[0.02]">
+                      <span
+                        aria-hidden
+                        className={cn(
+                          'absolute inset-y-3 left-0 w-[3px] origin-left rounded-r-full transition-transform duration-300 ease-out-expo group-hover:scale-x-[1.6]',
+                          resolved
+                            ? 'bg-[var(--border-strong)]'
+                            : critical
+                              ? 'bg-danger-500'
+                              : alert.severity === 'warning'
+                                ? 'bg-warn-400'
+                                : 'bg-brand-400',
+                        )}
+                      />
                       <span
                         className={cn(
-                          'grid size-9 shrink-0 place-items-center rounded-tile',
-                          alert.severity === 'critical'
-                            ? 'bg-danger-50 text-danger-600 dark:bg-danger-500/12 dark:text-danger-300'
-                            : 'bg-warn-50 text-warn-600 dark:bg-warn-400/14 dark:text-warn-300',
+                          'relative mt-0.5 grid size-9 shrink-0 place-items-center rounded-tile ring-1 ring-inset',
+                          critical
+                            ? 'bg-danger-50 text-danger-600 ring-danger-200 dark:bg-danger-500/14 dark:text-danger-300 dark:ring-danger-400/30'
+                            : 'bg-warn-50 text-warn-600 ring-warn-200 dark:bg-warn-400/12 dark:text-warn-300 dark:ring-warn-400/25',
                         )}
                       >
                         <Icon className="size-4" strokeWidth={2} />
+                        {critical && alert.state === 'open' ? (
+                          <span
+                            aria-hidden
+                            className="absolute -top-1 -right-1 flex size-2.5"
+                          >
+                            <span className="live-ping absolute inset-0 rounded-full bg-danger-500" />
+                            <span className="relative size-2.5 rounded-full bg-danger-500 ring-2 ring-[var(--surface)]" />
+                          </span>
+                        ) : null}
                       </span>
 
                       <div className="min-w-[220px] flex-1">
@@ -236,22 +273,22 @@ export function AlertsPage() {
                           <Badge className={severity.chip} dot={severity.dot}>
                             {severity.label}
                           </Badge>
-                          <span className="text-micro font-medium text-muted">
+                          <span className="font-mono text-[10.5px] font-semibold tracking-[0.08em] text-muted uppercase">
                             {ALERT_TYPE_LABELS[alert.type]}
                           </span>
                           {acknowledged ? (
-                            <Badge className="bg-brand-50 text-brand-700 ring-1 ring-brand-200 dark:bg-brand-500/12 dark:text-brand-300">
+                            <Badge className="bg-brand-50 text-brand-700 ring-1 ring-brand-200 dark:bg-brand-400/12 dark:text-brand-200 dark:ring-brand-400/25">
                               Ko‘rib chiqilgan
                             </Badge>
                           ) : null}
-                          {alert.state === 'resolved' ? (
-                            <Badge className="bg-ok-50 text-ok-700 ring-1 ring-ok-200 dark:bg-ok-500/12 dark:text-ok-300">
+                          {resolved ? (
+                            <Badge className="bg-ok-50 text-ok-700 ring-1 ring-ok-200 dark:bg-ok-500/12 dark:text-ok-300 dark:ring-ok-400/25">
                               Yopilgan
                             </Badge>
                           ) : null}
                         </div>
 
-                        <p className="mt-1 text-ui font-medium text-strong">
+                        <p className="mt-1.5 font-display text-[15px] leading-snug font-[700] tracking-[-0.01em] text-strong [font-stretch:104%]">
                           {boilerName(
                             alert.boiler?.organization?.name,
                             alert.boiler?.lotNumber,
@@ -263,7 +300,7 @@ export function AlertsPage() {
                             mumkin.
                           */}
                           {alert.room ? (
-                            <span className="font-normal text-muted">
+                            <span className="font-sans text-ui font-normal tracking-normal text-muted">
                               {' '}
                               · {alert.room.name}
                             </span>
@@ -271,17 +308,36 @@ export function AlertsPage() {
                         </p>
                         <p className="text-meta text-muted">{alert.message}</p>
 
-                        <p className="mt-1 text-micro text-faint">
-                          {alert.boiler?.district?.shortName ?? '—'} ·
-                          Boshlandi: {formatDateTimeUz(alert.createdAt)} ·
-                          Oxirgi tasdiq: {formatRelativeUz(alert.lastSeenAt)}
-                          {alert.resolvedAt
-                            ? ` · Yopildi: ${formatDateTimeUz(alert.resolvedAt)}`
-                            : ''}
+                        <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-micro text-faint">
+                          <span className="font-medium text-muted">
+                            {alert.boiler?.district?.shortName ?? '—'}
+                          </span>
+                          <span aria-hidden>·</span>
+                          <span>
+                            Boshlandi:{' '}
+                            <span className="font-mono text-[11px] text-muted tabular-nums">
+                              {formatDateTimeUz(alert.createdAt)}
+                            </span>
+                          </span>
+                          <span aria-hidden>·</span>
+                          <span>
+                            Oxirgi tasdiq: {formatRelativeUz(alert.lastSeenAt)}
+                          </span>
+                          {alert.resolvedAt ? (
+                            <>
+                              <span aria-hidden>·</span>
+                              <span>
+                                Yopildi:{' '}
+                                <span className="font-mono text-[11px] text-muted tabular-nums">
+                                  {formatDateTimeUz(alert.resolvedAt)}
+                                </span>
+                              </span>
+                            </>
+                          ) : null}
                         </p>
 
                         {alert.ackNote ? (
-                          <p className="mt-1.5 rounded-md bg-[var(--surface-sunken)] px-2.5 py-1.5 text-micro text-muted">
+                          <p className="mt-2 rounded-md bg-[var(--surface-sunken)] py-1.5 pr-2.5 pl-3 text-micro text-muted shadow-[inset_2px_0_0_var(--color-brand-400)] ring-1 ring-[var(--border-subtle)] ring-inset">
                             <span className="font-medium text-ink">
                               {alert.acknowledgedBy?.fullName ?? 'Operator'}:
                             </span>{' '}
@@ -290,15 +346,15 @@ export function AlertsPage() {
                         ) : null}
                       </div>
 
-                      <div className="flex shrink-0 items-center gap-3">
+                      <div className="flex shrink-0 items-center gap-4 self-center">
                         <div className="text-right">
                           <p
-                            className="text-head font-semibold text-strong"
+                            className="figure-display text-[24px]"
                             data-numeric
                           >
                             {formatTemperature(alert.temperature)}
                           </p>
-                          <p className="text-nano text-faint">
+                          <p className="label-eyebrow mt-1.5">
                             muammo boshlanganda
                           </p>
                         </div>
@@ -306,7 +362,7 @@ export function AlertsPage() {
                         <div className="flex flex-col gap-1.5">
                           <Link
                             to={`/boilers/${alert.boilerId}`}
-                            className="rounded-md px-2.5 py-1 text-center text-micro font-medium text-brand-600 transition-colors hover:bg-brand-50 dark:hover:bg-brand-500/10"
+                            className="rounded-md px-2.5 py-1 text-center text-micro font-semibold text-brand-600 transition-colors hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-400/10"
                           >
                             Kartaga o‘tish
                           </Link>

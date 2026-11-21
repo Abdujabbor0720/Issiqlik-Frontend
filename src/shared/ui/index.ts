@@ -21,3 +21,7 @@ export {
 export { Table, Th, Td, Tr } from './Table';
 export { Modal, ConfirmModal } from './Modal';
 export { Pagination } from './Pagination';
+export { PageHeader } from './PageHeader';
+export { Segmented, type SegmentedOption } from './Segmented';
+export { AnimatedNumber } from './AnimatedNumber';
+export { StateEmblem } from './StateEmblem';

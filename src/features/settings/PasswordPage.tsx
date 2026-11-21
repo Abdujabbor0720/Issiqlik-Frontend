@@ -5,7 +5,8 @@ import toast from 'react-hot-toast';
 import { Link, useNavigate } from 'react-router-dom';
 import { errorMessage, post } from '@/shared/api/client';
 import { API } from '@/shared/api/endpoints';
-import { Button, Card, CardBody, CardHeader, Field, Input } from '@/shared/ui';
+import { Button, Card, CardBody, Field, Input, PageHeader } from '@/shared/ui';
+import { cn } from '@/shared/utils/cn';
 import { useAuthStore } from '@/store/auth.store';
 
 /**
@@ -21,6 +22,7 @@ import { useAuthStore } from '@/store/auth.store';
 export function PasswordPage() {
   const navigate = useNavigate();
   const logout = useAuthStore((state) => state.logout);
+  const user = useAuthStore((state) => state.user);
 
   const [form, setForm] = useState({
     currentPassword: '',
@@ -61,29 +63,50 @@ export function PasswordPage() {
     mutation.mutate();
   };
 
+  const lengthShare = Math.min(form.newPassword.length / MIN_LENGTH, 1);
+
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col gap-3">
       <Link
         to="/"
-        className="inline-flex w-fit items-center gap-1.5 px-1 text-meta font-medium text-muted transition-colors hover:text-strong"
+        className="group inline-flex w-fit items-center gap-1.5 rounded-md px-1.5 py-0.5 font-mono text-[11px] font-semibold tracking-[0.08em] text-muted uppercase transition-colors hover:text-strong"
       >
-        <ArrowLeft className="size-3.5" />
+        <ArrowLeft className="size-3.5 transition-transform duration-300 ease-out-expo group-hover:-translate-x-0.5" />
         Bosh sahifaga
       </Link>
 
-      <Card>
-        <CardHeader
-          icon={<KeyRound className="size-4" />}
-          eyebrow="Xavfsizlik"
-          title="Parolni o‘zgartirish"
-          subtitle="Yangi parol kamida 8 belgidan iborat bo‘lishi kerak"
-        />
-        <CardBody className="flex flex-col gap-4">
-          <div className="flex items-start gap-2 rounded-lg bg-brand-50 px-3 py-2.5 text-meta text-brand-700 ring-1 ring-brand-200 dark:bg-brand-500/10 dark:text-brand-300 dark:ring-brand-500/25">
+      <PageHeader
+        eyebrow="Xavfsizlik"
+        title="Parolni o‘zgartirish"
+        subtitle="Yangi parol kamida 8 belgidan iborat bo‘lishi kerak"
+      />
+
+      <Card className="overflow-hidden">
+        {/* ⚠️ Qaysi hisob paroli o'zgarayotgani — CHUQUR plastinkada,
+            monoshriftda: umumiy kompyuterda boshqa hisobdan kirib qolgan
+            operator buni forma ustidayoq ko'radi. */}
+        <div className="relative flex items-center gap-3 bg-[var(--surface-sunken)] px-5 py-3.5 shadow-[inset_0_-1px_0_var(--border-subtle)]">
+          <span
+            aria-hidden
+            className="grid-bg pointer-events-none absolute inset-0 opacity-70 [mask-image:linear-gradient(90deg,transparent,#000_80%)]"
+          />
+          <span className="relative grid size-9 shrink-0 place-items-center rounded-md bg-linear-to-br from-brand-500 to-brand-800 text-white shadow-[var(--shadow-brand),inset_0_1px_0_rgb(255_255_255/0.25)]">
+            <KeyRound className="size-4" />
+          </span>
+          <div className="relative min-w-0">
+            <p className="label-eyebrow">Hisob</p>
+            <p className="truncate font-mono text-ui font-semibold text-strong">
+              {user?.login ?? '—'}
+            </p>
+          </div>
+        </div>
+
+        <CardBody className="flex flex-col gap-4 pt-4">
+          <div className="flex items-start gap-2.5 rounded-lg bg-brand-50 px-3 py-2.5 text-meta text-brand-700 shadow-[inset_3px_0_0_var(--color-brand-500)] ring-1 ring-brand-200 ring-inset dark:bg-brand-400/12 dark:text-brand-200 dark:ring-brand-400/25">
             <ShieldAlert className="mt-0.5 size-4 shrink-0" />
             <span>
-              Parol almashgach barcha qurilmalardagi sessiyalar yopiladi va
-              siz qaytadan kirishingiz kerak bo‘ladi.
+              Parol almashgach barcha qurilmalardagi sessiyalar yopiladi va siz
+              qaytadan kirishingiz kerak bo‘ladi.
             </span>
           </div>
 
@@ -96,11 +119,39 @@ export function PasswordPage() {
                 onChange={(event) => set('currentPassword', event.target.value)}
                 autoComplete="current-password"
                 autoFocus
+                className={SECRET}
               />
             )}
           </Field>
 
-          <Field label="Yangi parol" required hint="Kamida 8 belgi">
+          <div className="h-px bg-line" />
+
+          <Field
+            label="Yangi parol"
+            required
+            hint={
+              /* ⚠️ Faqat «kamida 8 belgi» qoidasining KO'RINISHI — yangi
+                 talab qo'shilmaydi, tekshiruv `handleSubmit` da. */
+              <span className="flex items-center gap-2.5">
+                <span
+                  aria-hidden
+                  className="relative h-[3px] w-20 overflow-hidden rounded-full bg-[var(--surface-sunken)]"
+                >
+                  <span
+                    className={cn(
+                      'absolute inset-y-0 left-0 w-full origin-left rounded-full transition-[transform,background-color] duration-500 ease-out-expo',
+                      lengthShare >= 1 ? 'bg-ok-500' : 'bg-brand-500',
+                    )}
+                    style={{ transform: `scaleX(${lengthShare})` }}
+                  />
+                </span>
+                <span className="font-mono text-[10.5px] tabular-nums">
+                  {form.newPassword.length}/{MIN_LENGTH}
+                </span>
+                Kamida 8 belgi
+              </span>
+            }
+          >
             {(id) => (
               <Input
                 id={id}
@@ -108,6 +159,7 @@ export function PasswordPage() {
                 value={form.newPassword}
                 onChange={(event) => set('newPassword', event.target.value)}
                 autoComplete="new-password"
+                className={SECRET}
               />
             )}
           </Field>
@@ -121,6 +173,7 @@ export function PasswordPage() {
                 onChange={(event) => set('repeatPassword', event.target.value)}
                 autoComplete="new-password"
                 invalid={Boolean(error)}
+                className={SECRET}
               />
             )}
           </Field>
@@ -129,6 +182,7 @@ export function PasswordPage() {
             variant="primary"
             size="lg"
             className="mt-1 w-full justify-center"
+            icon={<KeyRound className="size-4" />}
             loading={mutation.isPending}
             onClick={handleSubmit}
           >
@@ -139,3 +193,10 @@ export function PasswordPage() {
     </div>
   );
 }
+
+/** Parol maydonlari — chuqur fon, mono (nuqtalar teng oraliqda). */
+const SECRET =
+  'h-10.5 bg-[var(--surface-sunken)] font-mono tracking-[0.12em] placeholder:tracking-normal';
+
+/** «Kamida 8 belgi» — `handleSubmit` dagi tekshiruv bilan AYNI son. */
+const MIN_LENGTH = 8;

@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { Layers, MapPin, Table2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { errorMessage, get } from '@/shared/api/client';
 import { API, qk } from '@/shared/api/endpoints';
 import type {
   BoilerPoint,
+  BoilerStatus,
   DistrictGeoJson,
   DistrictRow,
 } from '@/shared/api/types';
@@ -15,6 +16,7 @@ import {
   CardBody,
   CardHeader,
   ErrorState,
+  PageHeader,
   Skeleton,
   Table,
   Td,
@@ -74,37 +76,34 @@ export function MapPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end justify-between gap-3 px-1">
-        <div>
-          <h1 className="text-sub font-semibold tracking-tight text-strong">
-            Hududiy xarita
-          </h1>
-          <p className="text-meta text-muted">
-            Tumanlarni tanlang — qozonxona nuqtalari va jadval shunga
-            moslashadi
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant={showPoints ? 'primary' : 'secondary'}
-            icon={<MapPin className="size-3.5" />}
-            onClick={() => setShowPoints((value) => !value)}
-          >
-            Qozonxona nuqtalari
-          </Button>
-          {districtId ? (
+      <PageHeader
+        title="Hududiy xarita"
+        subtitle="Tumanlarni tanlang — qozonxona nuqtalari va jadval shunga moslashadi"
+        actions={
+          <>
+            {/* ⚠️ Yoqilgan holat — BREND tugmasi va `aria-pressed`: bu
+                almashtirgich, bir martalik amal emas. */}
             <Button
               size="sm"
-              variant="ghost"
-              onClick={() => setDistrict(null)}
+              variant={showPoints ? 'primary' : 'secondary'}
+              aria-pressed={showPoints}
+              icon={<MapPin className="size-3.5" />}
+              onClick={() => setShowPoints((value) => !value)}
             >
-              Butun viloyat
+              Qozonxona nuqtalari
             </Button>
-          ) : null}
-        </div>
-      </div>
+            {districtId ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setDistrict(null)}
+              >
+                Butun viloyat
+              </Button>
+            ) : null}
+          </>
+        }
+      />
 
       {mapQuery.isError ? (
         <Card>
@@ -115,6 +114,11 @@ export function MapPage() {
         </Card>
       ) : (
         <Card className="overflow-hidden">
+          {/* Termal chiziq — bu sahifaning ASOSIY vositasi xarita. */}
+          <span
+            aria-hidden
+            className="thermal-line absolute inset-x-0 top-0 z-[3] h-[2px] opacity-80"
+          />
           <CardHeader
             icon={<Layers className="size-4" />}
             eyebrow="Andijon viloyati"
@@ -165,16 +169,26 @@ export function MapPage() {
                 <Th>Tuman / shahar</Th>
                 <Th align="right">Qozonxona</Th>
                 <Th align="right">Kotyol</Th>
-                <Th align="right">Faol</Th>
-                <Th align="right">O‘rta</Th>
-                <Th align="right">Ishlamayotgan</Th>
-                <Th align="right">Aloqa yo‘q</Th>
+                {/* ⚠️ Holat ustunlari sarlavhasida RANG NUQTASI: ustundagi
+                    rangli raqamlar nimani bildirishini afsonasiz aytadi. */}
+                <Th align="right">
+                  <StatusHead status="active">Faol</StatusHead>
+                </Th>
+                <Th align="right">
+                  <StatusHead status="medium">O‘rta</StatusHead>
+                </Th>
+                <Th align="right">
+                  <StatusHead status="inactive">Ishlamayotgan</StatusHead>
+                </Th>
+                <Th align="right">
+                  <StatusHead status="offline">Aloqa yo‘q</StatusHead>
+                </Th>
                 <Th align="right">O‘rtacha</Th>
                 <Th align="right">Ishlayapti</Th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => {
+              {rows.map((row, index) => {
                 const selected = districtId === row.districtId;
                 return (
                   <Tr
@@ -183,22 +197,28 @@ export function MapPage() {
                       setDistrict(selected ? null : row.districtId)
                     }
                     className={cn(
-                      selected && 'bg-brand-50/70 dark:bg-brand-500/8',
+                      selected &&
+                        'bg-brand-50 shadow-[inset_3px_0_0_var(--color-brand-500)] dark:bg-brand-400/10',
                     )}
                   >
                     <Td>
-                      <span className="flex items-center gap-2">
+                      <span className="flex items-center gap-2.5">
                         <span
+                          aria-hidden
                           className={cn(
-                            'size-1.5 shrink-0 rounded-full',
-                            selected ? 'bg-brand-500' : 'bg-transparent',
-                          )}
-                        />
-                        <span
-                          className={cn(
-                            'font-medium',
+                            'w-5 shrink-0 font-mono text-[10.5px] font-semibold tabular-nums',
                             selected
-                              ? 'text-brand-700 dark:text-brand-300'
+                              ? 'text-brand-600 dark:text-brand-300'
+                              : 'text-faint',
+                          )}
+                        >
+                          {String(index + 1).padStart(2, '0')}
+                        </span>
+                        <span
+                          className={cn(
+                            'font-semibold',
+                            selected
+                              ? 'text-brand-700 dark:text-brand-200'
                               : 'text-strong',
                           )}
                         >
@@ -206,26 +226,29 @@ export function MapPage() {
                         </span>
                       </span>
                     </Td>
-                    <Td align="right" className="font-semibold text-strong">
+                    <Td
+                      align="right"
+                      className="font-display text-[15px] font-[740] tracking-[-0.015em] text-strong [font-stretch:106%]"
+                    >
                       {formatNumber(row.total)}
                     </Td>
                     <Td align="right" className="text-muted">
                       {formatNumber(row.boilerUnits)}
                     </Td>
-                    <Td align="right" style={{ color: BOILER_STATUS.active.hex }}>
-                      {formatNumber(row.active)}
+                    {/* ⚠️ Nol XIRA, noldan katta — holat rangida (qorong'i
+                        rejimda och qadam): 16 qatorda ko'z faqat rangli
+                        kataklarni qidiradi. */}
+                    <Td align="right">
+                      <StatusCount value={row.active} status="active" />
                     </Td>
-                    <Td align="right" style={{ color: BOILER_STATUS.medium.hex }}>
-                      {formatNumber(row.medium)}
+                    <Td align="right">
+                      <StatusCount value={row.medium} status="medium" />
                     </Td>
-                    <Td
-                      align="right"
-                      style={{ color: BOILER_STATUS.inactive.hex }}
-                    >
-                      {formatNumber(row.inactive)}
+                    <Td align="right">
+                      <StatusCount value={row.inactive} status="inactive" />
                     </Td>
-                    <Td align="right" className="text-muted">
-                      {formatNumber(row.offline)}
+                    <Td align="right">
+                      <StatusCount value={row.offline} status="offline" />
                     </Td>
                     <Td align="right" className="text-muted">
                       {formatTemperature(row.avgTemperature)}
@@ -233,14 +256,14 @@ export function MapPage() {
                     <Td align="right">
                       <span
                         className={cn(
-                          'inline-block w-12 rounded-full py-0.5 text-center text-micro font-semibold',
+                          'inline-block w-12 rounded-md py-0.5 text-center font-mono text-[11px] font-semibold ring-1 ring-inset',
                           row.total === 0
-                            ? 'bg-[var(--surface-sunken)] text-faint'
+                            ? 'bg-[var(--surface-sunken)] text-faint ring-[var(--border-subtle)]'
                             : row.workingPercent >= 80
-                              ? 'bg-ok-50 text-ok-700 dark:bg-ok-500/12 dark:text-ok-300'
+                              ? 'bg-ok-50 text-ok-700 ring-ok-200 dark:bg-ok-500/12 dark:text-ok-300 dark:ring-ok-400/25'
                               : row.workingPercent >= 55
-                                ? 'bg-warn-50 text-warn-700 dark:bg-warn-400/14 dark:text-warn-300'
-                                : 'bg-danger-50 text-danger-700 dark:bg-danger-500/12 dark:text-danger-300',
+                                ? 'bg-warn-50 text-warn-700 ring-warn-200 dark:bg-warn-400/12 dark:text-warn-300 dark:ring-warn-400/25'
+                                : 'bg-danger-50 text-danger-700 ring-danger-200 dark:bg-danger-500/14 dark:text-danger-300 dark:ring-danger-400/30',
                         )}
                       >
                         {row.total === 0 ? '—' : `${row.workingPercent}%`}
@@ -259,5 +282,43 @@ export function MapPage() {
         onClose={() => setSelectedPoint(null)}
       />
     </div>
+  );
+}
+
+/*
+ * ⚠️ Holat raqami rangi TO'LIQ sinf nomlari bilan (yorug' + qorong'i). Ilgari
+ * inline `hex` edi va to'q fonda `#118a56` yashil o'qilmay qolardi.
+ */
+const STATUS_TEXT: Record<BoilerStatus, string> = {
+  active: 'font-semibold text-ok-600 dark:text-ok-300',
+  medium: 'font-semibold text-warn-600 dark:text-warn-300',
+  inactive: 'font-semibold text-danger-600 dark:text-danger-300',
+  offline: 'font-semibold text-idle-600 dark:text-idle-300',
+};
+
+function StatusCount({ value, status }: { value: number; status: BoilerStatus }) {
+  return (
+    <span className={value === 0 ? 'text-faint' : STATUS_TEXT[status]} data-numeric>
+      {formatNumber(value)}
+    </span>
+  );
+}
+
+function StatusHead({
+  status,
+  children,
+}: {
+  status: BoilerStatus;
+  children: ReactNode;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        aria-hidden
+        className="size-1.5 shrink-0 rounded-full"
+        style={{ backgroundColor: BOILER_STATUS[status].hex }}
+      />
+      {children}
+    </span>
   );
 }

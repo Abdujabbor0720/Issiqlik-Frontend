@@ -13,6 +13,7 @@ import type {
 import { FUEL_LABELS } from '@/shared/constants/status';
 import { Button, Field, Input, Modal, Select, Textarea } from '@/shared/ui';
 import { useDebounce } from '@/shared/hooks/useDebounce';
+import { cn } from '@/shared/utils/cn';
 import { formatRelativeUz } from '@/shared/utils/date';
 import { useAuthStore } from '@/store/auth.store';
 import { boilerName } from '@/shared/utils/boiler';
@@ -419,8 +420,8 @@ export function BoilerFormModal({
         </>
       }
     >
-      <div className="flex flex-col gap-5">
-        <Section title="Hujjat ma‘lumotlari">
+      <div className="flex flex-col gap-6">
+        <Section index={1} title="Hujjat ma‘lumotlari">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Tuman / shahar" required error={errors.districtId}>
               {(id) => (
@@ -628,7 +629,7 @@ export function BoilerFormModal({
           </div>
         </Section>
 
-        <Section title="Joylashuv">
+        <Section index={2} title="Joylashuv">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Manzil" className="sm:col-span-2">
               {(id) => (
@@ -671,7 +672,7 @@ export function BoilerFormModal({
           </div>
         </Section>
 
-        <Section title="Qo‘shimcha">
+        <Section index={3} title="Qo‘shimcha">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Quvvat, kVt">
               {(id) => (
@@ -737,7 +738,7 @@ export function BoilerFormModal({
         </Section>
 
         {showDeviceSection ? (
-          <Section title="ESP32 moduli">
+          <Section index={4} title="ESP32 moduli">
             <div className="flex flex-col gap-3">
               <div
                 role="radiogroup"
@@ -763,11 +764,14 @@ export function BoilerFormModal({
                   .map((option) => (
                     <label
                       key={option.key}
-                      className={
+                      className={cn(
+                        'flex cursor-pointer items-center gap-2.5 rounded-tile px-3 py-2.5 text-ui ring-1 ring-inset',
+                        'transition-[background-color,box-shadow,color,transform] duration-200 ease-out-quint active:scale-[0.98]',
+                        'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-400',
                         form.deviceMode === option.key
-                          ? 'flex cursor-pointer items-center gap-2 rounded-tile bg-brand-50 px-3 py-2 text-ui font-medium text-brand-800 ring-1 ring-brand-300 dark:bg-brand-500/12 dark:text-brand-200'
-                          : 'flex cursor-pointer items-center gap-2 rounded-tile bg-[var(--surface-sunken)] px-3 py-2 text-ui text-ink'
-                      }
+                          ? 'bg-brand-50 font-semibold text-brand-800 shadow-[inset_3px_0_0_var(--color-brand-500)] ring-brand-300 dark:bg-brand-400/12 dark:text-brand-200 dark:ring-brand-400/30'
+                          : 'bg-[var(--surface-sunken)] font-medium text-ink ring-[var(--border-subtle)] hover:bg-[var(--surface-muted)] hover:text-strong',
+                      )}
                     >
                       <input
                         type="radio"
@@ -775,6 +779,7 @@ export function BoilerFormModal({
                         value={option.key}
                         checked={form.deviceMode === option.key}
                         onChange={() => set('deviceMode', option.key)}
+                        className="size-3.5 accent-brand-600"
                       />
                       {option.label}
                     </label>
@@ -921,7 +926,7 @@ export function BoilerFormModal({
               Bu kalitni ESP32 proshivkasiga yozing. Oyna yopilgandan keyin uni
               qayta ko‘rib bo‘lmaydi — faqat yangisini yaratish mumkin.
             </p>
-            <code className="block break-all rounded-tile bg-[var(--surface-sunken)] px-3 py-2 font-mono text-micro text-strong">
+            <code className="block rounded-tile bg-[var(--surface-sunken)] px-3 py-2.5 font-mono text-meta break-all text-strong ring-1 ring-[var(--border-subtle)] select-all ring-inset">
               {issuedKey.apiKey}
             </code>
             <Button
@@ -944,16 +949,30 @@ export function BoilerFormModal({
   );
 }
 
+/**
+ * Forma bo'limi — raqamli yorliq va ingichka chiziq.
+ *
+ * ⚠️ Raqam (01, 02…) — uzun formada «qayerdaman» degan belgi: oyna
+ * suriladi va sarlavhasiz bo'lim boshqasiga qo'shilib ketgandek ko'rinardi.
+ */
 function Section({
+  index,
   title,
   children,
 }: {
+  index: number;
   title: string;
   children: React.ReactNode;
 }) {
   return (
     <section>
-      <h3 className="label-eyebrow mb-3">{title}</h3>
+      <div className="mb-3.5 flex items-center gap-2.5">
+        <span className="font-mono text-[10.5px] font-semibold text-brand-600 tabular-nums dark:text-brand-300">
+          {String(index).padStart(2, '0')}
+        </span>
+        <h3 className="label-eyebrow text-[color:var(--ink-muted)]">{title}</h3>
+        <span aria-hidden className="h-px flex-1 bg-line" />
+      </div>
       {children}
     </section>
   );

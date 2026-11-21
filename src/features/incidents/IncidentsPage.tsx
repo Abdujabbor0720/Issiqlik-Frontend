@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import {
+  ArrowRight,
   BellRing,
+  ChartColumn,
   CheckCircle2,
   ClipboardCheck,
   Hourglass,
@@ -8,7 +10,7 @@ import {
   ShieldAlert,
   TrendingUp,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { errorMessage, get, getPaged } from '@/shared/api/client';
 import { API, qk } from '@/shared/api/endpoints';
@@ -32,7 +34,9 @@ import {
   EmptyState,
   ErrorState,
   Input,
+  PageHeader,
   Pagination,
+  Segmented,
   Select,
   Skeleton,
   StatCard,
@@ -103,31 +107,48 @@ export function IncidentsPage() {
   const items = list.data?.items ?? [];
   const s = summary.data;
   const resetPage = () => setPage(1);
+  /* Tab yonidagi son — yuqoridagi kartalar bilan AYNI manba (`summary`). */
+  const tabCount: Record<Tab, number | undefined> = {
+    active: s?.active,
+    unacknowledged: s?.unacknowledged,
+    resolved: s?.awaitingClose,
+    closed: undefined,
+  };
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end justify-between gap-3 px-1">
-        <div>
-          <h1 className="text-sub font-semibold tracking-tight text-strong">
-            XAVF — nazorat hodisalari
-          </h1>
-          <p className="text-meta text-muted">
-            {list.data
-              ? `${formatNumber(list.data.meta.total)} ta hodisa`
-              : 'Yuklanmoqda…'}
+      <PageHeader
+        title="XAVF — nazorat hodisalari"
+        subtitle={
+          <>
+            {list.data ? (
+              <>
+                <span className="font-mono font-semibold text-strong tabular-nums">
+                  {formatNumber(list.data.meta.total)}
+                </span>{' '}
+                ta hodisa
+              </>
+            ) : (
+              'Yuklanmoqda…'
+            )}
             {districtId ? ' · tanlangan tuman bo‘yicha' : ''}
-          </p>
-        </div>
-        <Link
-          to="/incident-analytics"
-          className="rounded-md px-2.5 py-1.5 text-meta font-medium text-brand-600 transition-colors hover:bg-brand-50 dark:hover:bg-brand-500/10"
-        >
-          Tahlil va hisobotlar →
-        </Link>
-      </div>
+          </>
+        }
+        actions={
+          <Link
+            to="/incident-analytics"
+            className="group inline-flex h-9.5 items-center gap-2 rounded-lg bg-[var(--surface)] px-3.5 text-ui font-semibold text-strong shadow-[var(--shadow-card)] transition-[background-color,box-shadow,transform] duration-200 ease-out-quint hover:bg-[var(--surface-muted)] hover:shadow-[var(--shadow-raise)] active:scale-[0.97] dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
+          >
+            <ChartColumn className="size-4 text-brand-600 dark:text-brand-300" />
+            Tahlil va hisobotlar
+            <ArrowRight className="size-3.5 text-faint transition-transform duration-300 ease-out-expo group-hover:translate-x-0.5 group-hover:text-strong" />
+          </Link>
+        }
+      />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <StatCard
+          index={0}
           label="Faol XAVF"
           value={formatNumber(s?.active ?? null)}
           icon={ShieldAlert}
@@ -141,6 +162,7 @@ export function IncidentsPage() {
           }}
         />
         <StatCard
+          index={1}
           label="Qabul qilinmagan"
           value={formatNumber(s?.unacknowledged ?? null)}
           icon={BellRing}
@@ -152,6 +174,7 @@ export function IncidentsPage() {
           }}
         />
         <StatCard
+          index={2}
           label="Eskalatsiya qilingan"
           value={formatNumber(s?.escalated ?? null)}
           icon={TrendingUp}
@@ -164,6 +187,7 @@ export function IncidentsPage() {
           }}
         />
         <StatCard
+          index={3}
           label="Tekshiruvni kutmoqda"
           value={formatNumber(s?.awaitingClose ?? null)}
           icon={ClipboardCheck}
@@ -176,6 +200,7 @@ export function IncidentsPage() {
           }}
         />
         <StatCard
+          index={4}
           label="O‘rtacha qabul vaqti"
           value={formatMinutes(s?.last30Days.avgAckMinutes)}
           icon={Hourglass}
@@ -188,24 +213,26 @@ export function IncidentsPage() {
       <Card>
         <CardBody className="flex flex-col gap-3 py-3">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex rounded-full bg-[var(--surface-sunken)] p-0.5">
-              {TABS.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => {
-                    setTab(item.key);
-                    resetPage();
-                  }}
-                  className={
-                    tab === item.key
-                      ? 'rounded-full bg-[var(--surface)] px-3.5 py-1.5 text-meta font-semibold text-strong shadow-[var(--shadow-hair)]'
-                      : 'rounded-full px-3.5 py-1.5 text-meta font-medium text-muted transition-colors hover:text-strong'
-                  }
-                >
-                  {item.label}
-                </button>
-              ))}
+            {/* ⚠️ Tor ekranda segment SIG'MAYDI (4 band + son) — o'ram
+                gorizontal aylanadi, tugmalar ikki qatorga bo'linmaydi. */}
+            <div className="-my-1 max-w-full overflow-x-auto py-1">
+              <Segmented
+                size="md"
+                ariaLabel="Hodisa holati"
+                value={tab}
+                onChange={(value) => {
+                  setTab(value);
+                  resetPage();
+                }}
+                options={TABS.map((item) => ({
+                  value: item.key,
+                  label: item.label,
+                  count:
+                    tabCount[item.key] === undefined
+                      ? undefined
+                      : formatNumber(tabCount[item.key]),
+                }))}
+              />
             </div>
             <label className="inline-flex cursor-pointer items-center gap-2 text-meta text-ink">
               <Switch
@@ -290,7 +317,11 @@ export function IncidentsPage() {
           <>
             <ul className="flex flex-col">
               {items.map((incident, index) => (
-                <li key={incident.id}>
+                <li
+                  key={incident.id}
+                  className="reveal"
+                  style={{ '--i': Math.min(index, 12) } as CSSProperties}
+                >
                   {index > 0 ? <div className="h-px bg-line" /> : null}
                   <IncidentCard incident={incident} />
                 </li>

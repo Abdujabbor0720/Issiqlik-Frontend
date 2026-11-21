@@ -21,6 +21,8 @@ import {
   ConfirmModal,
   EmptyState,
   ErrorState,
+  PageHeader,
+  Segmented,
   Skeleton,
   Table,
   Td,
@@ -80,35 +82,31 @@ export function MonitoringPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end justify-between gap-3 px-1">
-        <div>
-          <h1 className="text-sub font-semibold tracking-tight text-strong">
-            Monitoring jadvali
-          </h1>
-          <p className="max-w-2xl text-meta text-muted">
+      <PageHeader
+        title="Monitoring jadvali"
+        subtitle={
+          <p className="max-w-2xl">
             Past xona/kotyol harorati faqat jadval oynasida XAVF ochadi. Qurilma
             uzilishi, datchik nosozligi, ortiqcha qizish va muzlash xavfi (≤ 5
-            °C) — har doim.
+            °C) — <span className="font-semibold text-strong">har doim</span>.
           </p>
-        </div>
-        <div className="flex rounded-full bg-[var(--surface-sunken)] p-0.5">
-          {TABS.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => setTab(item.key)}
-              className={
-                tab === item.key
-                  ? 'inline-flex items-center gap-1.5 rounded-full bg-[var(--surface)] px-3.5 py-1.5 text-meta font-semibold text-strong shadow-[var(--shadow-hair)]'
-                  : 'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-meta font-medium text-muted hover:text-strong'
-              }
-            >
-              <item.icon className="size-3.5" />
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </div>
+        }
+        actions={
+          <div className="max-w-full overflow-x-auto">
+            <Segmented
+              size="md"
+              ariaLabel="Monitoring bo‘limi"
+              value={tab}
+              onChange={setTab}
+              options={TABS.map((item) => ({
+                value: item.key,
+                label: item.label,
+                icon: <item.icon />,
+              }))}
+            />
+          </div>
+        }
+      />
 
       {tab === 'schedules' ? <SchedulesTab /> : null}
       {tab === 'holidays' ? <HolidaysTab /> : null}
@@ -162,6 +160,7 @@ function SchedulesTab() {
         return (
           <Card key={scope} className="overflow-hidden">
             <CardHeader
+              eyebrow={`${group.length} ta jadval`}
               title={SCOPE_TITLE[scope]}
               subtitle={SCOPE_HINT[scope]}
               actions={
@@ -198,7 +197,10 @@ function SchedulesTab() {
                 </thead>
                 <tbody>
                   {group.map((row) => (
-                    <Tr key={row.id}>
+                    <Tr
+                      key={row.id}
+                      className="hover:bg-[var(--surface-muted)] dark:hover:bg-white/[0.025]"
+                    >
                       <Td className="font-medium text-strong">
                         {row.scopeLabel}
                         {row.note ? (
@@ -209,36 +211,55 @@ function SchedulesTab() {
                       </Td>
                       <Td>
                         {row.mode === 'always' ? (
-                          <Badge className="bg-brand-50 text-brand-700 ring-1 ring-brand-200">
+                          <Badge className="bg-brand-50 font-mono text-brand-700 ring-1 ring-brand-200 dark:bg-brand-400/12 dark:text-brand-200 dark:ring-brand-400/25">
                             24/7
                           </Badge>
                         ) : (
-                          formatWeekdays(row.activeDays)
+                          <span className="font-medium text-ink">
+                            {formatWeekdays(row.activeDays)}
+                          </span>
                         )}
                       </Td>
-                      <Td className="tabular-nums">
+                      <Td className="font-mono text-ui tabular-nums">
                         {row.mode === 'always'
                           ? 'uzluksiz'
                           : windowLabel(row.monitorStart, row.monitorEnd)}
                       </Td>
-                      <Td className="tabular-nums">
+                      <Td className="font-mono text-ui text-muted tabular-nums">
                         {row.mode === 'always'
                           ? 'uzluksiz'
                           : windowLabel(row.heatingStart, row.heatingEnd)}
                       </Td>
-                      <Td align="right">
+                      <Td
+                        align="right"
+                        className="font-mono text-ui tabular-nums"
+                      >
                         {row.minRoomTemperature === null ? (
-                          <span className="text-faint">umumiy</span>
+                          <span className="font-sans text-meta text-faint">
+                            umumiy
+                          </span>
                         ) : (
-                          formatTemperature(row.minRoomTemperature)
+                          <span className="font-semibold text-strong">
+                            {formatTemperature(row.minRoomTemperature)}
+                          </span>
                         )}
                       </Td>
-                      <Td className="text-muted">
-                        {row.mode === 'always'
-                          ? '—'
-                          : row.observeHolidays
-                            ? 'dam olinadi'
-                            : 'nazoratda'}
+                      <Td className="text-meta text-muted">
+                        {row.mode === 'always' ? (
+                          '—'
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5">
+                            <span
+                              aria-hidden
+                              className={
+                                row.observeHolidays
+                                  ? 'size-1.5 rounded-full bg-idle-400'
+                                  : 'size-1.5 rounded-full bg-brand-500'
+                              }
+                            />
+                            {row.observeHolidays ? 'dam olinadi' : 'nazoratda'}
+                          </span>
+                        )}
                       </Td>
                       <Td align="right">
                         {canManage ? (

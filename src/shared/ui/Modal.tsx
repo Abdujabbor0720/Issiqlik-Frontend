@@ -1,4 +1,9 @@
-import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
+import {
+  Dialog,
+  DialogBackdrop,
+  DialogPanel,
+  DialogTitle,
+} from '@headlessui/react';
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '@/shared/utils/cn';
@@ -26,8 +31,12 @@ const SIZES = {
  * ⚠️ Headless UI `Dialog` ishlatiladi, qo'lda yozilgan oyna emas:
  * fokus tutqichi (focus trap), `Escape` bilan yopish, fon
  * aylantirishni to'xtatish va `aria` atributlari — bularning har biri
- * alohida yozilganda bittasi albatta unutilardi va oyna klaviatura
- * bilan ishlatib bo'lmaydigan holatga kelardi.
+ * alohida yozilganda bittasi albatta unutilardi.
+ *
+ * ⚠️ Kirish/chiqish animatsiyasi Headless UI'ning `transition`
+ * atributi bilan (`data-closed`): oyna yopilganda DOMdan darhol
+ * olib tashlanmaydi, animatsiya tugagach olinadi. Yakuniy holatda
+ * `transform` YO'Q — ichidagi `fixed` ro'yxatlar siljimaydi.
  *
  * ⚠️ Tanasi ALOHIDA aylantiriladi (`overflow-y-auto`), sarlavha va
  * tugmalar esa joyida qoladi: uzun formada «Saqlash» tugmasi
@@ -46,34 +55,43 @@ export function Modal({
     <Dialog open={open} onClose={onClose} className="relative z-50">
       {/* Fon — to'q va BLURLANGAN: oddiy qora qoplama ostida rangli
           dashboard «ko'rinib» turib, diqqatni tortardi. */}
-      <div
-        className="fixed inset-0 bg-neutral-950/45 backdrop-blur-[2px]"
-        aria-hidden
+      <DialogBackdrop
+        transition
+        className="fixed inset-0 bg-neutral-950/55 backdrop-blur-[6px] transition-opacity duration-300 ease-out data-closed:opacity-0 data-leave:duration-200 dark:bg-black/65"
       />
 
       <div className="fixed inset-0 flex items-center justify-center overflow-y-auto p-4">
         <DialogPanel
+          transition
           className={cn(
-            'flex max-h-[88vh] w-full flex-col overflow-hidden rounded-card bg-[var(--surface)] shadow-[var(--shadow-pop)]',
+            'relative flex max-h-[88vh] w-full flex-col overflow-hidden rounded-card bg-[var(--surface)] shadow-[var(--shadow-pop)]',
+            'transition duration-300 ease-out-expo data-closed:translate-y-4 data-closed:scale-[0.97] data-closed:opacity-0',
+            'data-leave:duration-150 data-leave:ease-in',
             SIZES[size],
           )}
         >
-          <div className="flex items-start justify-between gap-4 px-5 pt-4 pb-3">
+          {/* Termal imzo — har oyna tepasida bir xil. */}
+          <span
+            aria-hidden
+            className="thermal-line absolute inset-x-0 top-0 h-[2px] opacity-90"
+          />
+
+          <div className="flex items-start justify-between gap-4 px-5 pt-5 pb-3.5">
             <div className="min-w-0">
-              <DialogTitle className="text-head font-semibold text-strong">
+              <DialogTitle className="font-display text-[18px] leading-tight font-[760] tracking-[-0.02em] text-strong [font-stretch:110%]">
                 {title}
               </DialogTitle>
               {description ? (
-                <p className="mt-0.5 text-meta text-muted">{description}</p>
+                <p className="mt-1 text-meta text-muted">{description}</p>
               ) : null}
             </div>
             <button
               type="button"
               onClick={onClose}
               aria-label="Yopish"
-              className="grid size-8 shrink-0 place-items-center rounded-md text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-strong"
+              className="group grid size-8 shrink-0 place-items-center rounded-md text-muted ring-1 ring-[var(--border-subtle)] transition-colors ring-inset hover:bg-[var(--surface-sunken)] hover:text-strong"
             >
-              <X className="size-4" />
+              <X className="size-4 transition-transform duration-300 ease-out-expo group-hover:rotate-90" />
             </button>
           </div>
 
@@ -132,7 +150,7 @@ export function ConfirmModal({
           <button
             type="button"
             onClick={onClose}
-            className="h-9 rounded-lg px-3.5 text-ui font-medium text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-strong"
+            className="h-9 rounded-lg px-3.5 text-ui font-semibold text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-strong"
           >
             Bekor qilish
           </button>
@@ -141,10 +159,10 @@ export function ConfirmModal({
             onClick={onConfirm}
             disabled={loading}
             className={cn(
-              'h-9 rounded-lg px-3.5 text-ui font-medium text-white transition-colors disabled:opacity-70',
+              'btn-sheen h-9 rounded-lg bg-linear-to-b px-3.5 text-ui font-semibold text-white transition-[transform,box-shadow] duration-200 active:scale-[0.97] disabled:opacity-70',
               tone === 'danger'
-                ? 'bg-danger-500 hover:bg-danger-600'
-                : 'bg-brand-600 hover:bg-brand-700',
+                ? 'from-danger-400 to-danger-500 shadow-[0_8px_18px_-8px_rgb(200_54_44/0.6),inset_0_1px_0_rgb(255_255_255/0.2)]'
+                : 'from-brand-500 to-brand-600 shadow-[var(--shadow-brand),inset_0_1px_0_rgb(255_255_255/0.22)]',
             )}
           >
             {loading ? 'Bajarilmoqda…' : confirmLabel}

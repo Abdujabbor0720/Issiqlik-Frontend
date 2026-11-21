@@ -1,4 +1,4 @@
-import { Copy } from 'lucide-react';
+import { Copy, KeyRound, ShieldAlert } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button, Modal } from '@/shared/ui';
 
@@ -47,29 +47,43 @@ export function ApiKeyModal({
       }
     >
       <div className="flex flex-col gap-4">
-        <div className="rounded-lg bg-warn-50 px-3 py-2.5 text-meta text-warn-700 ring-1 ring-warn-200 dark:bg-warn-400/10 dark:text-warn-300 dark:ring-warn-400/25">
-          Tizim kalitning faqat hash‘ini saqlaydi. Oyna yopilgandan so‘ng uni
-          qayta ko‘rish imkoni bo‘lmaydi — faqat yangisini generatsiya qilish
-          mumkin.
+        <div className="flex items-start gap-2.5 rounded-lg bg-warn-50 px-3 py-2.5 text-meta text-warn-700 ring-1 ring-warn-200 ring-inset dark:bg-warn-400/10 dark:text-warn-300 dark:ring-warn-400/25">
+          <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <span>
+            Tizim kalitning faqat hash‘ini saqlaydi. Oyna yopilgandan so‘ng uni
+            qayta ko‘rish imkoni bo‘lmaydi — faqat yangisini generatsiya qilish
+            mumkin.
+          </span>
         </div>
 
-        <div className="flex items-center gap-2 rounded-lg bg-[var(--surface-sunken)] p-2.5">
-          <code className="flex-1 overflow-x-auto font-mono text-ui text-strong">
-            {value?.apiKey}
-          </code>
-          <Button
-            size="sm"
-            variant="secondary"
-            icon={<Copy className="size-3.5" />}
-            onClick={() => void copy()}
-          >
-            Nusxalash
-          </Button>
+        <div>
+          <p className="label-eyebrow mb-1.5">
+            API kalit
+            <span className="ml-2 font-mono text-brand-600 normal-case dark:text-brand-300">
+              {value?.deviceId}
+            </span>
+          </p>
+          {/* ⚠️ `select-all` — bir bosishda butun kalit belgilanadi: nusxalash
+              ishlamagan brauzerda qo'lda ko'chirish oson bo'lsin. */}
+          <div className="flex items-center gap-2 rounded-lg bg-[var(--surface-sunken)] p-2 pl-3 ring-1 ring-[var(--border-subtle)] ring-inset">
+            <KeyRound className="size-4 shrink-0 text-faint" aria-hidden />
+            <code className="flex-1 overflow-x-auto font-mono text-ui font-semibold tracking-[0.02em] whitespace-nowrap text-strong select-all">
+              {value?.apiKey}
+            </code>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<Copy className="size-3.5" />}
+              onClick={() => void copy()}
+            >
+              Nusxalash
+            </Button>
+          </div>
         </div>
 
         <div>
           <p className="label-eyebrow mb-1.5">Proshivkaga qo‘yiladigan kod</p>
-          <pre className="overflow-x-auto rounded-lg bg-neutral-900 p-3 font-mono text-micro leading-relaxed text-neutral-100">
+          <pre className="overflow-x-auto rounded-lg bg-neutral-900 p-3 font-mono text-micro leading-relaxed text-neutral-100 ring-1 ring-black/20 ring-inset dark:bg-black/45 dark:ring-white/10">
             {`const char* DEVICE_ID = "${value?.deviceId}";
 const char* API_URL   = "http://<server>:3000/api/data";
 const char* API_KEY   = "${value?.apiKey}";`}

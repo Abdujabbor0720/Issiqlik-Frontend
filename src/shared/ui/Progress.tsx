@@ -28,7 +28,7 @@ export function Progress({
       aria-valuemax={100}
     >
       <div
-        className={cn('h-full rounded-full transition-[width] duration-500', barClassName)}
+        className={cn('h-full rounded-full transition-[width] duration-700 ease-out-expo', barClassName)}
         style={{ width: `${clamped}%` }}
       />
     </div>
@@ -70,7 +70,7 @@ export function SegmentedBar({
   return (
     <div
       className={cn(
-        'flex w-full overflow-hidden rounded-full bg-[var(--surface-sunken)]',
+        'flex w-full gap-px overflow-hidden rounded-full bg-[var(--surface-sunken)]',
         height,
         className,
       )}
@@ -81,7 +81,7 @@ export function SegmentedBar({
           <div
             key={segment.label}
             title={`${segment.label}: ${segment.value}`}
-            className={cn('h-full transition-[width] duration-500', segment.className)}
+            className={cn('h-full transition-[width] duration-700 ease-out-expo', segment.className)}
             style={{ width: `${(segment.value / total) * 100}%` }}
           />
         ))}

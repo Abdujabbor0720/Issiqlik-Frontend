@@ -45,7 +45,7 @@ export function Th({
         /* ⚠️ Sarlavha YOPISHIB turadi (`sticky`): uzun ro'yxatda
            pastga tushganda ustun nomlari ko'rinmay qolsa, raqamlar
            ma'nosini yo'qotadi. */
-        'sticky top-0 z-10 bg-[var(--surface-muted)] px-3 py-2.5 text-micro font-semibold whitespace-nowrap text-muted',
+        'th-mono sticky top-0 z-10 bg-[var(--surface-muted)] px-3 py-2.5 whitespace-nowrap text-muted shadow-[inset_0_-1px_0_var(--border-subtle)]',
         'first:pl-5 last:pr-5',
         align === 'right' && 'text-right',
         align === 'center' && 'text-center',
@@ -102,8 +102,9 @@ export function Tr({
     <tr
       onClick={onClick}
       className={cn(
-        'border-t border-[var(--border-cell)] transition-colors',
-        onClick && 'cursor-pointer hover:bg-[var(--surface-muted)]',
+        'border-t border-[var(--border-cell)] transition-[background-color,box-shadow] duration-150',
+        onClick &&
+          'cursor-pointer hover:bg-[var(--surface-muted)] hover:shadow-[inset_3px_0_0_var(--color-brand-500)] dark:hover:bg-white/[0.025]',
         className,
       )}
     >

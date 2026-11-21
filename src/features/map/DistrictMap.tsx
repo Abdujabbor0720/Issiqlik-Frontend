@@ -197,7 +197,17 @@ export function DistrictMap({
 
   if (!geojson || !visibleGeoJson) {
     return (
-      <div className={cn('skeleton rounded-card', heightClass, className)} />
+      <div
+        className={cn(
+          'skeleton grid place-items-center rounded-card',
+          heightClass,
+          className,
+        )}
+      >
+        <span className="label-eyebrow relative z-[1]">
+          Xarita yuklanmoqda…
+        </span>
+      </div>
     );
   }
 
@@ -220,14 +230,25 @@ export function DistrictMap({
            ular ko'kish parda ostida qolib, ko'chalar o'qilmasdi. */
         showTiles
           ? 'bg-[var(--surface-sunken)]'
-          : 'bg-[var(--surface-muted)] bg-[linear-gradient(180deg,rgb(29_114_187/0.06)_0%,rgb(29_114_187/0.015)_55%,rgb(29_114_187/0)_100%)]',
-        'shadow-[inset_0_0_0_1px_rgb(20_45_80/0.07)]',
+          : 'bg-[var(--surface-muted)] bg-[linear-gradient(180deg,rgb(22_115_214/0.07)_0%,rgb(22_115_214/0.015)_55%,rgb(22_115_214/0)_100%)]',
+        'shadow-[inset_0_0_0_1px_var(--border-subtle)]',
         fullscreen
-          ? 'fixed inset-3 z-50 h-auto shadow-[0_28px_70px_-20px_rgb(8_20_40/0.5)]'
+          ? 'fixed inset-3 z-50 h-auto shadow-[var(--shadow-pop),0_0_0_1px_var(--border-strong)]'
           : heightClass,
         className,
       )}
     >
+      {/* ⚠️ TEXNIK TO'R — faqat fon xaritasiz: ko'pburchaklar «bo'shliqda»
+          suzmaydi, o'lchov taxtasi ustida turadi. Chetlarga qarab so'nadi
+          (niqob) va bosishni to'smaydi. Taylar ustida bo'lsa, ko'chalar
+          bilan aralashib, xaritani chiziq-chiziq qilardi. */}
+      {!showTiles ? (
+        <div
+          aria-hidden
+          className="grid-bg pointer-events-none absolute inset-0 [mask-image:radial-gradient(ellipse_at_center,#000_30%,transparent_78%)]"
+        />
+      ) : null}
+
       <MapContainer
         bounds={bounds}
         boundsOptions={{ padding: [18, 18] }}
@@ -322,9 +343,12 @@ export function DistrictMap({
                 key={neighbour.label}
                 position={neighbour.position}
                 interactive={false}
+                /* ⚠️ Qo'shni viloyat — MONOSHRIFT, katta harf, keng oraliq:
+                   bu «xarita yozuvi», ma'lumot emas. Tuman nomlari bilan
+                   bir xil shriftda bo'lsa, ko'z uni 17-tuman deb o'qirdi. */
                 icon={L.divIcon({
                   className: '',
-                  html: `<span style="white-space:nowrap;font:500 11px/1.4 var(--font-sans);color:var(--ink-faint)">${esc(
+                  html: `<span style="white-space:nowrap;font:600 9.5px/1.4 var(--font-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);opacity:.85">${esc(
                     neighbour.label,
                   )}</span>`,
                   iconSize: [0, 0],
@@ -407,28 +431,43 @@ function BoilerModels({
   );
 }
 
-/** Xarita afsonasi — holat ranglarining ma'nosi. */
+/**
+ * Xarita afsonasi — holat ranglarining ma'nosi.
+ *
+ * ⚠️ «Shisha» panel (yarim shaffof + xiralashtirish): u xarita USTIDA turadi
+ * va to'liq oq quti bo'lsa, ostidagi tuman chetini «kesib» qo'yardi.
+ * ⚠️ Afsonaga ham, tugmalarga ham `transform` li kirish animatsiyasi
+ * QO'YILMAYDI: birinchi moslash (`measureChrome`) ularni siljigan joyida
+ * o'lchab, chegara chekinishini noto'g'ri hisoblardi.
+ */
 function MapLegend() {
   return (
     <div
       data-map-chrome="legend"
-      className="pointer-events-none absolute bottom-3 left-3 z-[400] mr-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-[var(--surface)]/92 px-2.5 py-1.5 shadow-[var(--shadow-card)] backdrop-blur-sm"
+      className="pointer-events-none absolute bottom-3 left-3 z-[400] mr-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-[color-mix(in_srgb,var(--surface)_86%,transparent)] px-2.5 py-1.5 shadow-[var(--shadow-card)] ring-1 ring-[var(--border-subtle)] backdrop-blur-md backdrop-saturate-150"
     >
+      <span className="font-mono text-[9.5px] font-semibold tracking-[0.14em] text-faint uppercase">
+        Holat
+      </span>
+      <span aria-hidden className="h-3 w-px bg-[var(--border-strong)]" />
       {STATUS_ORDER.map((status) => (
         <span
           key={status}
-          className="flex items-center gap-1.5 text-nano font-medium text-muted"
+          className="flex items-center gap-1.5 text-nano font-semibold text-muted"
         >
           <span
-            className="size-1.5 shrink-0 rounded-full"
-            style={{ backgroundColor: BOILER_STATUS[status].hex }}
+            className="size-2 shrink-0 rounded-full"
+            style={{
+              backgroundColor: BOILER_STATUS[status].hex,
+              boxShadow: `0 0 0 2px ${BOILER_STATUS[status].hex}2e`,
+            }}
           />
           {BOILER_STATUS[status].short}
         </span>
       ))}
       {/* ⚠️ Halqa ma'nosi AFSONADA bo'lishi shart: aks holda ko'k
           halqani «tanlangan nuqta» deb o'qishardi. */}
-      <span className="flex items-center gap-1.5 text-nano font-medium text-muted">
+      <span className="flex items-center gap-1.5 text-nano font-semibold text-muted">
         <span
           className="size-2 shrink-0 rounded-full"
           style={{
@@ -1042,9 +1081,9 @@ function MapControls({
       onDoubleClick={(event) => event.stopPropagation()}
       onMouseDown={(event) => event.stopPropagation()}
     >
-      <div className="overflow-hidden rounded-lg bg-[var(--surface)] shadow-[var(--shadow-card)]">
+      <div className={cn('overflow-hidden rounded-lg', CHROME_SURFACE)}>
         <ZoomButton direction="in" />
-        <span className="block h-px bg-line" />
+        <span className="mx-1.5 block h-px bg-line" />
         <ZoomButton direction="out" />
       </div>
 
@@ -1065,10 +1104,10 @@ function MapControls({
             : 'Ko‘chalar va binolarni ko‘rsatish'
         }
         className={cn(
-          'grid size-8 place-items-center rounded-lg shadow-[var(--shadow-card)] transition-colors',
+          'grid size-8 place-items-center rounded-lg transition-[background-color,color,box-shadow,scale] duration-200 ease-out-quint active:scale-95',
           showTiles
-            ? 'bg-brand-600 text-white'
-            : 'bg-[var(--surface)] text-muted hover:text-strong',
+            ? 'bg-linear-to-b from-brand-500 to-brand-600 text-white shadow-[var(--shadow-brand),inset_0_1px_0_rgb(255_255_255/0.22)]'
+            : cn(CHROME_SURFACE, 'text-muted hover:text-strong'),
         )}
       >
         <Layers className="size-3.5" />
@@ -1079,12 +1118,15 @@ function MapControls({
         onClick={onToggleFullscreen}
         aria-label={fullscreen ? 'Oddiy ko‘rinish' : 'To‘liq ekran'}
         title={fullscreen ? 'Oddiy ko‘rinish (Esc)' : 'To‘liq ekran'}
-        className="grid size-8 place-items-center rounded-lg bg-[var(--surface)] text-muted shadow-[var(--shadow-card)] transition-colors hover:text-strong"
+        className={cn(
+          'group/fs grid size-8 place-items-center rounded-lg text-muted transition-[color,scale] duration-200 ease-out-quint hover:text-strong active:scale-95',
+          CHROME_SURFACE,
+        )}
       >
         {fullscreen ? (
-          <Minimize2 className="size-3.5" />
+          <Minimize2 className="size-3.5 transition-transform duration-300 ease-out-expo group-hover/fs:scale-90" />
         ) : (
-          <Maximize2 className="size-3.5" />
+          <Maximize2 className="size-3.5 transition-transform duration-300 ease-out-expo group-hover/fs:scale-115" />
         )}
       </button>
 
@@ -1107,17 +1149,26 @@ function MapControls({
           aria-label="Viloyatga qaytish"
           title="Viloyatga qaytish"
           className={cn(
-            'inline-flex h-8 items-center gap-1.5 rounded-lg bg-[var(--surface)] text-micro font-semibold text-brand-600 shadow-[var(--shadow-card)] transition-colors hover:text-brand-700',
-            compact ? 'w-8 justify-center' : 'px-2.5',
+            'group/back inline-flex h-8 items-center gap-1.5 rounded-lg text-micro font-semibold text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200',
+            CHROME_SURFACE,
+            compact ? 'w-8 justify-center' : 'pr-3 pl-2.5',
           )}
         >
-          <ArrowLeft className="size-3.5" />
+          <ArrowLeft className="size-3.5 transition-transform duration-300 ease-out-expo group-hover/back:-translate-x-0.5" />
           {compact ? null : 'Viloyatga qaytish'}
         </button>
       ) : null}
     </div>
   );
 }
+
+/**
+ * Xarita ustidagi boshqaruv yuzasi — «shisha»: yarim shaffof va xiralashtirilgan.
+ * ⚠️ To'liq oq bo'lsa, tugmalar ustuni xaritadan «kesib olingan» to'rtburchak
+ * bo'lib turardi; shaffof bo'lsa — ostidagi chegara ko'rinib qoladi.
+ */
+const CHROME_SURFACE =
+  'bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] shadow-[var(--shadow-card)] backdrop-blur-md backdrop-saturate-150 dark:bg-[color-mix(in_srgb,var(--surface)_80%,transparent)]';
 
 function ZoomButton({ direction }: { direction: 'in' | 'out' }) {
   const map = useMap();
@@ -1126,7 +1177,7 @@ function ZoomButton({ direction }: { direction: 'in' | 'out' }) {
       type="button"
       aria-label={direction === 'in' ? 'Kattalashtirish' : 'Kichiklashtirish'}
       onClick={() => (direction === 'in' ? map.zoomIn() : map.zoomOut())}
-      className="grid size-8 place-items-center text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-strong"
+      className="grid size-8 place-items-center text-muted transition-colors duration-150 hover:bg-[var(--surface-sunken)] hover:text-strong active:bg-brand-500/10 active:text-brand-600 dark:hover:bg-white/[0.06] dark:active:text-brand-300"
     >
       {direction === 'in' ? (
         <Plus className="size-3.5" />

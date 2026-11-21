@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -19,14 +18,14 @@ import type {
   DeviceSeriesPoint,
 } from '@/shared/api/types';
 import { DEVICE_TYPE_META } from '@/shared/constants/device-type';
-import { Button, ErrorState, Modal, Skeleton } from '@/shared/ui';
+import { Button, ErrorState, Modal, Segmented, Skeleton } from '@/shared/ui';
+import { cn } from '@/shared/utils/cn';
 import {
   formatAxisLabel,
   formatDateTimeUz,
   formatTimeUz,
 } from '@/shared/utils/date';
 import { formatPercent, formatTemperature } from '@/shared/utils/format';
-import { useUiStore } from '@/store/ui.store';
 
 type ChartRange = '24h' | '7d' | '30d';
 
@@ -45,12 +44,30 @@ const RANGES: Record<
   '30d': { label: '30 kun', bucket: 'day', hours: 24 * 30 },
 };
 
+const RANGE_OPTIONS = (Object.keys(RANGES) as ChartRange[]).map((key) => ({
+  value: key,
+  label: RANGES[key].label,
+}));
+
+/*
+ * ⚠️ Kirish/chiqish — «Muassasalar» shkalalari va kotyol kartasi bilan AYNI
+ * juftlik (`--gauge-*`): bitta suv yo'nalishi uch ekranda uch xil rangda
+ * bo'lmasin. CSS o'zgaruvchisi SVG atributida ishlaydi va qorong'i rejimga
+ * o'zi moslashadi.
+ */
 const COLORS = {
-  outlet: '#d9480f',
-  inlet: '#1d72bb',
-  room: '#1d72bb',
+  outlet: 'var(--gauge-outlet)',
+  inlet: 'var(--gauge-inlet)',
+  room: 'var(--color-brand-500)',
   humidity: '#0f9d8a',
 };
+
+/** O'q yorliqlari — texnik (mono), chiziqsiz. */
+const AXIS_TICK = {
+  fontSize: 10.5,
+  fill: 'var(--ink-faint)',
+  fontFamily: 'JetBrains Mono Variable, monospace',
+} as const;
 
 type SeriesKey = 'inlet' | 'outlet' | 'room' | 'humidity';
 
@@ -94,6 +111,26 @@ function isolatedDot(
   };
 }
 
+/** Faol nuqta — halqa (nur) + markaz. */
+function haloDot(color: string) {
+  return function HaloDot({ cx, cy }: { cx?: number; cy?: number }) {
+    if (cx === undefined || cy === undefined) return null;
+    return (
+      <g>
+        <circle cx={cx} cy={cy} r={9} fill={color} opacity={0.18} />
+        <circle
+          cx={cx}
+          cy={cy}
+          r={4.2}
+          fill="var(--surface)"
+          stroke={color}
+          strokeWidth={2.25}
+        />
+      </g>
+    );
+  };
+}
+
 /**
  * QURILMA GRAFIGI.
  *
@@ -110,7 +147,6 @@ export function DeviceChartModal({
   onClose: () => void;
 }) {
   const [range, setRange] = useState<ChartRange>('24h');
-  const dark = useUiStore((state) => state.theme === 'dark');
   const config = RANGES[range];
 
   const query = useQuery({
@@ -139,7 +175,6 @@ export function DeviceChartModal({
       : point.inlet !== null || point.outlet !== null,
   );
 
-  const tickColor = dark ? '#8da0b5' : '#97a5b7';
   const formatTick = (value: string): string =>
     config.bucket === 'raw'
       ? formatTimeUz(value)
@@ -167,26 +202,37 @@ export function DeviceChartModal({
       }
     >
       <div className="flex flex-col gap-3">
-        <div
-          role="group"
-          aria-label="Davr"
-          className="flex w-fit rounded-full bg-[var(--surface-sunken)] p-0.5"
-        >
-          {(Object.keys(RANGES) as ChartRange[]).map((key) => (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={range === key}
-              onClick={() => setRange(key)}
-              className={
-                range === key
-                  ? 'rounded-full bg-[var(--surface)] px-2.5 py-1 text-micro font-semibold text-strong shadow-[var(--shadow-hair)]'
-                  : 'rounded-full px-2.5 py-1 text-micro font-medium text-muted transition-colors hover:text-strong'
-              }
-            >
-              {RANGES[key].label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Segmented
+            size="xs"
+            ariaLabel="Davr"
+            value={range}
+            onChange={setRange}
+            options={RANGE_OPTIONS}
+          />
+          {/* ⚠️ Afsona HTML'da (Recharts `Legend` emas): u bilan shrift va
+              chiziq namunasi tizim uslubida bo'ladi, punktir ham ko'rinadi. */}
+          {hasData ? (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[10.5px] font-semibold tracking-[0.08em] text-muted uppercase">
+              {isRoom ? (
+                <>
+                  <LegendSwatch color={COLORS.room} label="Xona harorati" />
+                  {hasHumidity ? (
+                    <LegendSwatch
+                      color={COLORS.humidity}
+                      label="Namlik"
+                      dashed
+                    />
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <LegendSwatch color={COLORS.outlet} label="Chiqish" />
+                  <LegendSwatch color={COLORS.inlet} label="Kirish" dashed />
+                </>
+              )}
+            </div>
+          ) : null}
         </div>
 
         {query.isLoading ? (
@@ -197,31 +243,33 @@ export function DeviceChartModal({
             onRetry={() => void query.refetch()}
           />
         ) : !hasData ? (
-          <div className="grid h-[300px] place-items-center text-meta text-muted">
+          <div className="grid-bg grid h-[300px] place-items-center rounded-tile text-meta text-muted">
             Bu davr uchun o‘lchov yo‘q
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={300}>
             <LineChart
               data={points}
-              margin={{ top: 8, right: 8, bottom: 0, left: -12 }}
+              margin={{ top: 10, right: 8, bottom: 0, left: -12 }}
             >
               <CartesianGrid
-                stroke={dark ? 'rgba(255,255,255,.07)' : 'rgba(20,45,80,.08)'}
+                stroke="var(--border-subtle)"
+                strokeDasharray="3 4"
                 vertical={false}
               />
               <XAxis
                 dataKey="t"
                 tickFormatter={formatTick}
-                tick={{ fontSize: 11, fill: tickColor }}
+                tick={AXIS_TICK}
                 tickLine={false}
                 axisLine={false}
+                tickMargin={8}
                 interval="preserveStartEnd"
                 minTickGap={32}
               />
               <YAxis
                 yAxisId="temp"
-                tick={{ fontSize: 11, fill: tickColor }}
+                tick={AXIS_TICK}
                 tickLine={false}
                 axisLine={false}
                 width={46}
@@ -232,7 +280,7 @@ export function DeviceChartModal({
                 <YAxis
                   yAxisId="humidity"
                   orientation="right"
-                  tick={{ fontSize: 11, fill: tickColor }}
+                  tick={AXIS_TICK}
                   tickLine={false}
                   axisLine={false}
                   width={40}
@@ -241,56 +289,68 @@ export function DeviceChartModal({
                 />
               ) : null}
               <Tooltip
+                cursor={{
+                  stroke: 'var(--border-strong)',
+                  strokeDasharray: '3 3',
+                }}
                 content={({ active, payload }) => {
                   if (!active || !payload?.length) return null;
                   const point = payload[0].payload as DeviceSeriesPoint;
                   return (
-                    <div className="rounded-lg bg-neutral-900 px-3 py-2 text-micro text-white shadow-[var(--shadow-pop)]">
-                      <p className="font-semibold">
+                    <div className="min-w-[188px] rounded-[10px] bg-[var(--surface)] px-3 py-2.5 text-micro shadow-[var(--shadow-pop)]">
+                      <p className="font-mono text-[10.5px] font-semibold text-muted">
                         {formatDateTimeUz(point.t)}
                       </p>
-                      {isRoom ? (
-                        <>
-                          <p className="mt-1">
-                            Xona harorati:{' '}
-                            <strong>{formatTemperature(point.room)}</strong>
-                          </p>
-                          {hasHumidity ? (
-                            <p className="mt-0.5">
-                              Namlik:{' '}
-                              <strong>
-                                {point.humidity === null
-                                  ? '—'
-                                  : formatPercent(point.humidity)}
-                              </strong>
-                            </p>
-                          ) : null}
-                        </>
-                      ) : (
-                        <>
-                          <p className="mt-1">
-                            Chiqish:{' '}
-                            <strong>{formatTemperature(point.outlet)}</strong>
-                          </p>
-                          <p className="mt-0.5">
-                            Kirish:{' '}
-                            <strong>{formatTemperature(point.inlet)}</strong>
-                          </p>
-                        </>
-                      )}
+                      <div className="mt-1.5 flex flex-col gap-1">
+                        {isRoom ? (
+                          <>
+                            <TipRow
+                              color={COLORS.room}
+                              label="Xona harorati"
+                              value={formatTemperature(point.room)}
+                            />
+                            {hasHumidity ? (
+                              <TipRow
+                                color={COLORS.humidity}
+                                dashed
+                                label="Namlik"
+                                value={
+                                  point.humidity === null
+                                    ? '—'
+                                    : formatPercent(point.humidity)
+                                }
+                              />
+                            ) : null}
+                          </>
+                        ) : (
+                          <>
+                            <TipRow
+                              color={COLORS.outlet}
+                              label="Chiqish"
+                              value={formatTemperature(point.outlet)}
+                            />
+                            <TipRow
+                              color={COLORS.inlet}
+                              dashed
+                              label="Kirish"
+                              value={formatTemperature(point.inlet)}
+                            />
+                          </>
+                        )}
+                      </div>
                       {point.count > 1 ? (
-                        <p className="text-white/65">{point.count} o‘lchov</p>
+                        <p className="mt-2 border-t border-[var(--border-subtle)] pt-1.5 font-mono text-[10.5px] text-faint tabular-nums">
+                          {point.count} o‘lchov
+                        </p>
                       ) : null}
                     </div>
                   );
                 }}
               />
-              <Legend
-                verticalAlign="top"
-                height={28}
-                iconType="plainline"
-                wrapperStyle={{ fontSize: 12 }}
-              />
+              {/*
+                ⚠️ Chizilish animatsiyasi (900 ms) — Recharts'ning `auto`
+                rejimi: «harakatni kamaytirish» yoqilgan bo'lsa, o'zi o'chadi.
+              */}
               {isRoom ? (
                 <>
                   <Line
@@ -299,10 +359,11 @@ export function DeviceChartModal({
                     dataKey="room"
                     name="Xona harorati"
                     stroke={COLORS.room}
-                    strokeWidth={2}
+                    strokeWidth={2.25}
                     dot={isolatedDot('room', points, COLORS.room)}
-                    activeDot={{ r: 3.5 }}
-                    isAnimationActive={false}
+                    activeDot={haloDot(COLORS.room)}
+                    animationDuration={900}
+                    animationEasing="ease-out"
                     connectNulls={false}
                   />
                   {hasHumidity ? (
@@ -315,8 +376,9 @@ export function DeviceChartModal({
                       strokeWidth={1.4}
                       strokeDasharray="4 3"
                       dot={isolatedDot('humidity', points, COLORS.humidity)}
-                      activeDot={{ r: 3 }}
-                      isAnimationActive={false}
+                      activeDot={haloDot(COLORS.humidity)}
+                      animationDuration={900}
+                      animationEasing="ease-out"
                       connectNulls={false}
                     />
                   ) : null}
@@ -337,8 +399,9 @@ export function DeviceChartModal({
                     strokeWidth={1.6}
                     strokeDasharray="4 3"
                     dot={isolatedDot('inlet', points, COLORS.inlet)}
-                    activeDot={{ r: 3 }}
-                    isAnimationActive={false}
+                    activeDot={haloDot(COLORS.inlet)}
+                    animationDuration={900}
+                    animationEasing="ease-out"
                     connectNulls={false}
                   />
                   <Line
@@ -347,10 +410,11 @@ export function DeviceChartModal({
                     dataKey="outlet"
                     name="Chiqish"
                     stroke={COLORS.outlet}
-                    strokeWidth={2.2}
+                    strokeWidth={2.25}
                     dot={isolatedDot('outlet', points, COLORS.outlet)}
-                    activeDot={{ r: 3.5 }}
-                    isAnimationActive={false}
+                    activeDot={haloDot(COLORS.outlet)}
+                    animationDuration={900}
+                    animationEasing="ease-out"
                     connectNulls={false}
                   />
                 </>
@@ -367,5 +431,61 @@ export function DeviceChartModal({
         ) : null}
       </div>
     </Modal>
+  );
+}
+
+function LegendSwatch({
+  color,
+  label,
+  dashed,
+}: {
+  color: string;
+  label: string;
+  dashed?: boolean;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <svg width="18" height="6" aria-hidden>
+        <line
+          x1="1"
+          y1="3"
+          x2="17"
+          y2="3"
+          stroke={color}
+          strokeWidth={dashed ? 1.6 : 2.4}
+          strokeDasharray={dashed ? '4 3' : undefined}
+          strokeLinecap="round"
+        />
+      </svg>
+      {label}
+    </span>
+  );
+}
+
+function TipRow({
+  color,
+  dashed,
+  label,
+  value,
+}: {
+  color: string;
+  dashed?: boolean;
+  label: ReactNode;
+  value: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="flex items-center gap-1.5 text-muted">
+        <span
+          aria-hidden
+          className={cn('h-0 w-3 border-t-2', dashed && 'border-dashed')}
+          style={{ borderColor: color }}
+        />
+        {label}
+      </span>
+      <strong className="font-mono font-semibold text-strong tabular-nums">
+        {value}
+      </strong>
+    </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarOff, Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import toast from 'react-hot-toast';
 import { del, errorMessage, get, post } from '@/shared/api/client';
 import { API, qk } from '@/shared/api/endpoints';
@@ -13,7 +13,7 @@ import {
   EmptyState,
   ErrorState,
   Input,
-  Select,
+  Segmented,
   Skeleton,
 } from '@/shared/ui';
 import { formatDateUz } from '@/shared/utils/date';
@@ -67,25 +67,27 @@ export function HolidaysTab() {
   return (
     <Card className="overflow-hidden">
       <CardHeader
+        eyebrow={
+          query.data ? `${query.data.length} ta kun · ${year}-yil` : undefined
+        }
         title="Bayram va dam olish kunlari"
         subtitle="Jadval rejimidagi obyektlarda bu kunlari past xona harorati XAVF ochmaydi"
         icon={<CalendarOff className="size-4" />}
         actions={
-          <Select
-            value={year}
-            onChange={(event) => setYear(Number(event.target.value))}
-          >
-            {[currentYear - 1, currentYear, currentYear + 1].map((value) => (
-              <option key={value} value={value}>
-                {value}-yil
-              </option>
-            ))}
-          </Select>
+          <Segmented
+            size="sm"
+            ariaLabel="Yil"
+            value={String(year)}
+            onChange={(value) => setYear(Number(value))}
+            options={[currentYear - 1, currentYear, currentYear + 1].map(
+              (value) => ({ value: String(value), label: `${value}-yil` }),
+            )}
+          />
         }
       />
 
       {canManage ? (
-        <CardBody className="grid grid-cols-1 items-end gap-2 border-b border-[var(--border-subtle)] sm:grid-cols-[180px_1fr_auto]">
+        <CardBody className="grid grid-cols-1 items-end gap-2 border-y border-[var(--border-subtle)] bg-[var(--surface-muted)] py-3 sm:grid-cols-[180px_1fr_auto]">
           <Input
             type="date"
             value={day}
@@ -123,10 +125,20 @@ export function HolidaysTab() {
       ) : (
         <ul className="flex flex-col">
           {(query.data ?? []).map((holiday, index) => (
-            <li key={holiday.id}>
+            <li
+              key={holiday.id}
+              className="reveal"
+              style={{ '--i': Math.min(index, 12) } as CSSProperties}
+            >
               {index > 0 ? <div className="h-px bg-line" /> : null}
-              <div className="flex items-center gap-3 px-5 py-2.5">
-                <span className="w-36 shrink-0 text-ui font-semibold text-strong tabular-nums">
+              <div className="group flex items-center gap-3 px-5 py-2.5 transition-[background-color] duration-200 hover:bg-[var(--surface-muted)] dark:hover:bg-white/[0.025]">
+                <span
+                  aria-hidden
+                  className="grid size-7 shrink-0 place-items-center rounded-md bg-idle-100 text-idle-600 ring-1 ring-idle-200 ring-inset dark:bg-white/[0.06] dark:text-idle-300 dark:ring-white/10"
+                >
+                  <CalendarOff className="size-3.5" />
+                </span>
+                <span className="w-36 shrink-0 font-mono text-ui font-semibold text-strong tabular-nums">
                   {formatDateUz(`${holiday.day}T00:00:00Z`)}
                 </span>
                 <span className="flex-1 text-ui text-ink">{holiday.name}</span>

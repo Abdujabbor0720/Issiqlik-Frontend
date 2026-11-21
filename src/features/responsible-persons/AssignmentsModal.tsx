@@ -20,8 +20,17 @@ import type {
 import { RESPONSIBILITY_LABELS } from '@/shared/constants/incident';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useDistrictCatalog } from '@/shared/hooks/useCatalogOptions';
-import { Button, Field, Input, Modal, Select, Switch } from '@/shared/ui';
+import {
+  Button,
+  Field,
+  Input,
+  Modal,
+  Segmented,
+  Select,
+  Switch,
+} from '@/shared/ui';
 import { boilerName } from '@/shared/utils/boiler';
+import { cn } from '@/shared/utils/cn';
 import { useAuthStore } from '@/store/auth.store';
 
 /**
@@ -155,19 +164,28 @@ export function AssignmentsModal({
     >
       <div className="flex flex-col gap-4">
         <section className="flex flex-col gap-1.5">
-          <p className="text-micro font-semibold tracking-wide text-faint uppercase">
+          <p className="label-eyebrow flex items-center gap-2">
             Joriy biriktirishlar
+            {person?.assignments.length ? (
+              <span className="rounded-[4px] bg-[var(--surface-sunken)] px-1 text-[10px] leading-4 text-muted tabular-nums">
+                {person.assignments.length}
+              </span>
+            ) : null}
           </p>
           {person?.assignments.length ? (
             person.assignments.map((assignment) => (
               <div
                 key={assignment.id}
-                className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border-subtle)] px-3 py-2"
+                className={cn(
+                  'flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 ring-1 ring-[var(--border-subtle)] transition-[background-color] duration-200 ring-inset hover:bg-[var(--surface-muted)] dark:hover:bg-white/[0.025]',
+                  assignment.isPrimary &&
+                    'shadow-[inset_3px_0_0_var(--color-warn-400)]',
+                )}
               >
                 <div className="min-w-0 flex-1">
-                  <p className="text-ui font-medium text-strong">
+                  <p className="text-ui font-semibold text-strong">
                     {assignment.organization?.name ?? assignment.boiler?.label}
-                    <span className="text-meta font-normal text-faint">
+                    <span className="font-mono text-[10.5px] font-medium tracking-[0.08em] text-faint uppercase">
                       {' '}
                       · {assignment.organization ? 'muassasa' : 'obyekt'}
                     </span>
@@ -177,8 +195,8 @@ export function AssignmentsModal({
                   </p>
                 </div>
                 {assignment.isPrimary ? (
-                  <span className="inline-flex items-center gap-1 text-meta font-semibold text-warn-600">
-                    <Star className="size-3.5 fill-current" /> Asosiy
+                  <span className="inline-flex items-center gap-1 rounded-md bg-warn-50 px-2 py-0.5 text-micro font-semibold text-warn-700 ring-1 ring-warn-200 ring-inset dark:bg-warn-400/12 dark:text-warn-300 dark:ring-warn-400/25">
+                    <Star className="size-3 fill-current" /> Asosiy
                   </span>
                 ) : (
                   <Button
@@ -207,26 +225,21 @@ export function AssignmentsModal({
           )}
         </section>
 
-        <section className="flex flex-col gap-3 rounded-lg bg-[var(--surface-sunken)] p-3.5">
-          <p className="text-micro font-semibold tracking-wide text-faint uppercase">
-            Yangi biriktirish
-          </p>
-          <div className="flex rounded-full bg-[var(--surface)] p-0.5 self-start">
-            {(['organization', 'boiler'] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setTarget(value)}
-                className={
-                  target === value
-                    ? 'rounded-full bg-brand-600 px-3.5 py-1.5 text-meta font-semibold text-white'
-                    : 'rounded-full px-3.5 py-1.5 text-meta font-medium text-muted'
-                }
-              >
-                {value === 'organization' ? 'Muassasaga' : 'Aniq obyektga'}
-              </button>
-            ))}
-          </div>
+        {/* ⚠️ Bo'lim foni `surface-muted`, `sunken` EMAS: segmentning o'z
+            izi `sunken` — bir xil fonda u ko'rinmay qolardi. */}
+        <section className="flex flex-col gap-3 rounded-lg bg-[var(--surface-muted)] p-3.5 ring-1 ring-[var(--border-subtle)] ring-inset">
+          <p className="label-eyebrow">Yangi biriktirish</p>
+          <Segmented
+            size="md"
+            ariaLabel="Biriktirish nishoni"
+            className="self-start"
+            value={target}
+            onChange={setTarget}
+            options={[
+              { value: 'organization', label: 'Muassasaga' },
+              { value: 'boiler', label: 'Aniq obyektga' },
+            ]}
+          />
 
           {target === 'organization' ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

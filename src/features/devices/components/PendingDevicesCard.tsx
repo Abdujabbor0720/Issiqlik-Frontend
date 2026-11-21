@@ -7,7 +7,7 @@ import {
   Settings2,
   UserPlus,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import toast from 'react-hot-toast';
 import { errorMessage, get, post } from '@/shared/api/client';
 import { API, qk } from '@/shared/api/endpoints';
@@ -158,15 +158,28 @@ export function PendingDevicesCard({
   }
 
   return (
-    <Card className="border-warn-200 bg-warn-50/40 dark:border-warn-400/20 dark:bg-warn-400/5">
-      <CardBody className="flex flex-col gap-2.5">
+    /* ⚠️ Chap chekkadagi sariq chiziq — «diqqat talab qiladi»: panel ro'yxat
+       tepasida turadi va oddiy kartadan ko'z bir qarashda ajratishi kerak. */
+    <Card className="overflow-hidden bg-warn-50/40 dark:bg-warn-400/[0.05]">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 left-0 w-[3px] bg-warn-400 shadow-[0_0_14px_var(--color-warn-400)]"
+      />
+      <CardBody className="flex flex-col gap-3 pt-4">
         <div className="flex flex-wrap items-start justify-between gap-2.5">
-          <div className="flex items-center gap-2.5">
-            <span className="grid size-8 shrink-0 place-items-center rounded-tile bg-warn-100 text-warn-700 dark:bg-warn-400/15 dark:text-warn-300">
+          <div className="flex items-center gap-3">
+            <span className="relative grid size-9 shrink-0 place-items-center rounded-tile bg-warn-100 text-warn-700 ring-1 ring-warn-200 ring-inset dark:bg-warn-400/15 dark:text-warn-300 dark:ring-warn-400/25">
               <CircleHelp className="size-4" strokeWidth={2} />
+              {/* Jonli nuqta — qurilmalar HOZIR serverga urinmoqda. */}
+              {active.length > 0 ? (
+                <span className="absolute -top-0.5 -right-0.5 flex size-2.5" aria-hidden>
+                  <span className="live-ping absolute inset-0 rounded-full bg-warn-400" />
+                  <span className="relative size-2.5 rounded-full bg-warn-400 ring-2 ring-[var(--surface)]" />
+                </span>
+              ) : null}
             </span>
             <div>
-              <p className="text-ui font-semibold text-strong">
+              <p className="font-display text-[15.5px] leading-snug font-[720] tracking-[-0.012em] text-strong [font-stretch:106%]">
                 Yangi qurilmalar
                 {active.length > 0
                   ? ` — ${active.length} ta ulanishga urinmoqda`
@@ -193,7 +206,7 @@ export function PendingDevicesCard({
         </div>
 
         <ul className="flex flex-col gap-1.5">
-          {rows.map((row) => {
+          {rows.map((row, index) => {
             const location = [
               row.district?.name,
               row.objectType?.name,
@@ -203,11 +216,14 @@ export function PendingDevicesCard({
             return (
               <li
                 key={row.id}
+                style={{ '--i': Math.min(index, 12) } as CSSProperties}
                 className={cn(
-                  'flex flex-col gap-2 rounded-md bg-[var(--surface)] px-3 py-2.5',
+                  'reveal flex flex-col gap-2 rounded-tile bg-[var(--surface)] px-3 py-2.5 ring-1 ring-inset',
+                  'transition-[box-shadow] duration-200 hover:shadow-[var(--shadow-card)]',
                   row.isDismissed && 'opacity-60',
-                  row.tokenConflict &&
-                    'ring-1 ring-danger-200 dark:ring-danger-500/30',
+                  row.tokenConflict
+                    ? 'ring-danger-200 dark:ring-danger-400/30'
+                    : 'ring-[var(--border-subtle)]',
                 )}
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -223,12 +239,12 @@ export function PendingDevicesCard({
                           {DEVICE_TYPE_META[row.deviceType].label}
                         </Badge>
                       ) : (
-                        <Badge className="bg-warn-50 text-warn-700 ring-1 ring-warn-200 dark:bg-warn-400/14 dark:text-warn-300">
+                        <Badge className="bg-warn-50 text-warn-700 ring-1 ring-warn-200 dark:bg-warn-400/12 dark:text-warn-300 dark:ring-warn-400/25">
                           tur noma‘lum
                         </Badge>
                       )}
                       {row.isDismissed ? (
-                        <Badge className="bg-[var(--surface-sunken)] text-faint">
+                        <Badge className="bg-[var(--surface-sunken)] text-faint ring-1 ring-[var(--border-subtle)]">
                           rad etilgan
                         </Badge>
                       ) : null}
@@ -246,7 +262,7 @@ export function PendingDevicesCard({
                         </span>
                       )}
                     </p>
-                    <p className="text-micro text-muted">
+                    <p className="mt-0.5 font-mono text-[10.5px] text-muted tabular-nums">
                       {formatNumber(row.attempts)} marta urindi
                       {row.firmwareVersion ? ` · v${row.firmwareVersion}` : ''}
                       {row.lastIpAddress ? ` · IP ${row.lastIpAddress}` : ''}
@@ -333,7 +349,7 @@ export function PendingDevicesCard({
                 </div>
 
                 {row.tokenConflict ? (
-                  <p className="flex items-start gap-1.5 rounded-md bg-danger-50 px-2.5 py-1.5 text-micro font-medium text-danger-700 dark:bg-danger-500/10 dark:text-danger-300">
+                  <p className="flex items-start gap-1.5 rounded-md bg-danger-50 px-2.5 py-1.5 text-micro font-medium text-danger-700 ring-1 ring-danger-200 ring-inset dark:bg-danger-500/14 dark:text-danger-300 dark:ring-danger-400/30">
                     <AlertTriangle className="mt-px size-3.5 shrink-0" />
                     Token ziddiyati: bu identifikator bilan TURLI tokenlar
                     kelgan. Bir bosishda ro‘yxatga olib bo‘lmaydi — «Sozlab
@@ -456,7 +472,7 @@ function RegisterPendingModal({
     >
       <div className="flex flex-col gap-4">
         {row?.tokenConflict ? (
-          <p className="flex items-start gap-1.5 rounded-md bg-danger-50 px-3 py-2 text-meta font-medium text-danger-700 dark:bg-danger-500/10 dark:text-danger-300">
+          <p className="flex items-start gap-1.5 rounded-md bg-danger-50 px-3 py-2 text-meta font-medium text-danger-700 ring-1 ring-danger-200 ring-inset dark:bg-danger-500/14 dark:text-danger-300 dark:ring-danger-400/30">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             Bu identifikator bilan turli tokenlar kelgan — platadagi API kalitni
             kiriting.
@@ -579,8 +595,12 @@ function RegisterPendingModal({
         </Field>
 
         {error ? (
-          <p className="rounded-lg bg-danger-50 px-3 py-2 text-meta font-medium text-danger-700 dark:bg-danger-500/10 dark:text-danger-300">
-            {error}
+          <p
+            role="alert"
+            className="flex items-start gap-2 rounded-lg bg-danger-50 px-3 py-2.5 text-meta font-medium text-danger-700 ring-1 ring-danger-200 ring-inset dark:bg-danger-500/14 dark:text-danger-300 dark:ring-danger-400/30"
+          >
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+            <span>{error}</span>
           </p>
         ) : null}
       </div>

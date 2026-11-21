@@ -6,6 +6,7 @@ import { errorMessage, patch, post } from '@/shared/api/client';
 import { API } from '@/shared/api/endpoints';
 import type { DistrictResponsible, User } from '@/shared/api/types';
 import { Button, Field, Input, Modal, Switch } from '@/shared/ui';
+import { cn } from '@/shared/utils/cn';
 import { generatePassword, suggestLogin } from './password';
 
 export interface IssuedCredentials {
@@ -192,7 +193,7 @@ export function ResponsibleFormModal({
               id={id}
               value={form.login}
               onChange={(event) => set('login', event.target.value)}
-              className="font-mono"
+              className="font-mono font-medium"
             />
           )}
         </Field>
@@ -207,7 +208,7 @@ export function ResponsibleFormModal({
                     type={showPassword ? 'text' : 'password'}
                     value={form.password}
                     onChange={(event) => set('password', event.target.value)}
-                    className="pr-10 font-mono"
+                    className="bg-[var(--surface-sunken)] pr-10 font-mono font-semibold tracking-[0.05em]"
                   />
                   <button
                     type="button"
@@ -215,7 +216,7 @@ export function ResponsibleFormModal({
                     aria-label={
                       showPassword ? 'Parolni yashirish' : 'Parolni ko‘rsatish'
                     }
-                    className="absolute inset-y-0 right-0 grid w-10 place-items-center text-faint transition-colors hover:text-ink"
+                    className="absolute inset-y-0 right-0 grid w-10 place-items-center text-faint transition-colors hover:text-strong"
                   >
                     {showPassword ? (
                       <EyeOff className="size-4" />
@@ -227,7 +228,10 @@ export function ResponsibleFormModal({
                 <Button
                   size="md"
                   variant="secondary"
-                  icon={<Dices className="size-4" />}
+                  className="group px-3"
+                  icon={
+                    <Dices className="size-4 transition-transform duration-500 ease-out-expo group-hover:rotate-180" />
+                  }
                   onClick={() => {
                     set('password', generatePassword());
                     setShowPassword(true);
@@ -244,13 +248,20 @@ export function ResponsibleFormModal({
             hint="Faolsizlantirilsa mas‘ul tizimga kira olmaydi"
           >
             {() => (
-              <div className="flex h-9.5 items-center gap-2">
+              <div className="flex h-9.5 items-center gap-2.5 rounded-lg bg-[var(--surface-sunken)] px-3 ring-1 ring-[var(--border-subtle)] ring-inset">
                 <Switch
                   checked={form.isActive}
                   onChange={(value) => set('isActive', value)}
                   label="Hisob faol"
                 />
-                <span className="text-ui text-ink">
+                <span
+                  className={cn(
+                    'font-mono text-[11px] font-bold tracking-[0.1em] uppercase transition-colors duration-200',
+                    form.isActive
+                      ? 'text-ok-600 dark:text-ok-300'
+                      : 'text-idle-500 dark:text-idle-300',
+                  )}
+                >
                   {form.isActive ? 'Faol' : 'Faolsiz'}
                 </span>
               </div>
@@ -291,7 +302,10 @@ export function ResponsibleFormModal({
         </Field>
 
         {error ? (
-          <p className="rounded-lg bg-danger-50 px-3 py-2 text-meta font-medium text-danger-700 sm:col-span-2 dark:bg-danger-500/10 dark:text-danger-300">
+          <p
+            role="alert"
+            className="reveal rounded-lg bg-danger-50 px-3 py-2 text-meta font-medium text-danger-700 shadow-[inset_3px_0_0_var(--color-danger-500)] ring-1 ring-danger-200 ring-inset sm:col-span-2 dark:bg-danger-500/14 dark:text-danger-300 dark:ring-danger-400/30"
+          >
             {error}
           </p>
         ) : null}

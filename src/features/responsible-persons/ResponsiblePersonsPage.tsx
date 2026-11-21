@@ -22,10 +22,10 @@ import {
   Button,
   Card,
   CardBody,
-  CardHeader,
   EmptyState,
   ErrorState,
   Input,
+  PageHeader,
   Pagination,
   Select,
   Skeleton,
@@ -34,7 +34,8 @@ import {
   Th,
   Tr,
 } from '@/shared/ui';
-import { formatNumber } from '@/shared/utils/format';
+import { cn } from '@/shared/utils/cn';
+import { formatNumber, initials } from '@/shared/utils/format';
 import { useAuthStore } from '@/store/auth.store';
 import { AssignmentsModal } from './AssignmentsModal';
 import { ResponsiblePersonModal } from './ResponsiblePersonModal';
@@ -99,45 +100,75 @@ export function ResponsiblePersonsPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end justify-between gap-3 px-1">
-        <div>
-          <h1 className="text-sub font-semibold tracking-tight text-strong">
-            Javobgar shaxslar
-          </h1>
-          <p className="text-meta text-muted">
-            {list.data
-              ? `${formatNumber(list.data.meta.total)} ta shaxs`
-              : 'Yuklanmoqda…'}{' '}
+      <PageHeader
+        title="Javobgar shaxslar"
+        subtitle={
+          <>
+            {list.data ? (
+              <>
+                <span className="font-mono font-semibold text-strong tabular-nums">
+                  {formatNumber(list.data.meta.total)}
+                </span>{' '}
+                ta shaxs
+              </>
+            ) : (
+              'Yuklanmoqda…'
+            )}{' '}
             · XAVF kartasida ko‘rsatiladi
-          </p>
-        </div>
-        {canManage ? (
-          <Button
-            variant="primary"
-            icon={<Plus className="size-4" />}
-            onClick={() => setCreating(true)}
-          >
-            Javobgar qo‘shish
-          </Button>
-        ) : null}
-      </div>
+          </>
+        }
+        actions={
+          canManage ? (
+            <Button
+              variant="primary"
+              icon={<Plus className="size-4" />}
+              onClick={() => setCreating(true)}
+            >
+              Javobgar qo‘shish
+            </Button>
+          ) : null
+        }
+      />
 
       {coverage.data && coverage.data.withoutPrimary > 0 ? (
-        <Card className="border border-warn-200 dark:border-warn-400/30">
-          <CardHeader
-            title={`${coverage.data.withoutPrimary} ta muassasada asosiy javobgar yo‘q`}
-            subtitle={`Monitoringdagi ${coverage.data.total} ta muassasadan ${coverage.data.withPrimary} tasida bor. Bu yerdagi XAVF «hech kimga» qolmasligi uchun javobgar biriktiring.`}
-            icon={<AlertTriangle className="size-4 text-warn-500" />}
+        /*
+          ⚠️ Ogohlantirish ramkasi `border` emas — chap chetdagi chiziq va
+          och fon: `border` kartaning o'lchamiga qo'shilib, yonidagi
+          bloklarni 1px ga surardi (karta chegarasi soyada, `index.css`).
+        */
+        <Card className="overflow-hidden bg-warn-50/50 dark:bg-warn-400/[0.05]">
+          <span
+            aria-hidden
+            className="absolute inset-y-0 left-0 w-[3px] bg-warn-400"
           />
+          <div className="flex items-start gap-3 px-5 pt-4 pb-3">
+            <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-md bg-warn-100 text-warn-700 ring-1 ring-warn-200 ring-inset dark:bg-warn-400/15 dark:text-warn-300 dark:ring-warn-400/30">
+              <AlertTriangle className="size-4" strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0">
+              <p className="label-eyebrow text-warn-700 dark:text-warn-300">
+                Qamrov bo‘shlig‘i
+              </p>
+              <h2 className="font-display text-[15.5px] leading-snug font-[720] tracking-[-0.012em] text-strong [font-stretch:106%]">
+                {coverage.data.withoutPrimary} ta muassasada asosiy javobgar
+                yo‘q
+              </h2>
+              <p className="mt-0.5 text-meta text-muted">
+                Monitoringdagi {coverage.data.total} ta muassasadan{' '}
+                {coverage.data.withPrimary} tasida bor. Bu yerdagi XAVF «hech
+                kimga» qolmasligi uchun javobgar biriktiring.
+              </p>
+            </div>
+          </div>
           <CardBody className="flex flex-wrap gap-1.5 pt-0">
             {coverage.data.missing.slice(0, 40).map((org) => (
               <Badge
                 key={org.id}
-                className="bg-warn-50 text-warn-800 ring-1 ring-warn-200 dark:bg-warn-400/10 dark:text-warn-200"
+                className="bg-[var(--surface)] text-warn-800 ring-1 ring-warn-200 dark:bg-warn-400/10 dark:text-warn-200 dark:ring-warn-400/25"
               >
                 {org.name}
                 {org.districtKey ? (
-                  <span className="text-warn-600/80">
+                  <span className="text-warn-600/80 dark:text-warn-300/70">
                     · {districtByKey.get(org.districtKey) ?? org.districtKey}
                   </span>
                 ) : null}
@@ -207,28 +238,54 @@ export function ResponsiblePersonsPage() {
               </thead>
               <tbody>
                 {items.map((person) => (
-                  <Tr key={person.id}>
+                  <Tr
+                    key={person.id}
+                    className={cn(
+                      'hover:bg-[var(--surface-muted)] dark:hover:bg-white/[0.025]',
+                      !person.isActive && 'opacity-70',
+                    )}
+                  >
                     <Td>
-                      <p className="font-semibold text-strong">
-                        {person.fullName}
-                        {!person.isActive ? (
-                          <Badge className="ml-2 bg-[var(--surface-sunken)] text-faint">
-                            faol emas
-                          </Badge>
-                        ) : null}
-                      </p>
-                      <p className="text-meta text-muted">
-                        {person.position}
-                        {person.employer ? ` · ${person.employer}` : ''}
-                      </p>
-                      {person.user ? (
-                        <p className="text-micro text-faint">
-                          Panel hisobi: {person.user.login}
-                        </p>
-                      ) : null}
+                      <div className="flex items-start gap-3">
+                        <span
+                          aria-hidden
+                          className={cn(
+                            'mt-0.5 grid size-9 shrink-0 place-items-center rounded-full font-display text-[12px] font-[760] tracking-[0.02em] ring-1 ring-inset [font-stretch:108%]',
+                            person.isActive
+                              ? 'bg-brand-50 text-brand-700 ring-brand-200 dark:bg-brand-400/12 dark:text-brand-200 dark:ring-brand-400/25'
+                              : 'bg-idle-100 text-idle-600 ring-idle-200 dark:bg-white/[0.06] dark:text-idle-300 dark:ring-white/10',
+                          )}
+                        >
+                          {initials(person.fullName)}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-strong">
+                            {person.fullName}
+                            {!person.isActive ? (
+                              <Badge className="ml-2 bg-idle-100 text-idle-700 ring-1 ring-idle-200 dark:bg-white/[0.06] dark:text-idle-300 dark:ring-white/10">
+                                faol emas
+                              </Badge>
+                            ) : null}
+                          </p>
+                          <p className="text-meta text-muted">
+                            {person.position}
+                            {person.employer ? ` · ${person.employer}` : ''}
+                          </p>
+                          {person.user ? (
+                            <p className="text-micro text-faint">
+                              Panel hisobi:{' '}
+                              <span className="font-mono">
+                                {person.user.login}
+                              </span>
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
                     </Td>
                     <Td>
-                      <p className="text-ink tabular-nums">{person.phone}</p>
+                      <p className="font-mono text-ui whitespace-nowrap text-ink tabular-nums">
+                        {person.phone}
+                      </p>
                       {person.email ? (
                         <p className="text-micro text-faint">{person.email}</p>
                       ) : null}
@@ -243,8 +300,8 @@ export function ResponsiblePersonsPage() {
                               key={assignment.id}
                               className={
                                 assignment.isPrimary
-                                  ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-200 dark:bg-brand-500/12 dark:text-brand-300'
-                                  : 'bg-[var(--surface-sunken)] text-muted'
+                                  ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-200 dark:bg-brand-400/12 dark:text-brand-200 dark:ring-brand-400/25'
+                                  : 'bg-[var(--surface-sunken)] text-muted ring-1 ring-[var(--border-subtle)]'
                               }
                             >
                               {assignment.isPrimary ? (
@@ -257,8 +314,10 @@ export function ResponsiblePersonsPage() {
                         )}
                       </div>
                     </Td>
-                    <Td className="text-muted">
-                      {person.district?.name ?? 'Viloyat'}
+                    <Td className="text-meta whitespace-nowrap text-muted">
+                      {person.district?.name ?? (
+                        <span className="label-eyebrow">Viloyat</span>
+                      )}
                     </Td>
                     <Td align="right">
                       {canManage ? (

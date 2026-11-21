@@ -65,7 +65,7 @@ export function CredentialsModal({
       }
     >
       <div className="flex flex-col gap-4">
-        <div className="flex items-start gap-2 rounded-lg bg-warn-50 px-3 py-2.5 text-meta text-warn-700 ring-1 ring-warn-200 dark:bg-warn-400/10 dark:text-warn-300 dark:ring-warn-400/25">
+        <div className="flex items-start gap-2.5 rounded-lg bg-warn-50 px-3 py-2.5 text-meta text-warn-700 shadow-[inset_3px_0_0_var(--color-warn-400)] ring-1 ring-warn-200 ring-inset dark:bg-warn-400/12 dark:text-warn-300 dark:ring-warn-400/25">
           <ShieldAlert className="mt-0.5 size-4 shrink-0" />
           <span>
             Tizim parolning faqat hash‘ini saqlaydi. Oyna yopilgandan so‘ng uni
@@ -74,17 +74,30 @@ export function CredentialsModal({
           </span>
         </div>
 
-        <dl className="overflow-hidden rounded-lg ring-1 ring-[var(--border-subtle)]">
-          <Row label="Tuman" value={value?.districtName ?? ''} />
-          <Row label="Mas‘ul" value={value?.fullName ?? ''} />
-          <Row label="Login" value={value?.login ?? ''} mono />
-          <Row label="Parol" value={value?.password ?? ''} mono strong last />
-        </dl>
+        {/* ⚠️ Hisob ma'lumotlari CHUQUR plastinkada, monoshriftda: login va
+            parolni og'zaki yoki qog'ozda topshirishda har bir belgi aniq
+            ko'rinishi kerak (mono kenglikda `rn` va `m` chalkashmaydi). */}
+        <div className="relative overflow-hidden rounded-card bg-[var(--surface-sunken)] ring-1 ring-[var(--border-subtle)] ring-inset">
+          <span
+            aria-hidden
+            className="grid-bg pointer-events-none absolute inset-0 opacity-60 [mask-image:linear-gradient(90deg,transparent,#000_70%)]"
+          />
+          <dl className="relative">
+            <Row label="Tuman" value={value?.districtName ?? ''} />
+            <Row label="Mas‘ul" value={value?.fullName ?? ''} />
+            <Row label="Login" value={value?.login ?? ''} mono />
+            <Row label="Parol" value={value?.password ?? ''} mono strong last />
+          </dl>
+        </div>
 
         <Button
           variant={copied ? 'subtle' : 'secondary'}
           icon={
-            copied ? <Check className="size-4" /> : <Copy className="size-4" />
+            copied ? (
+              <Check className="size-4 text-ok-600 dark:text-ok-300" />
+            ) : (
+              <Copy className="size-4" />
+            )
           }
           onClick={() => void copy()}
           className="justify-center"
@@ -112,18 +125,21 @@ function Row({
   return (
     <div
       className={cn(
-        'flex items-center justify-between gap-4 bg-[var(--surface)] px-3 py-2.5',
-        !last && 'border-b border-[var(--border-cell)]',
+        'flex items-center justify-between gap-4 px-3.5 py-2.5',
+        !last && 'border-b border-[var(--border-subtle)]',
+        strong && 'bg-[var(--surface)]/60 py-3 dark:bg-white/[0.03]',
       )}
     >
-      <dt className="shrink-0 text-meta text-muted">{label}</dt>
+      <dt className="label-eyebrow shrink-0">{label}</dt>
       <dd
         className={cn(
           'min-w-0 truncate text-right',
           mono && 'font-mono',
           strong
-            ? 'text-head font-semibold text-strong'
-            : 'text-ui text-strong',
+            ? 'text-[19px] font-bold tracking-[0.06em] text-strong select-all'
+            : mono
+              ? 'text-ui font-semibold text-strong select-all'
+              : 'text-ui font-medium text-strong',
         )}
       >
         {value}

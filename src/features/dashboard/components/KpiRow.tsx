@@ -8,7 +8,11 @@ import {
 } from 'lucide-react';
 import type { DashboardSummary } from '@/shared/api/types';
 import { StatCard } from '@/shared/ui';
-import { formatNumber, formatPercent, formatTemperature } from '@/shared/utils/format';
+import {
+  formatNumber,
+  formatPercent,
+  formatTemperature,
+} from '@/shared/utils/format';
 
 /**
  * ASOSIY KO'RSATKICHLAR QATORI.
@@ -36,9 +40,15 @@ export function KpiRow({
     onFilter?.(activeFilter === status ? null : status);
   };
 
+  /*
+   * ⚠️ `index` — kartalar chapdan o'ngga KETMA-KET chiqadi (60 ms qadam).
+   * Tartib yuqoridagi o'qish tartibi bilan AYNI: ko'z qayerdan boshlasa,
+   * harakat ham o'sha yerdan boshlanadi.
+   */
   return (
     <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
       <StatCard
+        index={0}
         label="Jami qozonxonalar"
         value={formatNumber(summary.total)}
         icon={Flame}
@@ -47,6 +57,7 @@ export function KpiRow({
       />
 
       <StatCard
+        index={1}
         label="Faol ishlayotgan"
         value={formatNumber(summary.active)}
         icon={Activity}
@@ -58,6 +69,7 @@ export function KpiRow({
       />
 
       <StatCard
+        index={2}
         label="O‘rta ishlayotgan"
         value={formatNumber(summary.medium)}
         icon={Gauge}
@@ -69,6 +81,7 @@ export function KpiRow({
       />
 
       <StatCard
+        index={3}
         label="Ishlamayotgan"
         value={formatNumber(summary.inactive)}
         icon={TrendingDown}
@@ -80,6 +93,7 @@ export function KpiRow({
       />
 
       <StatCard
+        index={4}
         label="Aloqa yo‘q"
         value={formatNumber(summary.offline)}
         icon={PlugZap}
@@ -93,6 +107,7 @@ export function KpiRow({
       />
 
       <StatCard
+        index={5}
         label="O‘rtacha harorat"
         value={formatTemperature(summary.avgTemperature)}
         icon={ThermometerSun}

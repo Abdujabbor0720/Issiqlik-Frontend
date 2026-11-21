@@ -1,56 +1,56 @@
 import { BRAND } from '@/shared/constants/brand';
+import { StateEmblem } from '@/shared/ui/StateEmblem';
 import { cn } from '@/shared/utils/cn';
 
 /**
- * LOGOTIP — plitka + alanga belgisi.
+ * LOGOTIP — Davlat gerbi + tizim nomi.
  *
- * ⚠️ Belgi SVG sifatida INLINE, rasm fayli emas: logotip har sahifada
- * va login ekranida bor, rasm bo'lsa u alohida so'rov bo'lib, sekin
- * tarmoqda sahifa logotipsiz ochilardi.
+ * ⚠️ Gerb logotipning ASOSI: bu davlat tizimi va foydalanuvchi ekranga
+ * qaraganda birinchi «kimning tizimi» degan savolga javob olishi kerak.
+ * Ilgari logotip alanga belgisi edi — u har qanday tijorat panelida
+ * bo'lishi mumkin edi.
  *
- * ⚠️ Alanga rangi ILIQ (`#ffb454`), brend esa SOVUQ ko'k: domen
- * «issiqlik» bo'lgani uchun iliq urg'u kerak, lekin u HOLAT ranglari
- * (yashil/sariq/qizil) bilan chalkashmasligi uchun faqat logotipda
- * qoladi.
+ * ⚠️ Matn IKKI qatorda: to'liq nom yon panelga sig'maydi va `truncate`
+ * bilan kesilardi. `short` + `scope` birga to'liq nomni o'qiydi.
+ *
+ * `tone="light"` — to'q fonda (yon panel, login chap paneli).
  */
 export function Logo({
   size = 'md',
   withText = true,
+  tone = 'auto',
   className,
 }: {
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
   withText?: boolean;
+  tone?: 'auto' | 'light';
   className?: string;
 }) {
-  const tile = size === 'sm' ? 'size-7 rounded-md' : 'size-8 rounded-tile';
+  const emblem = size === 'sm' ? 30 : size === 'lg' ? 46 : 36;
 
   return (
-    <div className={cn('flex items-center gap-2', className)}>
-      <span
-        className={cn(
-          'grid shrink-0 place-items-center bg-brand-600 shadow-[var(--shadow-brand)]',
-          tile,
-        )}
-      >
-        <svg
-          viewBox="0 0 24 24"
-          className={size === 'sm' ? 'size-4' : 'size-[18px]'}
-          aria-hidden
-        >
-          <path
-            d="M12 3c.5 2.6-.9 3.7-2.1 4.9C8.6 9.1 7.4 10.3 7.4 12.6A4.6 4.6 0 0 0 12 17.2a4.6 4.6 0 0 0 4.6-4.6c0-1.8-.7-2.9-1.5-4-.2.8-.7 1.4-1.4 1.7.3-2.7-.8-4.8-3.3-6.4"
-            fill="#ffb454"
-            transform="translate(1 1) scale(0.92)"
-          />
-        </svg>
-      </span>
+    <div className={cn('flex items-center gap-3', className)}>
+      <StateEmblem size={emblem} glow={tone === 'light'} />
 
       {withText ? (
-        <span className="flex flex-col leading-none">
-          <span className="text-lede font-semibold tracking-tight text-strong">
+        <span className="flex min-w-0 flex-col">
+          <span
+            className={cn(
+              'truncate font-display font-[780] tracking-[-0.018em] [font-stretch:112%]',
+              size === 'lg'
+                ? 'text-[19px] leading-6'
+                : 'text-[15px] leading-[19px]',
+              tone === 'light' ? 'text-white' : 'text-strong',
+            )}
+          >
             {BRAND.short}
           </span>
-          <span className="mt-0.5 text-nano font-medium tracking-wide text-faint uppercase">
+          <span
+            className={cn(
+              'mt-0.5 truncate font-mono text-[9.5px] leading-[13px] font-semibold tracking-[0.18em] uppercase',
+              tone === 'light' ? 'text-white/45' : 'text-faint',
+            )}
+          >
             {BRAND.scope}
           </span>
         </span>

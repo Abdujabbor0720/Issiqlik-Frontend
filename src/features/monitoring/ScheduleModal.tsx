@@ -18,6 +18,7 @@ import {
   Field,
   Input,
   Modal,
+  Segmented,
   Select,
   Switch,
   Textarea,
@@ -200,7 +201,8 @@ export function ScheduleModal({
     >
       <div className="flex flex-col gap-3">
         {creating ? (
-          <div className="grid grid-cols-1 gap-3 rounded-lg bg-[var(--surface-sunken)] p-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 rounded-lg bg-[var(--surface-muted)] p-3.5 ring-1 ring-[var(--border-subtle)] ring-inset sm:grid-cols-2">
+            <p className="label-eyebrow sm:col-span-2">Jadval nishoni</p>
             <Field label="Daraja">
               {(id) => (
                 <Select
@@ -294,27 +296,17 @@ export function ScheduleModal({
           </div>
         ) : null}
 
-        <div className="flex rounded-full bg-[var(--surface-sunken)] p-0.5 self-start">
-          {(
-            [
-              ['schedule', 'Jadval asosida'],
-              ['always', '24/7 (uzluksiz)'],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => set('mode', value)}
-              className={
-                form.mode === value
-                  ? 'rounded-full bg-[var(--surface)] px-3.5 py-1.5 text-meta font-semibold text-strong shadow-[var(--shadow-hair)]'
-                  : 'rounded-full px-3.5 py-1.5 text-meta font-medium text-muted'
-              }
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          size="md"
+          ariaLabel="Monitoring rejimi"
+          className="self-start"
+          value={form.mode}
+          onChange={(value) => set('mode', value)}
+          options={[
+            { value: 'schedule', label: 'Jadval asosida' },
+            { value: 'always', label: '24/7 (uzluksiz)' },
+          ]}
+        />
 
         {form.mode === 'schedule' ? (
           <>
@@ -328,12 +320,13 @@ export function ScheduleModal({
                         key={day.value}
                         type="button"
                         title={day.label}
+                        aria-pressed={on}
                         onClick={() => toggleDay(day.value)}
                         className={cn(
-                          'h-9 w-11 rounded-lg text-meta font-semibold transition-colors',
+                          'h-9 w-11 rounded-lg font-mono text-[12px] font-semibold tracking-[0.04em] transition-[background-color,color,box-shadow,transform] duration-200 ease-out-quint active:scale-95',
                           on
-                            ? 'bg-brand-600 text-white'
-                            : 'bg-[var(--surface-sunken)] text-muted hover:text-strong',
+                            ? 'bg-linear-to-b from-brand-500 to-brand-600 text-white shadow-[var(--shadow-brand),inset_0_1px_0_rgb(255_255_255/0.22)]'
+                            : 'bg-[var(--surface-sunken)] text-muted ring-1 ring-[var(--border-subtle)] ring-inset hover:text-strong hover:ring-[var(--border-strong)]',
                         )}
                       >
                         {day.short}
@@ -396,9 +389,9 @@ export function ScheduleModal({
                 )}
               </Field>
             </div>
-            <p className="text-micro text-faint">
+            <p className="rounded-md bg-[var(--surface-sunken)] px-2.5 py-1.5 text-micro text-muted">
               Boshlanish = tugash — kun bo‘yi; boshlanish &gt; tugash — tun
-              orqali (masalan 22:00–06:00).
+              orqali (masalan <span className="font-mono">22:00–06:00</span>).
             </p>
 
             <label className="inline-flex cursor-pointer items-center gap-2 text-meta text-ink">
@@ -441,7 +434,10 @@ export function ScheduleModal({
         </Field>
 
         {error ? (
-          <p className="rounded-lg bg-danger-50 px-3 py-2 text-meta font-medium text-danger-700 dark:bg-danger-500/10 dark:text-danger-300">
+          <p
+            role="alert"
+            className="shake rounded-lg bg-danger-50 px-3 py-2 text-meta font-medium text-danger-700 ring-1 ring-danger-200 ring-inset dark:bg-danger-500/14 dark:text-danger-300 dark:ring-danger-400/30"
+          >
             {error}
           </p>
         ) : null}

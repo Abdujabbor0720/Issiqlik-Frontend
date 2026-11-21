@@ -39,24 +39,36 @@ export function ObjectTypeFilter({
     <div className={cn('flex items-center gap-1', className)}>
       <Listbox value={value} onChange={onChange} multiple>
         <div className="relative">
+          {/* ⚠️ Tugma `Button secondary` bilan bir xil «material» (yuza +
+              soya), yonidagi «Yangilash» bilan bitta qatorda turadi.
+              Filtr yoqilganda BREND tusida va tanlovlar soni monoshriftda:
+              «hozir hamma narsa ko'rinyaptimi» degan savolga javob tugmaning
+              o'zida. */}
           <ListboxButton
             aria-label="Obyekt turi bo‘yicha"
             className={cn(
-              'inline-flex h-8 max-w-[260px] items-center gap-1.5 rounded-full px-3 text-meta font-medium transition-colors',
+              'group inline-flex h-8 max-w-[260px] items-center gap-1.5 rounded-md px-3 text-meta font-semibold transition-[background-color,box-shadow,color] duration-200 ease-out-quint',
               value.length > 0
-                ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-200 dark:bg-brand-500/12 dark:text-brand-300 dark:ring-brand-500/25'
-                : 'text-muted ring-1 ring-[var(--border-strong)] hover:text-strong',
+                ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-200 ring-inset dark:bg-brand-400/12 dark:text-brand-200 dark:ring-brand-400/25'
+                : 'bg-[var(--surface)] text-ink shadow-[var(--shadow-card)] hover:bg-[var(--surface-muted)] hover:text-strong hover:shadow-[var(--shadow-raise)] dark:bg-white/[0.04] dark:hover:bg-white/[0.07]',
             )}
           >
-            <Shapes className="size-3.5 shrink-0" />
+            <Shapes className="size-3.5 shrink-0 opacity-80" />
             <span className="truncate">{label}</span>
-            <ChevronDown className="size-3.5 shrink-0 opacity-60" />
+            {value.length > 0 ? (
+              <span className="rounded-[4px] bg-brand-500/12 px-1 font-mono text-[10px] leading-4 tabular-nums">
+                {value.length}
+              </span>
+            ) : null}
+            <ChevronDown className="size-3.5 shrink-0 opacity-60 transition-transform duration-300 ease-out-expo group-data-open:rotate-180" />
           </ListboxButton>
 
           <ListboxOptions
             anchor="bottom end"
-            className="z-40 max-h-72 w-64 overflow-y-auto rounded-card [--anchor-gap:0.5rem] bg-[var(--surface)] p-1.5 shadow-[var(--shadow-pop)] focus:outline-none"
+            transition
+            className="z-40 max-h-72 w-64 origin-top-right overflow-y-auto rounded-xl [--anchor-gap:0.5rem] bg-[var(--surface)] p-1.5 shadow-[var(--shadow-pop)] transition duration-200 ease-out-expo focus:outline-none data-closed:scale-[0.97] data-closed:opacity-0"
           >
+            <p className="label-eyebrow px-2.5 pt-1 pb-1.5">Obyekt turi</p>
             {types.length === 0 ? (
               <p className="px-2.5 py-4 text-center text-meta text-muted">
                 Obyekt turlari yo‘q
@@ -67,16 +79,30 @@ export function ObjectTypeFilter({
                 {({ selected, focus }) => (
                   <div
                     className={cn(
-                      'flex cursor-pointer items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-meta transition-colors',
+                      'flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-meta transition-colors duration-150',
                       selected
-                        ? 'bg-brand-50 font-medium text-brand-700 dark:bg-brand-500/12 dark:text-brand-300'
+                        ? 'bg-brand-50 font-semibold text-brand-700 dark:bg-brand-400/12 dark:text-brand-200'
                         : focus
                           ? 'bg-[var(--surface-sunken)] text-strong'
                           : 'text-ink',
                     )}
                   >
+                    {/* Belgilash katagi — ko'p tanlovli ro'yxat ekanini
+                        birinchi qarashda aytadi. */}
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'grid size-4 shrink-0 place-items-center rounded-[4px] ring-1 ring-inset transition-colors duration-150',
+                        selected
+                          ? 'bg-brand-600 text-white ring-brand-600 dark:bg-brand-500 dark:ring-brand-500'
+                          : 'bg-[var(--surface)] ring-[var(--border-strong)]',
+                      )}
+                    >
+                      {selected ? (
+                        <Check className="size-3" strokeWidth={3} />
+                      ) : null}
+                    </span>
                     <span className="truncate">{type.name}</span>
-                    {selected ? <Check className="size-3.5 shrink-0" /> : null}
                   </div>
                 )}
               </ListboxOption>
@@ -91,7 +117,7 @@ export function ObjectTypeFilter({
           onClick={() => onChange([])}
           aria-label="Obyekt turi filtrini tozalash"
           title="Tozalash"
-          className="grid size-7 place-items-center rounded-full text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-strong"
+          className="grid size-8 place-items-center rounded-md text-muted transition-[background-color,color,rotate] duration-300 ease-out-expo hover:rotate-90 hover:bg-[var(--surface-sunken)] hover:text-strong"
         >
           <X className="size-3.5" />
         </button>

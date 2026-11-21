@@ -10,7 +10,7 @@ import {
   Thermometer,
   User,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   Area,
@@ -24,14 +24,21 @@ import {
 import { errorMessage, get } from '@/shared/api/client';
 import { API, qk } from '@/shared/api/endpoints';
 import type { Boiler, SeriesPoint } from '@/shared/api/types';
-import { BOILER_STATUS, FUEL_LABELS } from '@/shared/constants/status';
 import {
+  BOILER_STATUS,
+  FUEL_LABELS,
+  temperatureHex,
+} from '@/shared/constants/status';
+import {
+  AnimatedNumber,
+  Badge,
   Card,
   CardBody,
   CardHeader,
   ErrorState,
+  PageHeader,
+  Segmented,
   Skeleton,
-  StatusBadge,
 } from '@/shared/ui';
 import { cn } from '@/shared/utils/cn';
 import {
@@ -40,7 +47,6 @@ import {
   formatRelativeUz,
 } from '@/shared/utils/date';
 import { formatNumber, formatTemperature, orDash } from '@/shared/utils/format';
-import { useUiStore } from '@/store/ui.store';
 import { RoomsPanel } from '@/features/rooms/RoomsPanel';
 import { boilerName } from '@/shared/utils/boiler';
 
@@ -55,6 +61,28 @@ const RANGE_CONFIG: Record<
   '30d': { label: '30 kun', bucket: 'day', hours: 24 * 30 },
 };
 
+const RANGE_OPTIONS = (Object.keys(RANGE_CONFIG) as Range[]).map((key) => ({
+  value: key,
+  label: RANGE_CONFIG[key].label,
+}));
+
+/*
+ * ⚠️ Grafik ranglari — suv YO'NALISHI (kirish ko'k, chiqish issiq), holat
+ * rangi EMAS: «Muassasalar» shkalalari bilan AYNI juftlik (`--gauge-*`,
+ * dataviz validatori bilan tekshirilgan). Chiziq holat rangida bo'lsa,
+ * holat o'zgarganda butun tarix boshqa rangga bo'yalib qolardi, sariq
+ * chiziq esa «o'rta ishlayapti» deb o'qilardi. Holat — yuqoridagi panelda.
+ */
+const OUTLET = 'var(--gauge-outlet)';
+const INLET = 'var(--gauge-inlet)';
+
+/** O'q yorliqlari — texnik (mono), chiziqsiz. */
+const AXIS_TICK = {
+  fontSize: 10.5,
+  fill: 'var(--ink-faint)',
+  fontFamily: 'JetBrains Mono Variable, monospace',
+} as const;
+
 /**
  * KOTYOL KARTASI.
  *
@@ -65,7 +93,6 @@ const RANGE_CONFIG: Record<
 export function BoilerDetailPage() {
   const { id = '' } = useParams();
   const [range, setRange] = useState<Range>('24h');
-  const dark = useUiStore((state) => state.theme === 'dark');
 
   const boilerQuery = useQuery({
     queryKey: qk.boiler(id),
@@ -93,9 +120,15 @@ export function BoilerDetailPage() {
   if (boilerQuery.isLoading) {
     return (
       <div className="flex flex-col gap-3">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-40 rounded-card" />
-        <Skeleton className="h-72 rounded-card" />
+        <div className="flex items-start gap-3 px-1 pt-1">
+          <Skeleton className="mt-5 size-9" />
+          <div className="flex flex-col gap-2.5">
+            <Skeleton className="h-3 w-36" />
+            <Skeleton className="h-8 w-72 max-w-[70vw]" />
+          </div>
+        </div>
+        <Skeleton className="h-[300px] rounded-card" />
+        <Skeleton className="h-80 rounded-card" />
       </div>
     );
   }
@@ -113,6 +146,9 @@ export function BoilerDetailPage() {
 
   const boiler = boilerQuery.data;
   const meta = BOILER_STATUS[boiler.currentStatus];
+  const live = boiler.currentStatus !== 'offline';
+  const current = splitTemperature(boiler.lastTemperature);
+  const today = splitTemperature(boiler.todayAvgTemperature);
   /*
    * ⚠️ QOZONXONA moduli — kotyol harorati faqat undan keladi. Bitta binoda
    * xona modullari ham bo'lishi mumkin (ular xona haroratini beradi va
@@ -130,57 +166,143 @@ export function BoilerDetailPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Link
-        to="/boilers"
-        className="inline-flex w-fit items-center gap-1.5 px-1 text-meta font-medium text-muted transition-colors hover:text-strong"
-      >
-        <ArrowLeft className="size-3.5" />
-        Kotyollar ro‘yxatiga
-      </Link>
+      <PageHeader
+        leading={
+          <Link
+            to="/boilers"
+            aria-label="Kotyollar ro‘yxatiga"
+            title="Kotyollar ro‘yxatiga"
+            className="group grid size-9 place-items-center rounded-lg bg-[var(--surface)] text-muted shadow-[var(--shadow-card)] transition-[box-shadow,color,transform] duration-200 ease-out-quint hover:text-strong hover:shadow-[var(--shadow-raise)] active:scale-95 dark:bg-white/[0.04]"
+          >
+            <ArrowLeft className="size-4 transition-transform duration-300 ease-out-expo group-hover:-translate-x-0.5" />
+          </Link>
+        }
+        eyebrow={`Kotyol kartasi${
+          boiler.district ? ` · ${boiler.district.shortName}` : ''
+        }`}
+        title={boilerName(boiler.organization?.name, boiler.lotNumber)}
+        subtitle={
+          <>
+            {boiler.district?.name}
+            {boiler.lotNumber ? ` · Lot ${boiler.lotNumber}` : ''}
+            {boiler.address ? ` · ${boiler.address}` : ''}
+          </>
+        }
+        actions={
+          boiler.isArchived ? (
+            <Badge className="bg-[var(--surface-sunken)] text-faint ring-1 ring-[var(--border-subtle)] ring-inset">
+              Arxivlangan
+            </Badge>
+          ) : null
+        }
+      />
 
-      {/* ───── Joriy holat ───── */}
-      <Card>
-        <div className="flex flex-wrap items-start justify-between gap-4 p-5">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-sub font-semibold tracking-tight text-strong">
-                {boilerName(boiler.organization?.name, boiler.lotNumber)}
-              </h1>
-              <StatusBadge status={boiler.currentStatus} />
-              {boiler.isArchived ? (
-                <span className="rounded-full bg-[var(--surface-sunken)] px-2 py-0.5 text-micro text-faint">
-                  Arxivlangan
+      {/* ───── Joriy holat ─────
+          ⚠️ Harorat — eng katta raqam: sahifaning butun mohiyati shu.
+          Qolgan hamma narsa uni tushuntiradi. Raqamning o'zi NEYTRAL
+          rangda (sariq yoki kulrang katta raqam oq fonda o'qilmaydi) —
+          holat rangi chiroq, chekka chiziq, nur va shkalada. */}
+      <Card className="isolate overflow-hidden">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-[3px]"
+          style={{
+            background: meta.hex,
+            boxShadow: `0 0 18px ${meta.hex}`,
+          }}
+        />
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -top-32 -left-28 -z-10 size-96 rounded-full opacity-[0.11] blur-3xl dark:opacity-[0.2]"
+          style={{ background: meta.hex }}
+        />
+        <span
+          aria-hidden
+          className="grid-bg pointer-events-none absolute inset-0 -z-10 [mask-image:radial-gradient(110%_100%_at_0%_0%,#000,transparent_62%)]"
+        />
+
+        <div className="flex flex-col gap-7 p-5 sm:p-6 lg:flex-row lg:gap-0">
+          {/* Raqamlar */}
+          <div className="min-w-0 flex-1 lg:pr-8">
+            <p className="label-eyebrow flex items-center gap-2">
+              <span
+                aria-hidden
+                className="h-2.5 w-1 rounded-full"
+                style={{ backgroundColor: OUTLET }}
+              />
+              Chiqish harorati · joriy
+            </p>
+            <div className="mt-3 flex items-start gap-1.5">
+              {/* ⚠️ O'lchov yo'q bo'lsa «—» XIRA: 96 px displey shriftida u
+                  qora to'rtburchak bo'lib, «qiymat» deb o'qilardi. */}
+              <AnimatedNumber
+                value={current.figure}
+                className={cn(
+                  'figure-display text-[68px] leading-[0.84] sm:text-[96px]',
+                  !current.unit && '!text-[var(--border-strong)]',
+                )}
+              />
+              {current.unit ? (
+                <span className="mt-1 font-mono text-[15px] font-semibold text-muted sm:mt-2.5 sm:text-[18px]">
+                  {current.unit}
                 </span>
               ) : null}
             </div>
-            <p className="mt-1 text-meta text-muted">
-              {boiler.district?.name}
-              {boiler.lotNumber ? ` · Lot ${boiler.lotNumber}` : ''}
-              {boiler.address ? ` · ${boiler.address}` : ''}
-            </p>
+
+            <dl className="mt-6 grid max-w-md grid-cols-2 gap-4 border-t border-dashed border-[var(--border-subtle)] pt-4">
+              <div className="min-w-0">
+                <dt className="label-eyebrow">Bugungi o‘rtacha</dt>
+                <dd className="mt-1.5 flex items-baseline gap-1">
+                  <AnimatedNumber
+                    value={today.figure}
+                    className="figure-display text-[26px]"
+                  />
+                  {today.unit ? (
+                    <span className="font-mono text-micro font-semibold text-muted">
+                      {today.unit}
+                    </span>
+                  ) : null}
+                </dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="label-eyebrow">Oxirgi signal</dt>
+                <dd
+                  className="mt-2 truncate text-lede font-semibold text-strong"
+                  title={
+                    boiler.lastReadingAt
+                      ? formatDateTimeUz(boiler.lastReadingAt)
+                      : undefined
+                  }
+                >
+                  {boiler.lastReadingAt
+                    ? formatRelativeUz(boiler.lastReadingAt)
+                    : 'Hali signal kelmagan'}
+                </dd>
+              </div>
+            </dl>
           </div>
 
-          {/* ⚠️ Harorat — eng katta raqam: sahifaning butun mohiyati
-              shu. Qolgan hamma narsa uni tushuntiradi. */}
-          <div className="text-right">
-            <div
-              className="text-mega font-semibold tracking-tight"
-              style={{ color: meta.hex }}
-              data-numeric
-            >
-              {formatTemperature(boiler.lastTemperature)}
+          {/* Holat */}
+          <div className="border-t border-[var(--border-subtle)] pt-5 lg:w-[380px] lg:shrink-0 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8">
+            <p className="label-eyebrow">Holat</p>
+            <div className="mt-3 flex items-center gap-3">
+              <StatusLamp hex={meta.hex} live={live} />
+              <span className="font-display text-[22px] leading-tight font-[760] tracking-[-0.02em] text-strong [font-stretch:110%]">
+                {meta.label}
+              </span>
             </div>
-            <p className="text-meta text-muted">
-              {boiler.lastReadingAt
-                ? `Oxirgi signal: ${formatRelativeUz(boiler.lastReadingAt)}`
-                : 'Hali signal kelmagan'}
-            </p>
+            <p className="mt-1 text-meta text-muted">{meta.description}</p>
+            <HeatScale
+              value={boiler.lastTemperature}
+              live={live}
+              className="mt-5"
+            />
           </div>
         </div>
 
         <div className="h-px bg-line" />
 
-        <div className="grid grid-cols-2 gap-px bg-[var(--border-subtle)] sm:grid-cols-4">
+        <div className="grid grid-cols-1 divide-y divide-[var(--border-subtle)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
           <Metric
             icon={Flame}
             label="Kotyol soni"
@@ -194,15 +316,11 @@ export function BoilerDetailPage() {
             }
           />
           <Metric
-            icon={Thermometer}
-            label="Bugungi o‘rtacha"
-            value={formatTemperature(boiler.todayAvgTemperature)}
-          />
-          <Metric
             icon={Cpu}
             label="ESP32 moduli"
             value={device ? device.deviceId : 'ulanmagan'}
             tone={device ? 'default' : 'muted'}
+            mono={Boolean(device)}
           />
         </div>
       </Card>
@@ -215,61 +333,54 @@ export function BoilerDetailPage() {
           title="Harorat: chiqish va kirish"
           subtitle="To‘q chiziq — chiqish (podacha), punktir — kirish (obratka). Ayirma kichik bo‘lsa, suv aylanmayapti."
           actions={
-            <div className="flex rounded-full bg-[var(--surface-sunken)] p-0.5">
-              {(Object.keys(RANGE_CONFIG) as Range[]).map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setRange(key)}
-                  className={
-                    range === key
-                      ? 'rounded-full bg-[var(--surface)] px-2.5 py-1 text-micro font-semibold text-strong shadow-[var(--shadow-hair)]'
-                      : 'rounded-full px-2.5 py-1 text-micro font-medium text-muted transition-colors hover:text-strong'
-                  }
-                >
-                  {RANGE_CONFIG[key].label}
-                </button>
-              ))}
-            </div>
+            <Segmented
+              size="xs"
+              ariaLabel="Davr"
+              value={range}
+              onChange={setRange}
+              options={RANGE_OPTIONS}
+            />
           }
         />
         <CardBody>
+          <div className="mb-2 flex items-center gap-4 font-mono text-[10.5px] font-semibold tracking-[0.08em] text-muted uppercase">
+            <LegendSwatch color={OUTLET} label="Chiqish" />
+            <LegendSwatch color={INLET} label="Kirish" dashed />
+          </div>
           {seriesQuery.isLoading ? (
             <Skeleton className="h-[280px]" />
           ) : chartData.length === 0 ? (
-            <div className="grid h-[280px] place-items-center text-meta text-muted">
+            <div className="grid-bg grid h-[280px] place-items-center rounded-tile text-meta text-muted">
               Bu davr uchun o‘lchov yo‘q
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={280}>
               <AreaChart
                 data={chartData}
-                margin={{ top: 8, right: 8, bottom: 0, left: -18 }}
+                margin={{ top: 10, right: 8, bottom: 0, left: -14 }}
               >
                 <defs>
                   <linearGradient id="boilerTemp" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={meta.hex} stopOpacity={0.26} />
-                    <stop
-                      offset="100%"
-                      stopColor={meta.hex}
-                      stopOpacity={0.02}
-                    />
+                    <stop offset="0%" stopColor={OUTLET} stopOpacity={0.32} />
+                    <stop offset="100%" stopColor={OUTLET} stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid
-                  stroke={dark ? 'rgba(255,255,255,.07)' : 'rgba(20,45,80,.08)'}
+                  stroke="var(--border-subtle)"
+                  strokeDasharray="3 4"
                   vertical={false}
                 />
                 <XAxis
                   dataKey="label"
-                  tick={{ fontSize: 11, fill: dark ? '#8da0b5' : '#97a5b7' }}
+                  tick={AXIS_TICK}
                   tickLine={false}
                   axisLine={false}
+                  tickMargin={8}
                   interval="preserveStartEnd"
                   minTickGap={28}
                 />
                 <YAxis
-                  tick={{ fontSize: 11, fill: dark ? '#8da0b5' : '#97a5b7' }}
+                  tick={AXIS_TICK}
                   tickLine={false}
                   axisLine={false}
                   width={46}
@@ -287,20 +398,22 @@ export function BoilerDetailPage() {
                   tickFormatter={(value: number) => `${value}°`}
                 />
                 <Tooltip
+                  cursor={{
+                    stroke: 'var(--border-strong)',
+                    strokeDasharray: '3 3',
+                  }}
                   content={({ active, payload }) => {
                     if (!active || !payload?.length) return null;
                     const point = payload[0].payload as SeriesPoint & {
                       label: string;
                     };
                     return (
-                      <div className="rounded-lg bg-neutral-900 px-3 py-2 text-micro text-white shadow-[var(--shadow-pop)]">
-                        <p className="font-semibold">
-                          {formatDateTimeUz(point.t)}
-                        </p>
-                        <p className="mt-1">
-                          O‘rtacha:{' '}
-                          <strong>{formatTemperature(point.avg)}</strong>
-                        </p>
+                      <ChartTip time={formatDateTimeUz(point.t)}>
+                        <TipRow
+                          color={OUTLET}
+                          label="Chiqish"
+                          value={formatTemperature(point.avg)}
+                        />
                         {/*
                           WARN: AYIRMA ko'rsatiladi, chunki aynan u
                           "issiqlik binoga boryaptimi" degan savolga
@@ -308,27 +421,30 @@ export function BoilerDetailPage() {
                           ayirib yurishi kerak bo'lmasligi kerak.
                         */}
                         {point.inletAvg !== null ? (
-                          <p className="mt-0.5">
-                            Kirish:{' '}
-                            <strong>{formatTemperature(point.inletAvg)}</strong>
+                          <>
+                            <TipRow
+                              color={INLET}
+                              dashed
+                              label="Kirish"
+                              value={formatTemperature(point.inletAvg)}
+                            />
                             {point.avg !== null ? (
-                              <span className="text-white/65">
-                                {' '}
-                                · ayirma{' '}
-                                {formatTemperature(
+                              <TipRow
+                                label="Ayirma"
+                                value={formatTemperature(
                                   Math.round(
                                     (point.avg - point.inletAvg) * 100,
                                   ) / 100,
                                 )}
-                              </span>
+                              />
                             ) : null}
-                          </p>
+                          </>
                         ) : null}
-                        <p className="text-white/65">
+                        <p className="mt-2 border-t border-[var(--border-subtle)] pt-1.5 font-mono text-[10.5px] text-faint tabular-nums">
                           {formatTemperature(point.min)} —{' '}
                           {formatTemperature(point.max)} · {point.count} o‘lchov
                         </p>
-                      </div>
+                      </ChartTip>
                     );
                   }}
                 />
@@ -345,26 +461,34 @@ export function BoilerDetailPage() {
                   bilinmasdi. Punktir chiziq esa ranglardan
                   QAT'I NAZAR ajralib turadi - shu jumladan
                   rang ko'rmaydigan foydalanuvchi uchun ham.
+
+                  ⚠️ Chizilish animatsiyasi (900 ms) — Recharts'ning
+                  `auto` rejimi: «harakatni kamaytirish» yoqilgan
+                  bo'lsa, o'zi o'chadi.
                 */}
                 <Area
                   type="monotone"
                   dataKey="inletAvg"
                   name="Kirish"
-                  stroke={dark ? '#7c93ab' : '#94a3b8'}
-                  strokeWidth={1.4}
+                  stroke={INLET}
+                  strokeWidth={1.6}
                   strokeDasharray="4 3"
                   fill="none"
-                  isAnimationActive={false}
+                  activeDot={haloDot(INLET)}
+                  animationDuration={900}
+                  animationEasing="ease-out"
                   connectNulls={false}
                 />
                 <Area
                   type="monotone"
                   dataKey="avg"
                   name="Chiqish"
-                  stroke={meta.hex}
-                  strokeWidth={2.2}
+                  stroke={OUTLET}
+                  strokeWidth={2.25}
                   fill="url(#boilerTemp)"
-                  isAnimationActive={false}
+                  activeDot={haloDot(OUTLET)}
+                  animationDuration={900}
+                  animationEasing="ease-out"
                   /* ⚠️ `connectNulls` O'CHIQ: ma'lumot kelmagan oraliq
                      UZILISH bo'lib ko'rinishi kerak. Ulansa, signal
                      bo'lmagan 6 soat «tekis chiziq» bo'lib, hammasi
@@ -392,7 +516,7 @@ export function BoilerDetailPage() {
           />
           <CardBody className="flex flex-col gap-0">
             <Row label="Tuman / shahar" value={boiler.district?.name} />
-            <Row label="Lot raqami" value={boiler.lotNumber ?? '—'} />
+            <Row label="Lot raqami" value={boiler.lotNumber ?? '—'} mono />
             <Row label="DXSH firma nomi" value={boiler.firm?.name} />
             <Row label="Tashkilot nomi" value={boiler.organization?.name} />
             <Row label="Kotyol markasi" value={boiler.brand?.name} />
@@ -433,6 +557,7 @@ export function BoilerDetailPage() {
             <Row label="Manzil" value={boiler.address} />
             <Row
               label="Koordinata"
+              mono
               value={
                 boiler.lat !== null && boiler.lng !== null
                   ? `${boiler.lat}, ${boiler.lng}`
@@ -472,27 +597,225 @@ export function BoilerDetailPage() {
   );
 }
 
+/**
+ * «54,5 °C» → «54,5» + «°C».
+ *
+ * ⚠️ Raqam formati `formatTemperature` niki (vergul, bitta kasr) — bu yerda
+ * faqat BIRLIK ajratiladi: katta raqam yonida «°C» kichik yoziladi. Raqamni
+ * qaytadan formatlash ikkinchi qoidaga aylanib, sahifalar orasida «54.5» va
+ * «54,5» aralashib ketardi.
+ */
+function splitTemperature(value: number | null): {
+  figure: string;
+  unit: string | null;
+} {
+  const text = formatTemperature(value);
+  const match = /^(.*?)\s*(°C)$/u.exec(text);
+  return match
+    ? { figure: match[1], unit: match[2] }
+    : { figure: text, unit: null };
+}
+
+/** Holat chirog'i — jonli bo'lsa sekin to'lqin tarqatadi. */
+function StatusLamp({ hex, live }: { hex: string; live: boolean }) {
+  return (
+    <span className="relative flex size-3.5 shrink-0" aria-hidden>
+      {live ? (
+        <span
+          className="live-ping absolute inset-0 rounded-full"
+          style={{ backgroundColor: hex }}
+        />
+      ) : null}
+      <span
+        className="relative size-3.5 rounded-full"
+        style={{
+          backgroundColor: hex,
+          boxShadow: `0 0 0 3px ${hex}2e, 0 0 16px ${hex}`,
+        }}
+      />
+    </span>
+  );
+}
+
+/** 0–100 °C, har bo'lak 2 °C. */
+const SCALE_SEGMENTS = 50;
+const SCALE_STEP = 100 / SCALE_SEGMENTS;
+
+/**
+ * HARORAT LENTASI — 50 bo'lakli indikator (nazorat pulti uslubida).
+ *
+ * ⚠️ Bo'lak rangi `temperatureHex()` dan: holat chegaralari BITTA joyda
+ * (`status.ts`). Chegara o'zgarsa, lenta o'zi moslashadi — bu yerda
+ * «50 °C dan yashil» degan ikkinchi nusxa yo'q. Yoqilmagan bo'laklar ham
+ * o'z rangida, faqat xira: operator «yashil zona qayerdan boshlanadi» ni
+ * raqamsiz ko'radi.
+ *
+ * ⚠️ Faqat `opacity`: jonli kotyolda yoqilgan bo'laklar chapdan o'ngga
+ * ketma-ket «yonadi» (`gauge-flash`; harakat kamaytirilsa — o'chadi).
+ * Aloqa yo'q bo'lsa — oxirgi qiymat xira va harakatsiz (eskirgan raqam
+ * jonli bilan bir xil ko'rinmasin).
+ */
+function HeatScale({
+  value,
+  live,
+  className,
+}: {
+  value: number | null;
+  live: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={className} aria-hidden>
+      <div className="flex h-7 gap-[2px]">
+        {Array.from({ length: SCALE_SEGMENTS }, (_, index) => {
+          const from = index * SCALE_STEP;
+          const lit = value !== null && from < value;
+          return (
+            <span
+              key={index}
+              className={cn(
+                'h-full flex-1 rounded-[2px] transition-opacity duration-500',
+                lit && live && 'gauge-flash',
+              )}
+              style={{
+                backgroundColor: temperatureHex(from + SCALE_STEP / 2),
+                opacity: lit ? (live ? 1 : 0.42) : 0.13,
+                ...(lit && live
+                  ? {
+                      animationDelay: `${index * 16}ms`,
+                      animationFillMode: 'both',
+                    }
+                  : null),
+              }}
+            />
+          );
+        })}
+      </div>
+      <div className="relative mt-1.5 h-3.5 font-mono text-[10px] leading-3.5 text-faint">
+        <span className="absolute left-0">0°</span>
+        <span className="absolute left-1/2 -translate-x-1/2">50°</span>
+        <span className="absolute right-0">100°</span>
+      </div>
+    </div>
+  );
+}
+
+/** Grafikdagi faol nuqta — halqa (nur) + markaz. */
+function haloDot(color: string) {
+  return function HaloDot({ cx, cy }: { cx?: number; cy?: number }) {
+    if (cx === undefined || cy === undefined) return null;
+    return (
+      <g>
+        <circle cx={cx} cy={cy} r={9} fill={color} opacity={0.18} />
+        <circle
+          cx={cx}
+          cy={cy}
+          r={4.2}
+          fill="var(--surface)"
+          stroke={color}
+          strokeWidth={2.25}
+        />
+      </g>
+    );
+  };
+}
+
+function LegendSwatch({
+  color,
+  label,
+  dashed,
+}: {
+  color: string;
+  label: string;
+  dashed?: boolean;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <svg width="18" height="6" aria-hidden>
+        <line
+          x1="1"
+          y1="3"
+          x2="17"
+          y2="3"
+          stroke={color}
+          strokeWidth={dashed ? 1.6 : 2.4}
+          strokeDasharray={dashed ? '4 3' : undefined}
+          strokeLinecap="round"
+        />
+      </svg>
+      {label}
+    </span>
+  );
+}
+
+/** Grafik maslahat oynasi — karta uslubida (qora «qutiga» emas). */
+function ChartTip({ time, children }: { time: string; children: ReactNode }) {
+  return (
+    <div className="min-w-[188px] rounded-[10px] bg-[var(--surface)] px-3 py-2.5 text-micro shadow-[var(--shadow-pop)]">
+      <p className="font-mono text-[10.5px] font-semibold text-muted">{time}</p>
+      <div className="mt-1.5 flex flex-col gap-1">{children}</div>
+    </div>
+  );
+}
+
+function TipRow({
+  color,
+  dashed,
+  label,
+  value,
+}: {
+  color?: string;
+  dashed?: boolean;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="flex items-center gap-1.5 text-muted">
+        {color ? (
+          <span
+            aria-hidden
+            className={cn('h-0 w-3 border-t-2', dashed && 'border-dashed')}
+            style={{ borderColor: color }}
+          />
+        ) : (
+          <span aria-hidden className="w-3 text-center text-faint">
+            Δ
+          </span>
+        )}
+        {label}
+      </span>
+      <strong className="font-mono font-semibold text-strong tabular-nums">
+        {value}
+      </strong>
+    </div>
+  );
+}
+
 function Metric({
   icon: Icon,
   label,
   value,
   tone = 'default',
+  mono,
 }: {
   icon: typeof Flame;
   label: string;
   value: string;
   tone?: 'default' | 'muted';
+  mono?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-2.5 bg-[var(--surface)] px-5 py-3.5">
-      <span className="grid size-7 shrink-0 place-items-center rounded-tile bg-[var(--surface-sunken)] text-muted">
-        <Icon className="size-3.5" />
+    <div className="flex items-center gap-3 px-5 py-3.5">
+      <span className="grid size-8 shrink-0 place-items-center rounded-tile bg-[var(--surface-sunken)] text-muted ring-1 ring-[var(--border-subtle)] ring-inset">
+        <Icon className="size-4" strokeWidth={2} />
       </span>
       <div className="min-w-0">
-        <p className="text-micro text-muted">{label}</p>
+        <p className="label-eyebrow">{label}</p>
         <p
           className={cn(
-            'truncate text-ui font-semibold',
+            'mt-0.5 truncate font-semibold',
+            mono ? 'font-mono text-ui' : 'text-lede',
             tone === 'muted' ? 'text-faint' : 'text-strong',
           )}
           data-numeric
@@ -509,11 +832,13 @@ function Row({
   value,
   hint,
   icon: Icon,
+  mono,
 }: {
   label: string;
   value: string | null | undefined;
   hint?: string;
   icon?: typeof Flame;
+  mono?: boolean;
 }) {
   return (
     <div className="flex items-start justify-between gap-4 border-b border-[var(--border-cell)] py-2.5 last:border-0">
@@ -522,7 +847,12 @@ function Row({
         {label}
       </span>
       <span className="min-w-0 text-right">
-        <span className="block truncate text-ui font-medium text-strong">
+        <span
+          className={cn(
+            'block truncate font-medium text-strong',
+            mono ? 'font-mono text-meta' : 'text-ui',
+          )}
+        >
           {orDash(value)}
         </span>
         {hint ? (

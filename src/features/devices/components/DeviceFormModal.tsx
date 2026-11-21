@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import toast from 'react-hot-toast';
 import { errorMessage, get, getPaged, patch, post } from '@/shared/api/client';
 import { API } from '@/shared/api/endpoints';
@@ -238,223 +239,261 @@ export function DeviceFormModal({
         </>
       }
     >
-      <div className="flex flex-col gap-4">
-        <Field
-          label="Qurilma identifikatori (DEVICE_ID)"
-          required
-          hint="Proshivkadagi qiymat bilan AYNAN bir xil bo‘lishi kerak"
-        >
-          {(id) => (
-            <Input
-              id={id}
-              value={form.deviceId}
-              onChange={(event) => set('deviceId', event.target.value)}
-              placeholder="modul1"
-              className="font-mono"
-            />
-          )}
-        </Field>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Nomi" hint="Ro‘yxatda ajratish uchun">
-            {(id) => (
-              <Input
-                id={id}
-                value={form.name}
-                onChange={(event) => set('name', event.target.value)}
-                placeholder="1-maktab qozonxonasi moduli"
-              />
-            )}
-          </Field>
-
+      <div className="flex flex-col gap-6">
+        <Section index={1} title="Qurilma">
           <Field
-            label="Qurilma turi"
+            label="Qurilma identifikatori (DEVICE_ID)"
             required
-            hint={
-              typeChanged
-                ? 'Tur OTA’ga ta’sir qiladi — faqat turini aytmaydigan eski proshivkada o‘zgartiring'
-                : 'Proshivka faqat shu turdagi modullarga tarqatiladi'
-            }
-          >
-            {(id) => (
-              <Select
-                id={id}
-                value={form.deviceType}
-                onChange={(event) =>
-                  set('deviceType', event.target.value as DeviceType)
-                }
-              >
-                {DEVICE_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {DEVICE_TYPE_META[type].label}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field
-            label="Tuman"
-            hint={
-              device?.boilerId
-                ? 'Kotyolga ulangan — amaldagi tuman kotyolniki'
-                : 'Muassasa va kotyol ro‘yxati shu tuman bo‘yicha'
-            }
-          >
-            {(id) => (
-              <Select
-                id={id}
-                value={form.districtId}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    districtId: event.target.value,
-                    // ⚠️ Muassasa tumanga tegishli — tuman o'zgarsa tozalanadi.
-                    organizationId: '',
-                  }))
-                }
-              >
-                <option value="">Tanlanmagan</option>
-                {(districts.data ?? []).map((district) => (
-                  <option key={district.id} value={district.id}>
-                    {district.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
-
-          <Field
-            label="Muassasa"
-            hint={
-              !form.districtId
-                ? 'Avval tumanni tanlang'
-                : 'Ro‘yxat «Kataloglar → Muassasalar» dan'
-            }
-          >
-            {(id) => (
-              <Select
-                id={id}
-                value={form.organizationId}
-                disabled={!form.districtId}
-                onChange={(event) => set('organizationId', event.target.value)}
-              >
-                <option value="">
-                  {organizations.isFetching ? 'Yuklanmoqda…' : 'Tanlanmagan'}
-                </option>
-                {organizationOptions.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
-        </div>
-
-        {isEdit && device ? (
-          <dl className="grid grid-cols-1 gap-2 rounded-tile bg-[var(--surface-sunken)] px-3 py-2.5 text-meta sm:grid-cols-2">
-            {/*
-              ⚠️ «QURILMA XABAR QILDI» — plata menyusida tanlangan joylashuv.
-              Biriktirishda yordam beradi, lekin hech narsani yo'naltirmaydi.
-            */}
-            <div>
-              <dt className="text-micro text-muted">Tuman (plata aytgan)</dt>
-              <dd className="font-medium text-strong">
-                {orDash(device.reported.district)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-micro text-muted">
-                Obyekt turi (plata aytgan)
-              </dt>
-              <dd className="font-medium text-strong">
-                {orDash(device.reported.objectType)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-micro text-muted">Muassasa (plata aytgan)</dt>
-              <dd className="font-medium text-strong">
-                {orDash(
-                  device.reported.institution ??
-                    device.reported.institutionHint,
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-micro text-muted">MFY (plata aytgan)</dt>
-              <dd className="font-medium text-strong">
-                {orDash(device.reported.mfy)}
-              </dd>
-            </div>
-          </dl>
-        ) : null}
-
-        <Field
-          label="Biriktirilgan kotyol"
-          hint={
-            isRoomModule
-              ? 'Xona moduli kotyol moduli bor binoga ham ulanadi — har modul alohida xona bo‘ladi'
-              : form.districtId
-                ? 'Faqat tanlangan tumandagi, kotyol modulisiz kotyollar'
-                : 'Kotyol tanlansa, joylashuv kotyoldan olinadi'
-          }
-        >
-          {(id) => (
-            <Select
-              id={id}
-              value={form.boilerId}
-              onChange={(event) => set('boilerId', event.target.value)}
-            >
-              <option value="">Biriktirilmagan</option>
-              {(boilers.data ?? []).map((boiler) => (
-                <option key={boiler.id} value={boiler.id}>
-                  {lotLabel(boiler.lotNumber)}
-                  {boiler.organization?.name
-                    ? ` — ${boiler.organization.name}`
-                    : ''}
-                </option>
-              ))}
-            </Select>
-          )}
-        </Field>
-
-        {!isEdit ? (
-          <Field
-            label="Mavjud API kalit"
-            hint="Bo‘sh qoldirilsa — tizim yangi kalit generatsiya qiladi"
+            hint="Proshivkadagi qiymat bilan AYNAN bir xil bo‘lishi kerak"
           >
             {(id) => (
               <Input
                 id={id}
-                value={form.apiKey}
-                onChange={(event) => set('apiKey', event.target.value)}
-                placeholder="91abcc3d6732ab04d017d3a30ded31b1"
+                value={form.deviceId}
+                onChange={(event) => set('deviceId', event.target.value)}
+                placeholder="modul1"
                 className="font-mono"
               />
             )}
           </Field>
-        ) : null}
 
-        <Field label="Izoh">
-          {(id) => (
-            <Textarea
-              id={id}
-              rows={2}
-              value={form.note}
-              onChange={(event) => set('note', event.target.value)}
-            />
-          )}
-        </Field>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Nomi" hint="Ro‘yxatda ajratish uchun">
+              {(id) => (
+                <Input
+                  id={id}
+                  value={form.name}
+                  onChange={(event) => set('name', event.target.value)}
+                  placeholder="1-maktab qozonxonasi moduli"
+                />
+              )}
+            </Field>
+
+            <Field
+              label="Qurilma turi"
+              required
+              hint={
+                typeChanged
+                  ? 'Tur OTA’ga ta’sir qiladi — faqat turini aytmaydigan eski proshivkada o‘zgartiring'
+                  : 'Proshivka faqat shu turdagi modullarga tarqatiladi'
+              }
+            >
+              {(id) => (
+                <Select
+                  id={id}
+                  value={form.deviceType}
+                  onChange={(event) =>
+                    set('deviceType', event.target.value as DeviceType)
+                  }
+                >
+                  {DEVICE_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {DEVICE_TYPE_META[type].label}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+          </div>
+        </Section>
+
+        <Section index={2} title="Joylashuv">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field
+              label="Tuman"
+              hint={
+                device?.boilerId
+                  ? 'Kotyolga ulangan — amaldagi tuman kotyolniki'
+                  : 'Muassasa va kotyol ro‘yxati shu tuman bo‘yicha'
+              }
+            >
+              {(id) => (
+                <Select
+                  id={id}
+                  value={form.districtId}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      districtId: event.target.value,
+                      // ⚠️ Muassasa tumanga tegishli — tuman o'zgarsa tozalanadi.
+                      organizationId: '',
+                    }))
+                  }
+                >
+                  <option value="">Tanlanmagan</option>
+                  {(districts.data ?? []).map((district) => (
+                    <option key={district.id} value={district.id}>
+                      {district.name}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+
+            <Field
+              label="Muassasa"
+              hint={
+                !form.districtId
+                  ? 'Avval tumanni tanlang'
+                  : 'Ro‘yxat «Kataloglar → Muassasalar» dan'
+              }
+            >
+              {(id) => (
+                <Select
+                  id={id}
+                  value={form.organizationId}
+                  disabled={!form.districtId}
+                  onChange={(event) => set('organizationId', event.target.value)}
+                >
+                  <option value="">
+                    {organizations.isFetching ? 'Yuklanmoqda…' : 'Tanlanmagan'}
+                  </option>
+                  {organizationOptions.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+          </div>
+
+          {isEdit && device ? (
+            <dl className="grid grid-cols-1 gap-x-4 gap-y-2.5 rounded-tile border border-dashed border-[var(--border-strong)] bg-[var(--surface-muted)] px-3.5 py-3 text-meta sm:grid-cols-2">
+              {/*
+                ⚠️ «QURILMA XABAR QILDI» — plata menyusida tanlangan joylashuv.
+                Biriktirishda yordam beradi, lekin hech narsani yo'naltirmaydi.
+              */}
+              <div>
+                <dt className="font-mono text-[10px] font-semibold tracking-[0.06em] text-faint">Tuman (plata aytgan)</dt>
+                <dd className="font-medium text-strong">
+                  {orDash(device.reported.district)}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-mono text-[10px] font-semibold tracking-[0.06em] text-faint">
+                  Obyekt turi (plata aytgan)
+                </dt>
+                <dd className="font-medium text-strong">
+                  {orDash(device.reported.objectType)}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-mono text-[10px] font-semibold tracking-[0.06em] text-faint">Muassasa (plata aytgan)</dt>
+                <dd className="font-medium text-strong">
+                  {orDash(
+                    device.reported.institution ??
+                      device.reported.institutionHint,
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-mono text-[10px] font-semibold tracking-[0.06em] text-faint">MFY (plata aytgan)</dt>
+                <dd className="font-medium text-strong">
+                  {orDash(device.reported.mfy)}
+                </dd>
+              </div>
+            </dl>
+          ) : null}
+        </Section>
+
+        <Section index={3} title="Biriktirish">
+          <Field
+            label="Biriktirilgan kotyol"
+            hint={
+              isRoomModule
+                ? 'Xona moduli kotyol moduli bor binoga ham ulanadi — har modul alohida xona bo‘ladi'
+                : form.districtId
+                  ? 'Faqat tanlangan tumandagi, kotyol modulisiz kotyollar'
+                  : 'Kotyol tanlansa, joylashuv kotyoldan olinadi'
+            }
+          >
+            {(id) => (
+              <Select
+                id={id}
+                value={form.boilerId}
+                onChange={(event) => set('boilerId', event.target.value)}
+              >
+                <option value="">Biriktirilmagan</option>
+                {(boilers.data ?? []).map((boiler) => (
+                  <option key={boiler.id} value={boiler.id}>
+                    {lotLabel(boiler.lotNumber)}
+                    {boiler.organization?.name
+                      ? ` — ${boiler.organization.name}`
+                      : ''}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+
+          {!isEdit ? (
+            <Field
+              label="Mavjud API kalit"
+              hint="Bo‘sh qoldirilsa — tizim yangi kalit generatsiya qiladi"
+            >
+              {(id) => (
+                <Input
+                  id={id}
+                  value={form.apiKey}
+                  onChange={(event) => set('apiKey', event.target.value)}
+                  placeholder="91abcc3d6732ab04d017d3a30ded31b1"
+                  className="font-mono"
+                />
+              )}
+            </Field>
+          ) : null}
+
+          <Field label="Izoh">
+            {(id) => (
+              <Textarea
+                id={id}
+                rows={2}
+                value={form.note}
+                onChange={(event) => set('note', event.target.value)}
+              />
+            )}
+          </Field>
+        </Section>
 
         {error ? (
-          <p className="rounded-lg bg-danger-50 px-3 py-2 text-meta font-medium text-danger-700 dark:bg-danger-500/10 dark:text-danger-300">
-            {error}
+          <p
+            role="alert"
+            className="flex items-start gap-2 rounded-lg bg-danger-50 px-3 py-2.5 text-meta font-medium text-danger-700 ring-1 ring-danger-200 ring-inset dark:bg-danger-500/14 dark:text-danger-300 dark:ring-danger-400/30"
+          >
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+            <span>{error}</span>
           </p>
         ) : null}
       </div>
     </Modal>
+  );
+}
+
+/**
+ * Forma bo'limi — raqamli yorliq va ingichka chiziq (kotyol formasi bilan
+ * bir xil): oyna suriladi va sarlavhasiz bo'lim boshqasiga qo'shilib
+ * ketgandek ko'rinardi.
+ */
+function Section({
+  index,
+  title,
+  children,
+}: {
+  index: number;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="flex flex-col gap-4">
+      <div className="flex items-center gap-2.5">
+        <span className="font-mono text-[10.5px] font-semibold text-brand-600 tabular-nums dark:text-brand-300">
+          {String(index).padStart(2, '0')}
+        </span>
+        <h3 className="label-eyebrow text-[color:var(--ink-muted)]">{title}</h3>
+        <span aria-hidden className="h-px flex-1 bg-line" />
+      </div>
+      {children}
+    </section>
   );
 }

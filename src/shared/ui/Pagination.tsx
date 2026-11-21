@@ -33,7 +33,7 @@ export function Pagination({
         className,
       )}
     >
-      <p className="text-meta text-muted" data-numeric>
+      <p className="mono text-micro text-muted" data-numeric>
         {formatNumber(from)}–{formatNumber(to)} / {formatNumber(meta.total)} ta
       </p>
 
@@ -43,12 +43,12 @@ export function Pagination({
           onClick={() => onPage(meta.page - 1)}
           disabled={!meta.hasPrev}
           aria-label="Oldingi sahifa"
-          className="grid size-8 place-items-center rounded-md text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-strong disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+          className="grid size-8 place-items-center rounded-md text-muted ring-1 ring-[var(--border-subtle)] ring-inset transition-[background-color,color,transform] hover:bg-[var(--surface-sunken)] hover:text-strong active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
         >
           <ChevronLeft className="size-4" />
         </button>
 
-        <span className="px-2 text-meta font-medium text-ink" data-numeric>
+        <span className="mono px-2 text-micro font-semibold text-strong" data-numeric>
           {meta.page} / {meta.totalPages || 1}
         </span>
 
@@ -57,7 +57,7 @@ export function Pagination({
           onClick={() => onPage(meta.page + 1)}
           disabled={!meta.hasNext}
           aria-label="Keyingi sahifa"
-          className="grid size-8 place-items-center rounded-md text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-strong disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+          className="grid size-8 place-items-center rounded-md text-muted ring-1 ring-[var(--border-subtle)] ring-inset transition-[background-color,color,transform] hover:bg-[var(--surface-sunken)] hover:text-strong active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
         >
           <ChevronRight className="size-4" />
         </button>

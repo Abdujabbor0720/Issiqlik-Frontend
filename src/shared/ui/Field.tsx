@@ -14,9 +14,10 @@ import { cn } from '@/shared/utils/cn';
  */
 const CONTROL =
   'w-full rounded-lg bg-[var(--surface)] px-3 text-ui text-strong ' +
-  'ring-1 ring-[var(--border-strong)] transition-shadow duration-150 ' +
-  'placeholder:text-faint ' +
-  'focus:outline-none focus:ring-2 focus:ring-brand-500 ' +
+  'ring-1 ring-[var(--border-strong)] transition-[box-shadow,background-color] duration-200 ease-out-quint ' +
+  'placeholder:text-faint hover:ring-[color-mix(in_srgb,var(--color-brand-400)_45%,var(--border-strong))] ' +
+  'focus:outline-none focus:ring-2 focus:ring-brand-500 focus:shadow-[0_0_0_5px_rgb(22_115_214/0.14)] ' +
+  'dark:bg-[var(--surface-sunken)] dark:focus:shadow-[0_0_0_5px_rgb(59_145_239/0.18)] ' +
   'disabled:cursor-not-allowed disabled:bg-[var(--surface-sunken)] disabled:text-muted';
 
 interface FieldProps {
@@ -159,14 +160,16 @@ export function Switch({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(
-        'relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors',
-        checked ? 'bg-brand-600' : 'bg-neutral-300 dark:bg-white/15',
+        'relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-[background-color,box-shadow] duration-300',
+        checked
+          ? 'bg-linear-to-b from-brand-500 to-brand-600 shadow-[inset_0_1px_0_rgb(255_255_255/0.2),0_0_14px_-2px_rgb(22_115_214/0.6)]'
+          : 'bg-neutral-300 shadow-[inset_0_1px_2px_rgb(0_0_0/0.12)] dark:bg-white/15',
         disabled && 'cursor-not-allowed opacity-60',
       )}
     >
       <span
         className={cn(
-          'inline-block size-4 rounded-full bg-white shadow-sm transition-transform',
+          'inline-block size-4 rounded-full bg-white shadow-[0_1px_3px_rgb(0_0_0/0.3)] transition-transform duration-300 ease-out-expo',
           checked ? 'translate-x-[18px]' : 'translate-x-0.5',
         )}
       />

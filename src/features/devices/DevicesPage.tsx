@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  Check,
   CheckCircle2,
   Cpu,
+  Flame,
   KeyRound,
   LineChart,
   Pencil,
@@ -39,7 +41,9 @@ import {
   EmptyState,
   ErrorState,
   Input,
+  PageHeader,
   Pagination,
+  Segmented,
   Select,
   Skeleton,
   Table,
@@ -180,32 +184,29 @@ export function DevicesPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end justify-between gap-3 px-1">
-        <div>
-          <h1 className="text-sub font-semibold tracking-tight text-strong">
-            ESP32 modullari
-          </h1>
-          <p className="text-meta text-muted">
-            {query.data
-              ? `${formatNumber(query.data.meta.total)} ta qurilma`
-              : 'Yuklanmoqda…'}
-          </p>
-        </div>
-
-        {can('devices.create') ? (
-          <Button
-            size="sm"
-            variant="primary"
-            icon={<Plus className="size-3.5" />}
-            onClick={() => {
-              setEditing(null);
-              setFormOpen(true);
-            }}
-          >
-            Yangi modul
-          </Button>
-        ) : null}
-      </div>
+      <PageHeader
+        title="ESP32 modullari"
+        subtitle={
+          query.data
+            ? `${formatNumber(query.data.meta.total)} ta qurilma`
+            : 'Yuklanmoqda…'
+        }
+        actions={
+          can('devices.create') ? (
+            <Button
+              size="sm"
+              variant="primary"
+              icon={<Plus className="size-3.5" />}
+              onClick={() => {
+                setEditing(null);
+                setFormOpen(true);
+              }}
+            >
+              Yangi modul
+            </Button>
+          ) : null
+        }
+      />
 
       <PendingDevicesCard onIssued={setIssuedKey} />
 
@@ -270,31 +271,51 @@ export function DevicesPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <SegmentedFilter
-              label="Tur bo‘yicha"
+            <Segmented
+              ariaLabel="Tur bo‘yicha"
               value={typeFilter}
               options={[
-                { key: 'all', label: 'Barcha turlar' },
-                { key: 'kotyol', label: DEVICE_TYPE_META.kotyol.short },
-                { key: 'xona', label: DEVICE_TYPE_META.xona.short },
+                { value: 'all', label: 'Barcha turlar' },
+                {
+                  value: 'kotyol',
+                  label: DEVICE_TYPE_META.kotyol.short,
+                  icon: <Flame aria-hidden />,
+                },
+                {
+                  value: 'xona',
+                  label: DEVICE_TYPE_META.xona.short,
+                  icon: <Thermometer aria-hidden />,
+                },
               ]}
               onChange={(key) => {
                 setTypeFilter(key);
                 resetPage();
               }}
             />
-            <SegmentedFilter
-              label="Holat bo‘yicha"
+            <Segmented
+              ariaLabel="Holat bo‘yicha"
               value={status}
               options={[
-                { key: 'all', label: 'Hammasi' },
-                { key: 'online', label: 'Onlayn' },
-                { key: 'offline', label: 'Oflayn' },
+                { value: 'all', label: 'Hammasi' },
+                {
+                  value: 'online',
+                  label: 'Onlayn',
+                  icon: <Wifi aria-hidden />,
+                },
+                {
+                  value: 'offline',
+                  label: 'Oflayn',
+                  icon: <WifiOff aria-hidden />,
+                },
               ]}
               onChange={(key) => {
                 setStatus(key);
                 resetPage();
               }}
+            />
+            <span
+              aria-hidden
+              className="mx-0.5 hidden h-5 w-px bg-line sm:block"
             />
             <ToggleChip
               active={onlyUnassigned}
@@ -479,21 +500,32 @@ function DeviceTableRow({
   return (
     <Tr className={cn(!device.isActive && 'opacity-60')}>
       <Td>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-3">
+          {/* ⚠️ Jonli nuqta faqat ONLAYN qurilmada to'lqin tarqatadi: oflayn
+              nuqta harakatsiz va kulrang — «aloqa yo'q» avariya emas,
+              noma'lum holat (`index.css` dagi `idle` qoidasi). */}
           <span
-            className={cn(
-              'grid size-7 shrink-0 place-items-center rounded-tile',
-              device.online
-                ? 'bg-ok-50 text-ok-600 dark:bg-ok-500/12 dark:text-ok-300'
-                : 'bg-idle-100 text-idle-500 dark:bg-white/6',
-            )}
+            className="relative flex size-2.5 shrink-0"
             title={device.online ? 'Onlayn' : 'Oflayn'}
           >
             {device.online ? (
-              <Wifi className="size-3.5" />
-            ) : (
-              <WifiOff className="size-3.5" />
-            )}
+              <span
+                aria-hidden
+                className="live-ping absolute inset-0 rounded-full bg-ok-500"
+              />
+            ) : null}
+            <span
+              aria-hidden
+              className={cn(
+                'relative size-2.5 rounded-full',
+                device.online
+                  ? 'bg-ok-500 shadow-[0_0_0_3px_rgb(17_138_86/0.16),0_0_10px_rgb(17_138_86/0.55)]'
+                  : 'bg-idle-300 ring-2 ring-idle-200 ring-inset dark:bg-idle-500 dark:ring-white/10',
+              )}
+            />
+            <span className="sr-only">
+              {device.online ? 'Onlayn' : 'Oflayn'}
+            </span>
           </span>
           <div className="min-w-0">
             {/*
@@ -571,7 +603,10 @@ function DeviceTableRow({
 
       <Td className="whitespace-nowrap">
         {device.firmwareVersion ? (
-          <span className="text-muted" data-numeric>
+          <span
+            className="rounded-[4px] bg-[var(--surface-sunken)] px-1.5 py-0.5 font-mono text-[11px] font-semibold text-ink ring-1 ring-[var(--border-subtle)] ring-inset"
+            data-numeric
+          >
             v{device.firmwareVersion}
           </span>
         ) : (
@@ -590,12 +625,15 @@ function DeviceTableRow({
             ? formatRelativeUz(device.lastSeenAt)
             : 'hech qachon'}
         </span>
+        {/* ⚠️ Oflayn — KULRANG, qizil emas: aloqa yo'qligi ko'pincha
+            internet uzilishi, avariya emas (`index.css` dagi `idle` holat
+            qoidasi). Qizil faqat haqiqiy nosozlik uchun qoladi. */}
         {device.online ? (
-          <span className="text-micro font-medium text-ok-700 dark:text-ok-300">
+          <span className="font-mono text-[10px] font-semibold tracking-[0.1em] text-ok-700 uppercase dark:text-ok-300">
             onlayn
           </span>
         ) : (
-          <span className="text-micro font-semibold text-danger-600 dark:text-danger-300">
+          <span className="font-mono text-[10px] font-semibold tracking-[0.1em] text-idle-600 uppercase dark:text-idle-300">
             oflayn
           </span>
         )}
@@ -609,16 +647,12 @@ function DeviceTableRow({
               .filter(Boolean)
               .join(' · ')}
           >
-            <span
-              className={cn(
-                'rounded-full px-2 py-0.5 text-micro font-medium',
-                ota.chip,
-              )}
-            >
-              {ota.label}
-            </span>
+            <Badge className={ota.chip}>{ota.label}</Badge>
             {device.lastOta.targetVersion ? (
-              <span className="text-micro text-muted" data-numeric>
+              <span
+                className="font-mono text-[10.5px] text-muted"
+                data-numeric
+              >
                 → v{device.lastOta.targetVersion}
               </span>
             ) : null}
@@ -633,8 +667,8 @@ function DeviceTableRow({
           <Badge
             className={
               device.tokenKind === 'shared'
-                ? 'bg-warn-50 text-warn-700 ring-1 ring-warn-200 dark:bg-warn-400/14 dark:text-warn-300'
-                : 'bg-[var(--surface-sunken)] text-muted'
+                ? 'bg-warn-50 text-warn-700 ring-1 ring-warn-200 dark:bg-warn-400/12 dark:text-warn-300 dark:ring-warn-400/25'
+                : 'bg-[var(--surface-sunken)] text-muted ring-1 ring-[var(--border-subtle)]'
             }
           >
             {TOKEN_KIND_LABEL[device.tokenKind]}
@@ -689,7 +723,7 @@ function LocationValue({
         title="Plata aytgan — hali tasdiqlanmagan"
       >
         <span className="italic">{suggested}</span>
-        <Badge className="bg-warn-50 text-warn-700 ring-1 ring-warn-200 dark:bg-warn-400/14 dark:text-warn-300">
+        <Badge className="bg-warn-50 font-mono text-[9.5px] tracking-[0.08em] text-warn-700 uppercase ring-1 ring-warn-200 dark:bg-warn-400/12 dark:text-warn-300 dark:ring-warn-400/25">
           taklif
         </Badge>
       </span>
@@ -746,10 +780,11 @@ function IconButton({
       title={label}
       onClick={onClick}
       className={cn(
-        'grid size-7 place-items-center rounded-md text-muted transition-colors',
+        'grid size-7 place-items-center rounded-md text-muted outline-none',
+        'transition-[background-color,color,transform] duration-200 focus-visible:ring-2 focus-visible:ring-brand-400 active:scale-90',
         danger
-          ? 'hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/10'
-          : 'hover:bg-[var(--surface-sunken)] hover:text-strong',
+          ? 'hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-500/12 dark:hover:text-danger-300'
+          : 'hover:bg-[var(--surface-sunken)] hover:text-strong dark:hover:bg-white/[0.06]',
       )}
     >
       {children}
@@ -772,50 +807,27 @@ function ToggleChip({
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        'inline-flex h-8 items-center rounded-full px-3 text-micro font-medium transition-colors',
+        'inline-flex h-8 items-center gap-2 rounded-md px-3 text-micro font-semibold outline-none',
+        'transition-[background-color,box-shadow,color,transform] duration-200 ease-out-quint active:scale-[0.97]',
+        'focus-visible:ring-2 focus-visible:ring-brand-400',
         active
-          ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-200 dark:bg-brand-500/12 dark:text-brand-300'
-          : 'text-muted ring-1 ring-[var(--border-strong)] hover:text-strong',
+          ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-200 ring-inset dark:bg-brand-400/12 dark:text-brand-200 dark:ring-brand-400/25'
+          : 'text-muted ring-1 ring-[var(--border-strong)] ring-inset hover:bg-[var(--surface-muted)] hover:text-strong',
       )}
     >
+      {/* Belgi katagi — «yoqilgan / o'chiq» rangsiz ham ko'rinsin. */}
+      <span
+        aria-hidden
+        className={cn(
+          'grid size-3 place-items-center rounded-[3px] ring-1 ring-inset transition-colors duration-200',
+          active
+            ? 'bg-brand-600 ring-brand-600 dark:bg-brand-400 dark:ring-brand-400'
+            : 'ring-[var(--border-strong)]',
+        )}
+      >
+        {active ? <Check className="size-2.5 text-white" strokeWidth={3.5} /> : null}
+      </span>
       {children}
     </button>
-  );
-}
-
-/** Ro'yxat filtri — bir xil ko'rinishdagi tugmalar guruhi. */
-function SegmentedFilter<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: ReadonlyArray<{ key: T; label: string }>;
-  onChange: (key: T) => void;
-}) {
-  return (
-    <div
-      role="group"
-      aria-label={label}
-      className="flex rounded-full bg-[var(--surface-sunken)] p-0.5"
-    >
-      {options.map((item) => (
-        <button
-          key={item.key}
-          type="button"
-          aria-pressed={value === item.key}
-          onClick={() => onChange(item.key)}
-          className={
-            value === item.key
-              ? 'rounded-full bg-[var(--surface)] px-3 py-1.5 text-micro font-semibold text-strong shadow-[var(--shadow-hair)]'
-              : 'rounded-full px-3 py-1.5 text-micro font-medium text-muted transition-colors hover:text-strong'
-          }
-        >
-          {item.label}
-        </button>
-      ))}
-    </div>
   );
 }

@@ -54,13 +54,13 @@ export function CardHeader({
           /* ⚠️ Ikonka plitkasi kartadan KICHIKROQ radiusda (10 vs 16):
              ichma-ich joylashgan ikki burchak bir xil bo'lsa, ichkisi
              «shishgan» bo'lib ko'rinadi. */
-          <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-tile bg-brand-50 text-brand-600 dark:bg-brand-500/12 dark:text-brand-300">
+          <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md bg-brand-50 text-brand-600 ring-1 ring-brand-100 ring-inset dark:bg-brand-400/10 dark:text-brand-200 dark:ring-brand-400/20">
             {icon}
           </span>
         ) : null}
         <div className="min-w-0">
-          {eyebrow ? <div className="label-eyebrow">{eyebrow}</div> : null}
-          <h2 className="truncate text-lede font-semibold text-strong">
+          {eyebrow ? <div className="label-eyebrow mb-0.5">{eyebrow}</div> : null}
+          <h2 className="truncate font-display text-[15.5px] leading-snug font-[720] tracking-[-0.012em] text-strong [font-stretch:106%]">
             {title}
           </h2>
           {subtitle ? (

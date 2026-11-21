@@ -84,11 +84,11 @@ export function ResetResponsiblePasswordModal({
       }
     >
       <div className="flex flex-col gap-3">
-        <div className="flex items-start gap-2 rounded-lg bg-warn-50 px-3 py-2.5 text-meta text-warn-700 ring-1 ring-warn-200 dark:bg-warn-400/10 dark:text-warn-300 dark:ring-warn-400/25">
+        <div className="flex items-start gap-2.5 rounded-lg bg-warn-50 px-3 py-2.5 text-meta text-warn-700 shadow-[inset_3px_0_0_var(--color-warn-400)] ring-1 ring-warn-200 ring-inset dark:bg-warn-400/12 dark:text-warn-300 dark:ring-warn-400/25">
           <ShieldAlert className="mt-0.5 size-4 shrink-0" />
           <span>
-            Mas‘ulning BARCHA ochiq sessiyalari yopiladi — u yangi parol
-            bilan qaytadan kirishi kerak bo‘ladi.
+            Mas‘ulning BARCHA ochiq sessiyalari yopiladi — u yangi parol bilan
+            qaytadan kirishi kerak bo‘ladi.
           </span>
         </div>
 
@@ -96,19 +96,21 @@ export function ResetResponsiblePasswordModal({
           {(id) => (
             <div className="flex gap-1.5">
               <div className="relative flex-1">
+                {/* ⚠️ Parol MONO va kengroq oraliqda: admin uni mas'ulga
+                    o'qib beradi — har bir belgi alohida ko'rinishi kerak. */}
                 <Input
                   id={id}
                   type={show ? 'text' : 'password'}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   invalid={Boolean(error)}
-                  className="pr-10 font-mono"
+                  className="h-10.5 bg-[var(--surface-sunken)] pr-10 font-mono text-[15px] font-semibold tracking-[0.06em]"
                 />
                 <button
                   type="button"
                   onClick={() => setShow((value) => !value)}
                   aria-label={show ? 'Parolni yashirish' : 'Parolni ko‘rsatish'}
-                  className="absolute inset-y-0 right-0 grid w-10 place-items-center text-faint transition-colors hover:text-ink"
+                  className="absolute inset-y-0 right-0 grid w-10 place-items-center text-faint transition-colors hover:text-strong"
                 >
                   {show ? (
                     <EyeOff className="size-4" />
@@ -120,7 +122,10 @@ export function ResetResponsiblePasswordModal({
               <Button
                 size="md"
                 variant="secondary"
-                icon={<Dices className="size-4" />}
+                className="group h-10.5 px-3"
+                icon={
+                  <Dices className="size-4 transition-transform duration-500 ease-out-expo group-hover:rotate-180" />
+                }
                 onClick={() => {
                   setPassword(generatePassword());
                   setShow(true);

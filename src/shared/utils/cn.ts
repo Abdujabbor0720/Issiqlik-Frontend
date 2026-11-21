@@ -43,6 +43,7 @@ export const cn: (...inputs: ClassValue[]) => string = (() => {
               'sub',
               'display',
               'figure',
+              'title',
               'mega',
             ],
           },

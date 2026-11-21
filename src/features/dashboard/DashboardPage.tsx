@@ -27,6 +27,8 @@ import {
   CardBody,
   CardHeader,
   ErrorState,
+  PageHeader,
+  Segmented,
   Skeleton,
 } from '@/shared/ui';
 import { formatTimeUz } from '@/shared/utils/date';
@@ -148,41 +150,66 @@ export function DashboardPage() {
   return (
     <div className="flex flex-col gap-3">
       {/* ───── Sarlavha ───── */}
-      <div className="flex flex-wrap items-end justify-between gap-3 px-1">
-        <div>
-          <h1 className="text-sub font-semibold tracking-tight text-strong">
-            Umumiy ko‘rinish
-          </h1>
-          <p className="text-meta text-muted">
-            {districtId
-              ? 'Tanlangan tuman bo‘yicha'
-              : 'Andijon viloyati — barcha tumanlar'}
-            {typeKey.length > 0 ? ` · ${typeKey.length} ta obyekt turi` : ''}
-            {summary ? ` · yangilandi ${formatTimeUz(summary.updatedAt)}` : ''}
-          </p>
-        </div>
+      <PageHeader
+        title="Umumiy ko‘rinish"
+        subtitle={
+          <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>
+              {districtId
+                ? 'Tanlangan tuman bo‘yicha'
+                : 'Andijon viloyati — barcha tumanlar'}
+            </span>
+            {typeKey.length > 0 ? (
+              <>
+                <Sep />
+                <span>{typeKey.length} ta obyekt turi</span>
+              </>
+            ) : null}
+            {/* ⚠️ Yangilanish vaqti MONOSHRIFTDA — bu «yorliq» emas,
+                o'lchov: operator raqamlar qanchalik yangi ekanini bir
+                qarashda ko'rishi kerak. */}
+            {summary ? (
+              <>
+                <Sep />
+                <span className="inline-flex items-center gap-1.5">
+                  yangilandi
+                  <span className="font-mono text-[11.5px] font-semibold text-strong tabular-nums">
+                    {formatTimeUz(summary.updatedAt)}
+                  </span>
+                </span>
+              </>
+            ) : null}
+          </span>
+        }
+        actions={
+          <>
+            <ObjectTypeFilter
+              value={objectTypeIds}
+              onChange={setObjectTypeIds}
+            />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <ObjectTypeFilter value={objectTypeIds} onChange={setObjectTypeIds} />
-
-          <Button
-            size="sm"
-            variant="secondary"
-            icon={<RefreshCw className="size-3.5" />}
-            onClick={() => {
-              void summaryQuery.refetch();
-              void districtsQuery.refetch();
-              void trendQuery.refetch();
-              void attentionQuery.refetch();
-              void brandsQuery.refetch();
-              void mapQuery.refetch();
-            }}
-            loading={summaryQuery.isFetching}
-          >
-            Yangilash
-          </Button>
-        </div>
-      </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={
+                <RefreshCw className="size-3.5 transition-transform duration-500 ease-out-expo group-hover/refresh:-rotate-180" />
+              }
+              className="group/refresh"
+              onClick={() => {
+                void summaryQuery.refetch();
+                void districtsQuery.refetch();
+                void trendQuery.refetch();
+                void attentionQuery.refetch();
+                void brandsQuery.refetch();
+                void mapQuery.refetch();
+              }}
+              loading={summaryQuery.isFetching}
+            >
+              Yangilash
+            </Button>
+          </>
+        }
+      />
 
       {/* ───── Ko'rsatkichlar ───── */}
       {summaryQuery.isError ? (
@@ -197,7 +224,7 @@ export function DashboardPage() {
       ) : (
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
           {Array.from({ length: 6 }, (_, index) => (
-            <Skeleton key={index} className="h-[104px] rounded-card" />
+            <Skeleton key={index} className="h-[108px] rounded-card" />
           ))}
         </div>
       )}
@@ -210,6 +237,13 @@ export function DashboardPage() {
       {/* ───── Xarita + diqqat ───── */}
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
         <Card className="overflow-hidden">
+          {/* ⚠️ Termal chiziq FAQAT shu kartada — bosh sahifaning asosiy
+              vositasi xarita va ko'z birinchi unga tushishi kerak. Har
+              kartaga qo'yilsa, imzo bezakka aylanib, ma'nosini yo'qotardi. */}
+          <span
+            aria-hidden
+            className="thermal-line absolute inset-x-0 top-0 z-[3] h-[2px] opacity-80"
+          />
           <CardHeader
             icon={<MapIcon className="size-4" />}
             eyebrow="Hududiy kesim"
@@ -291,36 +325,34 @@ export function DashboardPage() {
             title="O‘rtacha chiqish harorati"
             subtitle="Soya — eng past va eng yuqori qiymatlar oralig‘i"
             actions={
-              /* Davr tanlovi — yumaloq segment boshqaruvi. */
-              <div className="flex rounded-full bg-[var(--surface-sunken)] p-0.5">
-                {RANGES.map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => setRange(item.key)}
-                    className={
-                      range === item.key
-                        ? 'rounded-full bg-[var(--surface)] px-2.5 py-1 text-micro font-semibold text-strong shadow-[var(--shadow-hair)]'
-                        : 'rounded-full px-2.5 py-1 text-micro font-medium text-muted transition-colors hover:text-strong'
-                    }
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
+              /* Davr tanlovi — siljiydigan plitkali segment. */
+              <Segmented
+                ariaLabel="Davr"
+                size="xs"
+                value={range}
+                onChange={setRange}
+                options={RANGES.map((item) => ({
+                  value: item.key,
+                  label: item.label,
+                }))}
+              />
             }
           />
           <CardBody>
+            {/* ⚠️ Skelet va bo'sh holat grafik bilan AYNI balandlikda
+                (afsona + chizma = 280 px): yuklangach karta sakramaydi. */}
             {trendQuery.isLoading ? (
-              <Skeleton className="h-[260px]" />
+              <Skeleton className="h-[280px]" />
             ) : trendQuery.isError ? (
               <ErrorState
                 message={errorMessage(trendQuery.error)}
                 onRetry={() => void trendQuery.refetch()}
               />
             ) : (trendQuery.data ?? []).length === 0 ? (
-              <div className="grid h-[260px] place-items-center text-meta text-muted">
-                Bu davr uchun o‘lchov yo‘q
+              <div className="grid-bg grid h-[280px] place-items-center rounded-tile text-meta text-muted [mask-image:radial-gradient(closest-side,#000_40%,transparent)]">
+                <span className="label-eyebrow">
+                  Bu davr uchun o‘lchov yo‘q
+                </span>
               </div>
             ) : (
               <TemperatureChart
@@ -409,5 +441,15 @@ export function DashboardPage() {
         </CardBody>
       </Card>
     </div>
+  );
+}
+
+/** Sarlavha ostidagi ajratgich — matndagi «·» o'rniga sokin nuqta. */
+function Sep() {
+  return (
+    <span
+      aria-hidden
+      className="size-[3px] shrink-0 rounded-full bg-[var(--border-strong)]"
+    />
   );
 }
